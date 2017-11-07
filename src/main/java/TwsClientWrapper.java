@@ -1,24 +1,34 @@
 import com.ib.client.*;
+import connection.ConnectionMonitor;
+import connection.IConnectable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.SocketException;
-import java.util.Objects;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
-public class TwsClientWrapper implements EWrapper, Closeable {
+public class TwsClientWrapper implements EWrapper {
 
     private static final Logger log = LoggerFactory.getLogger(TwsClientWrapper.class);
 
-    private EJavaSignal m_signal = new EJavaSignal();
-    final EClientSocket client = new EClientSocket(this, m_signal);
+//    private EJavaSignal m_signal = new EJavaSignal();
+//    final EClientSocket socket = new EClientSocket(this, m_signal);
 
-    private EReader reader = null;
-    private Thread readerThread;
+//    private EReader reader = null;
+//    private Thread readerThread;
+    private IConnectable.Events connectionEvents;
 
-    private enum Status {
+//    ConnectionMonitor connectionMonitor
+
+    public Status status() {
+        return status;
+    }
+
+    enum Status {
         DISCONNECTED,
         CONNECTING,
         CONNECTED,
@@ -28,84 +38,90 @@ public class TwsClientWrapper implements EWrapper, Closeable {
 
     private Status status = Status.DISCONNECTED;
 
-    private Credentials credentials = null;
-
-    public void connect(final String ip, final int port, final int connId) {
-
-        status = Status.CONNECTING;
-
-        credentials = new Credentials(ip, port, connId);
-        connect();
+    public TwsClientWrapper(IConnectable.Events connectionEvents) {
+        this.connectionEvents = connectionEvents;
     }
 
-    public void disconnect() {
-        log.debug("Disconnecting...");
+//    public void connect(final String ip, final int port, final int connId) {
+//        status = Status.CONNECTING;
+//        connectionMonitor.connect(ip, port, connId);
+//        waitForStatus(Status.CONNECTED);
+//    }
 
-        status = Status.DISCONNECTING;
-        client.eDisconnect();
+//    private void waitForStatus(Status status) {
+//        while (this.status != status) {
+//            try {
+//                Thread.sleep(100);
+//            } catch (InterruptedException e) {
+//                break;
+//            }
+//        }
+//    }
+//
+//    @Override
+//    public void requestConnect(String ip, int port, int connId) {
+//        log.debug("Connecting...");
+//        status = Status.CONNECTING;
+//
+//        socket.setAsyncEConnect(false);
+//        socket.eConnect(ip, port, connId);
+//        socket.setServerLogLevel(5); // TODO
+//    }
 
-        m_signal.issueSignal();
-        readerThread.interrupt();
-        if (readerThread.isAlive()) {
-            try {
-                readerThread.join(1000);
-            } catch (InterruptedException e) {
-                log.warn("Timeout of reader thread shutdown");
-            }
-        }
-    }
+//    @Override
+//    public void requestDisconnect() {
+//        log.debug("Disconnecting...");
+//
+//        status = TwsClientWrapper.Status.DISCONNECTING;
+//        socket.eDisconnect();
+//    }
+//
+//    void disconnect() {
+//    }
 
-    public boolean isConnected() {
-        return client.isConnected();
-    }
+//    private void connect(String ip, int port, int connId) {
+//        log.debug("Connecting...");
+//        status = Status.CONNECTING;
+//
+//        socket.setAsyncEConnect(false);
+//        socket.eConnect(ip, port, connId);
+//        socket.setServerLogLevel(5); // TODO
+//
+////        readerThread = new Thread(this::processMessages);
+////        readerThread.start();
+////
+////        reader = new EReader(socket, m_signal);
+////        reader.start();
+//    }
+//
+//    private void reconnect() {
+//        log.warn("Reconnecting");
+//        requestDisconnect();
+//        requestConnect();
+//    }
+
+//    private void processMessages() {
+//
+//        while (!Thread.interrupted()) {
+//            if (socket.isConnected()) {
+//                m_signal.waitForSignal();
+//                try {
+//                    reader.processMsgs();
+//                } catch (Exception e) {
+//                    log.error("Reader error", e);
+//                }
+//            } else {
+//                try {
+//                    Thread.sleep(1000);
+//                } catch (InterruptedException e) {
+//                    break;
+//                }
+//            }
+//        }
+//    }
 
     @Override
-    public void close() throws IOException {
-        disconnect();
-    }
-
-    private void connect() {
-        log.debug("Connecting...");
-
-        client.setAsyncEConnect(false);
-        client.eConnect(credentials.getIp(), credentials.getPort(), credentials.getConnId());
-        client.setServerLogLevel(5); // TODO
-
-        readerThread = new Thread(this::processMessages);
-        readerThread.start();
-
-        reader = new EReader(client, m_signal);
-        reader.start();
-    }
-
-    private void reconnect() {
-        log.warn("Reconnecting");
-        disconnect();
-        connect();
-    }
-
-    private void processMessages() {
-
-        while (!Thread.interrupted()) {
-            if (client.isConnected()) {
-                m_signal.waitForSignal();
-                try {
-                    reader.processMsgs();
-                } catch (Exception e) {
-                    log.error("Reader error", e);
-                }
-            } else {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    break;
-                }
-            }
-        }
-    }
-
-    @Override
-    public void tickPrice(final int tickerId, final int field, final double price, final int canAutoExecute) {
+    public void tickPrice(int tickerId, int field, double price, TickAttr attrib) {
         log.debug("tickPrice");
     }
 
@@ -152,12 +168,11 @@ public class TwsClientWrapper implements EWrapper, Closeable {
     }
 
     @Override
-    public void orderStatus(final int orderId, final String status, final double filled, final double remaining,
-                            final double avgFillPrice, final int permId, final int parentId, final double lastFillPrice,
-                            final int clientId, final String whyHeld) {
+    public void orderStatus(int orderId, String status, double filled, double remaining, double avgFillPrice, int permId, int parentId, double lastFillPrice, int clientId, String whyHeld, double mktCapPrice) {
         log.info("orderStatus: orderId={}, status={}, filled={}, remaining={}, avgFillPrice={}, permId={}, " +
-                 "parentId={}, lastFillPrice={}, clientId={}, whyHeld={}",
-                orderId, status, filled, remaining, avgFillPrice, permId, parentId, lastFillPrice, clientId, whyHeld);
+                        "parentId={}, lastFillPrice={}, clientId={}, whyHeld={}, mktCapPrice={}",
+                orderId, status, filled, remaining, avgFillPrice, permId, parentId, lastFillPrice, clientId, whyHeld,
+                mktCapPrice);
     }
 
     @Override
@@ -270,16 +285,7 @@ public class TwsClientWrapper implements EWrapper, Closeable {
     }
 
     @Override
-    public void historicalData(final int reqId,
-                               final String date,
-                               final double open,
-                               final double high,
-                               final double low,
-                               final double close,
-                               final int volume,
-                               final int count,
-                               final double WAP,
-                               final boolean hasGaps) {
+    public void historicalData(int reqId, Bar bar) {
         log.debug("historicalData");
     }
 
@@ -410,7 +416,7 @@ public class TwsClientWrapper implements EWrapper, Closeable {
             } else {
                 log.debug(">>: {}", status);
                 status = Status.CONNECTION_LOST;
-                reconnect();
+                connectionEvents.onDisconnect();
             }
         }
 
@@ -429,23 +435,39 @@ public class TwsClientWrapper implements EWrapper, Closeable {
         }
 
         log.error("Terminal returns an error: id={}, code={}, msg={}", id, errorCode, errorMsg);
-
-//        if (id == -1 && errorCode == 507) {
-//            reconnect();
-//        }
+        if (id == -1) {
+            connectionEvents.onDisconnect();
+        }
     }
 
     @Override
     public void connectionClosed() {
+//        m_signal.issueSignal();
+//        readerThread.interrupt();
+//        if (readerThread.isAlive()) {
+//            try {
+//                readerThread.join(1000);
+//            } catch (InterruptedException e) {
+//                log.warn("Timeout of reader thread shutdown");
+//            }
+//        }
+
+        connectionEvents.onDisconnect();
+
         status = Status.DISCONNECTED;
         log.info("Disconnected");
     }
 
     @Override
     public void connectAck() {
+//        readerThread = new Thread(this::processMessages);
+//        readerThread.start();
+//
+//        reader = new EReader(socket, m_signal);
+//        reader.start();
+
+        connectionEvents.onConnect();
         status = Status.CONNECTED;
-        log.info("Connected to {}:{}[{}], server version: {}", credentials.getIp(), credentials.getPort(),
-                credentials.getConnId(), client.serverVersion());
     }
 
     @Override
@@ -499,35 +521,113 @@ public class TwsClientWrapper implements EWrapper, Closeable {
         log.debug("softDollarTiers");
     }
 
-    public void reqCurrentTime() {
-        client.reqCurrentTime();
+    @Override
+    public void familyCodes(FamilyCode[] familyCodes) {
+
     }
 
-    public int serverVersion() {
-        return client.serverVersion();
+    @Override
+    public void symbolSamples(int reqId, ContractDescription[] contractDescriptions) {
+
     }
 
-    static class Credentials {
-        private final String ip;
-        private final int port;
-        private final int connId;
+    @Override
+    public void historicalDataEnd(int reqId, String startDateStr, String endDateStr) {
 
-        Credentials(final String ip, final int port, final int connId) {
-            this.ip = ip;
-            this.port = port;
-            this.connId = connId;
-        }
+    }
 
-        public String getIp() {
-            return ip;
-        }
+    @Override
+    public void mktDepthExchanges(DepthMktDataDescription[] depthMktDataDescriptions) {
 
-        public int getPort() {
-            return port;
-        }
+    }
 
-        public int getConnId() {
-            return connId;
-        }
+    @Override
+    public void tickNews(int tickerId, long timeStamp, String providerCode, String articleId, String headline, String extraData) {
+
+    }
+
+    @Override
+    public void smartComponents(int reqId, Map<Integer, Map.Entry<String, Character>> theMap) {
+
+    }
+
+    @Override
+    public void tickReqParams(int tickerId, double minTick, String bboExchange, int snapshotPermissions) {
+
+    }
+
+    @Override
+    public void newsProviders(NewsProvider[] newsProviders) {
+
+    }
+
+    @Override
+    public void newsArticle(int requestId, int articleType, String articleText) {
+
+    }
+
+    @Override
+    public void historicalNews(int requestId, String time, String providerCode, String articleId, String headline) {
+
+    }
+
+    @Override
+    public void historicalNewsEnd(int requestId, boolean hasMore) {
+
+    }
+
+    @Override
+    public void headTimestamp(int reqId, String headTimestamp) {
+
+    }
+
+    @Override
+    public void histogramData(int reqId, List<HistogramEntry> items) {
+
+    }
+
+    @Override
+    public void historicalDataUpdate(int reqId, Bar bar) {
+
+    }
+
+    @Override
+    public void rerouteMktDataReq(int reqId, int conId, String exchange) {
+
+    }
+
+    @Override
+    public void rerouteMktDepthReq(int reqId, int conId, String exchange) {
+
+    }
+
+    @Override
+    public void marketRule(int marketRuleId, PriceIncrement[] priceIncrements) {
+
+    }
+
+    @Override
+    public void pnl(int reqId, double dailyPnL, double unrealizedPnL, double realizedPnL) {
+
+    }
+
+    @Override
+    public void pnlSingle(int reqId, int pos, double dailyPnL, double unrealizedPnL, double realizedPnL, double value) {
+
+    }
+
+    @Override
+    public void historicalTicks(int reqId, List<HistoricalTick> ticks, boolean done) {
+
+    }
+
+    @Override
+    public void historicalTicksBidAsk(int reqId, List<HistoricalTickBidAsk> ticks, boolean done) {
+
+    }
+
+    @Override
+    public void historicalTicksLast(int reqId, List<HistoricalTickLast> ticks, boolean done) {
+
     }
 }
