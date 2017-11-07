@@ -1,0 +1,22 @@
+group 'lv.sergluka'
+version '1.0-SNAPSHOT'
+
+apply plugin: 'java'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+
+    flatDir {
+        dirs 'libs'
+    }
+}
+
+dependencies {
+    compile name: "TwsApi"
+    compile "ch.qos.logback:logback-api:1.2.+"
+    compile "ch.qos.logback:logback-classic:1.2.+"
+
+    testCompile "org.spockframework:spock-core:1.1+"
+}
