@@ -1,12 +1,7 @@
 import com.ib.client.*;
-import connection.ConnectionMonitor;
-import connection.IConnectable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.net.SocketException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -20,27 +15,27 @@ public class TwsClientWrapper implements EWrapper {
 
 //    private EReader reader = null;
 //    private Thread readerThread;
-    private IConnectable.Events connectionEvents;
+//    private IWrapperEvents events;
 
 //    ConnectionMonitor connectionMonitor
 
-    public Status status() {
-        return status;
-    }
+//    public Status status() {
+//        return status;
+//    }
 
-    enum Status {
-        DISCONNECTED,
-        CONNECTING,
-        CONNECTED,
-        CONNECTION_LOST,
-        DISCONNECTING,
-    }
+//    enum Status {
+//        DISCONNECTED,
+//        CONNECTING,
+//        CONNECTED,
+//        CONNECTION_LOST,
+//        DISCONNECTING,
+//    }
 
-    private Status status = Status.DISCONNECTED;
+//    private Status status = Status.DISCONNECTED;
 
-    public TwsClientWrapper(IConnectable.Events connectionEvents) {
-        this.connectionEvents = connectionEvents;
-    }
+//    public TwsClientWrapper(IWrapperEvents events) {
+//        this.events = events;
+//    }
 
 //    public void connect(final String ip, final int port, final int connId) {
 //        status = Status.CONNECTING;
@@ -98,26 +93,6 @@ public class TwsClientWrapper implements EWrapper {
 //        log.warn("Reconnecting");
 //        requestDisconnect();
 //        requestConnect();
-//    }
-
-//    private void processMessages() {
-//
-//        while (!Thread.interrupted()) {
-//            if (socket.isConnected()) {
-//                m_signal.waitForSignal();
-//                try {
-//                    reader.processMsgs();
-//                } catch (Exception e) {
-//                    log.error("Reader error", e);
-//                }
-//            } else {
-//                try {
-//                    Thread.sleep(1000);
-//                } catch (InterruptedException e) {
-//                    break;
-//                }
-//            }
-//        }
 //    }
 
     @Override
@@ -409,18 +384,6 @@ public class TwsClientWrapper implements EWrapper {
 
     @Override
     public void error(final Exception e) {
-        if (e instanceof SocketException) {
-            if (status == Status.DISCONNECTING) {
-                log.debug("Socket has been closed at shutdown");
-                return;
-            } else {
-                log.debug(">>: {}", status);
-                status = Status.CONNECTION_LOST;
-                connectionEvents.onDisconnect();
-            }
-        }
-
-        log.error("Terminal returns an error", e);
     }
 
     @Override
@@ -429,15 +392,6 @@ public class TwsClientWrapper implements EWrapper {
 
     @Override
     public void error(final int id, final int errorCode, final String errorMsg) {
-        if (id == -1 && (errorCode == 2104 || errorCode == 2106)) {
-            log.debug("Connection is OK: {}", errorMsg);
-            return;
-        }
-
-        log.error("Terminal returns an error: id={}, code={}, msg={}", id, errorCode, errorMsg);
-        if (id == -1) {
-            connectionEvents.onDisconnect();
-        }
     }
 
     @Override
@@ -452,10 +406,10 @@ public class TwsClientWrapper implements EWrapper {
 //            }
 //        }
 
-        connectionEvents.onDisconnect();
-
-        status = Status.DISCONNECTED;
-        log.info("Disconnected");
+//        events.onDisconnect();
+//
+//        status = Status.DISCONNECTED;
+//        log.info("Disconnected");
     }
 
     @Override
@@ -466,8 +420,8 @@ public class TwsClientWrapper implements EWrapper {
 //        reader = new EReader(socket, m_signal);
 //        reader.start();
 
-        connectionEvents.onConnect();
-        status = Status.CONNECTED;
+//        events.onConnect();
+//        status = Status.CONNECTED;
     }
 
     @Override

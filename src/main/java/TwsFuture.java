@@ -4,16 +4,20 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 
 public class TwsFuture<T> {
 
     private final Condition condition;
     private final Lock lock;
+    private final Runnable onTimeout;
 
     private T value;
     private boolean done;
 
-    TwsFuture() {
+    TwsFuture(Runnable onTimeout) {
+        this.onTimeout = onTimeout;
+
         lock = new ReentrantLock();
         condition = lock.newCondition();
     }
@@ -39,7 +43,10 @@ public class TwsFuture<T> {
     public T get(final long timeout, final TimeUnit unit) throws TimeoutException {
         try {
             lock.lock();
-            condition.await(timeout, unit);
+            if (!condition.await(timeout, unit)) {
+                onTimeout.run();
+                throw new TimeoutException("Request timeout");
+            }
         } catch (InterruptedException e) {
             return null;
         } finally {
