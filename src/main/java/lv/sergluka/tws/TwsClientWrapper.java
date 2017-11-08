@@ -1,3 +1,5 @@
+package lv.sergluka.tws;
+
 import com.ib.client.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -396,32 +398,10 @@ public class TwsClientWrapper implements EWrapper {
 
     @Override
     public void connectionClosed() {
-//        m_signal.issueSignal();
-//        readerThread.interrupt();
-//        if (readerThread.isAlive()) {
-//            try {
-//                readerThread.join(1000);
-//            } catch (InterruptedException e) {
-//                log.warn("Timeout of reader thread shutdown");
-//            }
-//        }
-
-//        events.onDisconnect();
-//
-//        status = Status.DISCONNECTED;
-//        log.info("Disconnected");
     }
 
     @Override
     public void connectAck() {
-//        readerThread = new Thread(this::processMessages);
-//        readerThread.start();
-//
-//        reader = new EReader(socket, m_signal);
-//        reader.start();
-
-//        events.onConnect();
-//        status = Status.CONNECTED;
     }
 
     @Override

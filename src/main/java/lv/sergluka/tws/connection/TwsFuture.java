@@ -1,3 +1,5 @@
+package lv.sergluka.tws.connection;
+
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -26,10 +28,12 @@ public class TwsFuture<T> {
         return done;
     }
 
-    public T get() throws ExecutionException {
+    public T get() {
         try {
             lock.lock();
-            condition.await();
+            while (!isDone()) {
+                condition.await();
+            }
         } catch (InterruptedException e) {
             return null;
         }
@@ -43,7 +47,10 @@ public class TwsFuture<T> {
     public T get(final long timeout, final TimeUnit unit) throws TimeoutException {
         try {
             lock.lock();
-            if (!condition.await(timeout, unit)) {
+            while (!isDone()) {
+                if (condition.await(timeout, unit)) {
+                    break;
+                }
                 onTimeout.run();
                 throw new TimeoutException("Request timeout");
             }
@@ -60,16 +67,6 @@ public class TwsFuture<T> {
         lock.lock();
         try {
             this.value = value;
-            done = true;
-            condition.signal();
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    void setDone() {
-        lock.lock();
-        try {
             done = true;
             condition.signal();
         } finally {

@@ -1,3 +1,4 @@
+import lv.sergluka.tws.TwsClient
 import spock.lang.Specification
 
 class TwsClientTest extends Specification {

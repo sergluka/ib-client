@@ -1,11 +1,12 @@
+package lv.sergluka.tws;
+
 import com.ib.client.EClientSocket;
 import com.ib.client.EJavaSignal;
 import com.ib.client.EReader;
-import com.sun.xml.internal.ws.Closeable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class TwsReader implements Closeable {
+public class TwsReader implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(TwsReader.class);
 
@@ -20,7 +21,8 @@ class TwsReader implements Closeable {
         reader = new EReader(socket, signal);
     }
 
-    void start() {
+    public void start() {
+        reader.start();
         readerThread.start();
     }
 
@@ -40,7 +42,6 @@ class TwsReader implements Closeable {
     }
 
     private void processMessages() {
-
         while (!Thread.interrupted()) {
             if (socket.isConnected()) {
                 signal.waitForSignal();
