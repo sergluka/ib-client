@@ -15,8 +15,6 @@ public class TwsClient extends TwsClientWrapper implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(TwsClient.class);
 
-//    private final ConcurrentHashMap<Event, TwsFuture> futures = new ConcurrentHashMap<>();
-
     private final EJavaSignal signal = new EJavaSignal();
     private final EClientSocket socket = new EClientSocket(this, signal);
 
@@ -56,9 +54,6 @@ public class TwsClient extends TwsClientWrapper implements AutoCloseable {
         status = Status.DISCONNECTING;
         connectionMonitor.disconnect();
         status = Status.DISCONNECTED;
-
-//        TwsFuture fDisconnect = sender.post(TwsSender.Event.REQ_DISCONNECT, connectionMonitor::disconnect);
-//        fDisconnect.get(10, TimeUnit.SECONDS);
     }
 
     public boolean isConnected() {
@@ -131,7 +126,7 @@ public class TwsClient extends TwsClientWrapper implements AutoCloseable {
             }
 
             status = Status.CONNECTION_LOST;
-            log.warn("Connection lost");
+            log.warn("Connection lost", e);
 //            connectionMonitor.reconnect();
         }
 
