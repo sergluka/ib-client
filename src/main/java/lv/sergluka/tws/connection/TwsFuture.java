@@ -1,12 +1,12 @@
 package lv.sergluka.tws.connection;
 
-import java.util.concurrent.ExecutionException;
+import org.jetbrains.annotations.NotNull;
+
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Consumer;
 
 public class TwsFuture<T> {
 
@@ -17,7 +17,7 @@ public class TwsFuture<T> {
     private T value;
     private boolean done;
 
-    TwsFuture(Runnable onTimeout) {
+    TwsFuture(@NotNull Runnable onTimeout) {
         this.onTimeout = onTimeout;
 
         lock = new ReentrantLock();

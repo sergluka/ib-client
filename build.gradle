@@ -19,6 +19,7 @@ dependencies {
     compile name: "TwsApi_debug"
     compile "org.slf4j:slf4j-api:1.7.+"
     compile "ch.qos.logback:logback-classic:1.2.+"
+    compile "org.jetbrains:annotations-java5:15.0"
 
     compile "org.codehaus.groovy:groovy-all:2.4.12"
     testCompile "org.spockframework:spock-core:1.1+"

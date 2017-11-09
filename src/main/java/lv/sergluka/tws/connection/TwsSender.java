@@ -1,6 +1,7 @@
 package lv.sergluka.tws.connection;
 
 import lv.sergluka.tws.TwsClient;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,11 +20,11 @@ public class TwsSender {
     private final ConcurrentHashMap<Event, TwsFuture> futures = new ConcurrentHashMap<>();
     private final TwsClient twsClient;
 
-    public TwsSender(TwsClient twsClient) {
+    public TwsSender(@NotNull TwsClient twsClient) {
         this.twsClient = twsClient;
     }
 
-    public <T> TwsFuture<T> postIfConnected(Event event, Runnable runnable) {
+    public <T> TwsFuture<T> postIfConnected(@NotNull Event event, @NotNull Runnable runnable) {
         if (!twsClient.isConnected()) {
             throw new RuntimeException("No connection");
         }
@@ -31,7 +32,7 @@ public class TwsSender {
         return post(event, runnable);
     }
 
-    public <T> TwsFuture<T> post(Event event, Runnable runnable) {
+    public <T> TwsFuture<T> post(@NotNull Event event, @NotNull Runnable runnable) {
         final TwsFuture future = new TwsFuture<T>(() -> futures.remove(event));
         futures.put(event, future);
         try {
@@ -44,22 +45,22 @@ public class TwsSender {
         return future;
     }
 
-    public boolean confirmWeak(Event event, Object result) {
+    public boolean confirmWeak(@NotNull Event event, @NotNull Object result) {
         return confirm(event, result);
     }
 
-    public void confirmStrict(Event event, Object result) {
+    public void confirmStrict(@NotNull Event event, Object result) {
         if (!confirm(event, result)) {
             log.error(String.format("TWS sends unexpected event: %s", event.name())); // TODO: check does needed?
             throw new IllegalStateException(String.format("TWS sends unexpected event: %s", event.name()));
         }
     }
 
-    public void confirmStrict(Event event) {
+    public void confirmStrict(@NotNull Event event) {
         confirmStrict(event, null);
     }
 
-    private boolean confirm(Event event, Object result) {
+    private boolean confirm(@NotNull Event event, Object result) {
         final TwsFuture future = futures.remove(event);
         if (future != null) {
             log.debug("=> {}: {}", event.name(), result);

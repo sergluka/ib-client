@@ -1,6 +1,7 @@
 package lv.sergluka.tws;
 
 import com.ib.client.*;
+import lv.sergluka.tws.connection.TwsSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -8,18 +9,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class TwsClientWrapper implements EWrapper {
+public class TwsBaseWrapper implements EWrapper {
 
-    private static final Logger log = LoggerFactory.getLogger(TwsClientWrapper.class);
+    private static final Logger log = LoggerFactory.getLogger(TwsBaseWrapper.class);
+
+    private final TwsSender sender;
+
+    public TwsBaseWrapper(final TwsSender sender) {
+        this.sender = sender;
+    }
 
     @Override
     public void tickPrice(int tickerId, int field, double price, TickAttr attrib) {
-        log.debug("tickPrice");
+        log.debug("tickPrice: NOT IMPLEMENTED");
     }
 
     @Override
     public void tickSize(final int tickerId, final int field, final int size) {
-        log.debug("tickSize");
+        log.debug("tickSize: NOT IMPLEMENTED");
     }
 
     @Override
@@ -33,17 +40,17 @@ public class TwsClientWrapper implements EWrapper {
                                       final double vega,
                                       final double theta,
                                       final double undPrice) {
-        log.debug("tickOptionComputation");
+        log.debug("tickOptionComputation: NOT IMPLEMENTED");
     }
 
     @Override
     public void tickGeneric(final int tickerId, final int tickType, final double value) {
-        log.debug("tickGeneric");
+        log.debug("tickGeneric: NOT IMPLEMENTED");
     }
 
     @Override
     public void tickString(final int tickerId, final int tickType, final String value) {
-        log.debug("tickString");
+        log.debug("tickString: NOT IMPLEMENTED");
     }
 
     @Override
@@ -56,7 +63,7 @@ public class TwsClientWrapper implements EWrapper {
                         final String futureLastTradeDate,
                         final double dividendImpact,
                         final double dividendsToLastTradeDate) {
-        log.debug("tickEFP");
+        log.debug("dividendsToLastTradeDate: NOT IMPLEMENTED");
     }
 
     @Override
@@ -70,11 +77,12 @@ public class TwsClientWrapper implements EWrapper {
     @Override
     public void openOrder(final int orderId, final Contract contract, final Order order, final OrderState orderState) {
         log.info("openOrder: orderId={}, contract={}, order={}, orderState={}", orderId, contract, order, orderState);
+        sender.confirmStrict(TwsSender.Event.REQ_ORDER_PLACE, orderId); // TODO: return struct
     }
 
     @Override
     public void openOrderEnd() {
-        log.info("openOrderEnd");
+        log.info("openOrderEnd: NOT IMPLEMENTED");
     }
 
     @Override
@@ -82,7 +90,7 @@ public class TwsClientWrapper implements EWrapper {
                                    final String value,
                                    final String currency,
                                    final String accountName) {
-        log.debug("updateAccountValue");
+        log.debug("updateAccountValue: NOT IMPLEMENTED");
     }
 
     @Override
@@ -94,47 +102,48 @@ public class TwsClientWrapper implements EWrapper {
                                 final double unrealizedPNL,
                                 final double realizedPNL,
                                 final String accountName) {
-        log.debug("updatePortfolio");
+        log.debug("updatePortfolio: NOT IMPLEMENTED");
     }
 
     @Override
     public void updateAccountTime(final String timeStamp) {
-        log.debug("updateAccountTime");
+        log.debug("updateAccountTime: NOT IMPLEMENTED");
     }
 
     @Override
     public void accountDownloadEnd(final String accountName) {
-        log.debug("accountDownloadEnd");
+        log.debug("accountDownloadEnd: NOT IMPLEMENTED");
     }
 
     @Override
     public void nextValidId(final int orderId) {
-        log.info("next ID: {}", orderId);
+        log.debug("next ID: {}", orderId);
+        sender.confirmWeak(TwsSender.Event.REQ_ID, orderId);
     }
 
     @Override
     public void contractDetails(final int reqId, final ContractDetails contractDetails) {
-        log.debug("contractDetails");
+        log.debug("contractDetails: NOT IMPLEMENTED");
     }
 
     @Override
     public void bondContractDetails(final int reqId, final ContractDetails contractDetails) {
-        log.debug("bondContractDetails");
+        log.debug("bondContractDetails: NOT IMPLEMENTED");
     }
 
     @Override
     public void contractDetailsEnd(final int reqId) {
-        log.debug("contractDetailsEnd");
+        log.debug("contractDetailsEnd: NOT IMPLEMENTED");
     }
 
     @Override
     public void execDetails(final int reqId, final Contract contract, final Execution execution) {
-        log.debug("execDetails");
+        log.debug("execDetails: NOT IMPLEMENTED");
     }
 
     @Override
     public void execDetailsEnd(final int reqId) {
-        log.debug("execDetailsEnd");
+        log.debug("execDetailsEnd: NOT IMPLEMENTED");
     }
 
     @Override
@@ -144,7 +153,7 @@ public class TwsClientWrapper implements EWrapper {
                                final int side,
                                final double price,
                                final int size) {
-        log.debug("updateMktDepth");
+        log.debug("updateMktDepth: NOT IMPLEMENTED");
     }
 
     @Override
@@ -155,7 +164,7 @@ public class TwsClientWrapper implements EWrapper {
                                  final int side,
                                  final double price,
                                  final int size) {
-        log.debug("public");
+        log.debug("updateMktDepthL2: NOT IMPLEMENTED");
     }
 
     @Override
@@ -163,27 +172,26 @@ public class TwsClientWrapper implements EWrapper {
                                    final int msgType,
                                    final String message,
                                    final String origExchange) {
-        log.debug("public");
+        log.debug("updateNewsBulletin: NOT IMPLEMENTED");
     }
 
     @Override
     public void managedAccounts(final String accountsList) {
-        log.debug("managedAccounts");
+        log.debug("managedAccounts: NOT IMPLEMENTED");
     }
 
     @Override
     public void receiveFA(final int faDataType, final String xml) {
-        log.debug("receiveFA");
+        log.debug("receiveFA: NOT IMPLEMENTED");
     }
 
     @Override
     public void historicalData(int reqId, Bar bar) {
-        log.debug("historicalData");
+        log.debug("historicalData: NOT IMPLEMENTED");
     }
 
     @Override
     public void scannerParameters(final String xml) {
-        log.debug("scannerParameters");
     }
 
     @Override
@@ -195,11 +203,12 @@ public class TwsClientWrapper implements EWrapper {
                             final String projection,
                             final String legsStr) {
 
+        log.debug("scannerData: NOT IMPLEMENTED");
     }
 
     @Override
     public void scannerDataEnd(final int reqId) {
-        log.debug("scannerDataEnd");
+        log.debug("scannerDataEnd: NOT IMPLEMENTED");
     }
 
     @Override
@@ -212,47 +221,47 @@ public class TwsClientWrapper implements EWrapper {
                             final long volume,
                             final double wap,
                             final int count) {
-        log.debug("realtimeBar");
+        log.debug("realtimeBar: NOT IMPLEMENTED");
     }
 
     @Override
     public void currentTime(final long time) {
-        log.debug("currentTime");
+        log.debug("currentTime: NOT IMPLEMENTED");
     }
 
     @Override
     public void fundamentalData(final int reqId, final String data) {
-        log.debug("fundamentalData");
+        log.debug("fundamentalData: NOT IMPLEMENTED");
     }
 
     @Override
     public void deltaNeutralValidation(final int reqId, final DeltaNeutralContract underComp) {
-        log.debug("deltaNeutralValidation");
+        log.debug("deltaNeutralValidation: NOT IMPLEMENTED");
     }
 
     @Override
     public void tickSnapshotEnd(final int reqId) {
-        log.debug("tickSnapshotEnd");
+        log.debug("tickSnapshotEnd: NOT IMPLEMENTED");
     }
 
     @Override
     public void marketDataType(final int reqId, final int marketDataType) {
-        log.debug("marketDataType");
+        log.debug("marketDataType: NOT IMPLEMENTED");
     }
 
     @Override
     public void commissionReport(final CommissionReport commissionReport) {
-        log.debug("commissionReport");
+        log.debug("commissionReport: NOT IMPLEMENTED");
     }
 
     @Override
     public void position(final String account, final Contract contract, final double pos, final double avgCost) {
-        log.debug("position");
+        log.debug("position: NOT IMPLEMENTED");
     }
 
     @Override
     public void positionEnd() {
-        log.debug("positionEnd");
+        log.debug("positionEnd: NOT IMPLEMENTED");
     }
 
     @Override
@@ -261,42 +270,42 @@ public class TwsClientWrapper implements EWrapper {
                                final String tag,
                                final String value,
                                final String currency) {
-        log.debug("accountSummary");
+        log.debug("accountSummary: NOT IMPLEMENTED");
     }
 
     @Override
     public void accountSummaryEnd(final int reqId) {
-        log.debug("accountSummaryEnd");
+        log.debug("accountSummaryEnd: NOT IMPLEMENTED");
     }
 
     @Override
     public void verifyMessageAPI(final String apiData) {
-        log.debug("verifyMessageAPI");
+        log.debug("verifyMessageAPI: NOT IMPLEMENTED");
     }
 
     @Override
     public void verifyCompleted(final boolean isSuccessful, final String errorText) {
-        log.debug("verifyCompleted");
+        log.debug("verifyCompleted: NOT IMPLEMENTED");
     }
 
     @Override
     public void verifyAndAuthMessageAPI(final String apiData, final String xyzChallange) {
-        log.debug("verifyAndAuthMessageAPI");
+        log.debug("verifyAndAuthMessageAPI: NOT IMPLEMENTED");
     }
 
     @Override
     public void verifyAndAuthCompleted(final boolean isSuccessful, final String errorText) {
-        log.debug("verifyAndAuthCompleted");
+        log.debug("verifyAndAuthCompleted: NOT IMPLEMENTED");
     }
 
     @Override
     public void displayGroupList(final int reqId, final String groups) {
-        log.debug("displayGroupList");
+        log.debug("displayGroupList: NOT IMPLEMENTED");
     }
 
     @Override
     public void displayGroupUpdated(final int reqId, final String contractInfo) {
-        log.debug("displayGroupUpdated");
+        log.debug("displayGroupUpdated: NOT IMPLEMENTED");
     }
 
     @Override
@@ -317,6 +326,7 @@ public class TwsClientWrapper implements EWrapper {
 
     @Override
     public void connectAck() {
+        sender.confirmStrict(TwsSender.Event.REQ_CONNECT);
     }
 
     @Override
@@ -326,12 +336,12 @@ public class TwsClientWrapper implements EWrapper {
                               final Contract contract,
                               final double pos,
                               final double avgCost) {
-        log.debug("positionMulti");
+        log.debug("positionMulti: NOT IMPLEMENTED");
     }
 
     @Override
     public void positionMultiEnd(final int reqId) {
-        log.debug("positionMultiEnd");
+        log.debug("positionMultiEnd: NOT IMPLEMENTED");
     }
 
     @Override
@@ -341,12 +351,12 @@ public class TwsClientWrapper implements EWrapper {
                                    final String key,
                                    final String value,
                                    final String currency) {
-        log.debug("accountUpdateMulti");
+        log.debug("accountUpdateMulti: NOT IMPLEMENTED");
     }
 
     @Override
     public void accountUpdateMultiEnd(final int reqId) {
-        log.debug("accountUpdateMultiEnd");
+        log.debug("accountUpdateMultiEnd: NOT IMPLEMENTED");
     }
 
     @Override
@@ -357,126 +367,126 @@ public class TwsClientWrapper implements EWrapper {
                                                     final String multiplier,
                                                     final Set<String> expirations,
                                                     final Set<Double> strikes) {
-        log.debug("securityDefinitionOptionalParameter");
+        log.debug("securityDefinitionOptionalParameter: NOT IMPLEMENTED");
     }
 
     @Override
     public void securityDefinitionOptionalParameterEnd(final int reqId) {
-        log.debug("securityDefinitionOptionalParameterEnd");
+        log.debug("securityDefinitionOptionalParameterEnd: NOT IMPLEMENTED");
     }
 
     @Override
     public void softDollarTiers(final int reqId, final SoftDollarTier[] tiers) {
-        log.debug("softDollarTiers");
+        log.debug("softDollarTiers: NOT IMPLEMENTED");
     }
 
     @Override
     public void familyCodes(FamilyCode[] familyCodes) {
-
+        log.debug("familyCodes: NOT IMPLEMENTED");
     }
 
     @Override
     public void symbolSamples(int reqId, ContractDescription[] contractDescriptions) {
-
+        log.debug("symbolSamples: NOT IMPLEMENTED");
     }
 
     @Override
     public void historicalDataEnd(int reqId, String startDateStr, String endDateStr) {
-
+        log.debug("historicalDataEnd: NOT IMPLEMENTED");
     }
 
     @Override
     public void mktDepthExchanges(DepthMktDataDescription[] depthMktDataDescriptions) {
-
+        log.debug("mktDepthExchanges: NOT IMPLEMENTED");
     }
 
     @Override
     public void tickNews(int tickerId, long timeStamp, String providerCode, String articleId, String headline, String extraData) {
-
+        log.debug("tickNews: NOT IMPLEMENTED");
     }
 
     @Override
     public void smartComponents(int reqId, Map<Integer, Map.Entry<String, Character>> theMap) {
-
+        log.debug("smartComponents: NOT IMPLEMENTED");
     }
 
     @Override
     public void tickReqParams(int tickerId, double minTick, String bboExchange, int snapshotPermissions) {
-
+        log.debug("tickReqParams: NOT IMPLEMENTED");
     }
 
     @Override
     public void newsProviders(NewsProvider[] newsProviders) {
-
+        log.debug("newsProviders: NOT IMPLEMENTED");
     }
 
     @Override
     public void newsArticle(int requestId, int articleType, String articleText) {
-
+        log.debug("newsArticle: NOT IMPLEMENTED");
     }
 
     @Override
     public void historicalNews(int requestId, String time, String providerCode, String articleId, String headline) {
-
+        log.debug("historicalNews: NOT IMPLEMENTED");
     }
 
     @Override
     public void historicalNewsEnd(int requestId, boolean hasMore) {
-
+        log.debug("historicalNewsEnd: NOT IMPLEMENTED");
     }
 
     @Override
     public void headTimestamp(int reqId, String headTimestamp) {
-
+        log.debug("headTimestamp: NOT IMPLEMENTED");
     }
 
     @Override
     public void histogramData(int reqId, List<HistogramEntry> items) {
-
+        log.debug("histogramData: NOT IMPLEMENTED");
     }
 
     @Override
     public void historicalDataUpdate(int reqId, Bar bar) {
-
+        log.debug("historicalDataUpdate: NOT IMPLEMENTED");
     }
 
     @Override
     public void rerouteMktDataReq(int reqId, int conId, String exchange) {
-
+        log.debug("rerouteMktDataReq: NOT IMPLEMENTED");
     }
 
     @Override
     public void rerouteMktDepthReq(int reqId, int conId, String exchange) {
-
+        log.debug("rerouteMktDepthReq: NOT IMPLEMENTED");
     }
 
     @Override
     public void marketRule(int marketRuleId, PriceIncrement[] priceIncrements) {
-
+        log.debug("marketRule: NOT IMPLEMENTED");
     }
 
     @Override
     public void pnl(int reqId, double dailyPnL, double unrealizedPnL, double realizedPnL) {
-
+        log.debug("pnl: NOT IMPLEMENTED");
     }
 
     @Override
     public void pnlSingle(int reqId, int pos, double dailyPnL, double unrealizedPnL, double realizedPnL, double value) {
-
+        log.debug("pnlSingle: NOT IMPLEMENTED");
     }
 
     @Override
     public void historicalTicks(int reqId, List<HistoricalTick> ticks, boolean done) {
-
+        log.debug("historicalTicks: NOT IMPLEMENTED");
     }
 
     @Override
     public void historicalTicksBidAsk(int reqId, List<HistoricalTickBidAsk> ticks, boolean done) {
-
+        log.debug("historicalTicksBidAsk: NOT IMPLEMENTED");
     }
 
     @Override
     public void historicalTicksLast(int reqId, List<HistoricalTickLast> ticks, boolean done) {
-
+        log.debug("historicalTicksLast: NOT IMPLEMENTED");
     }
 }

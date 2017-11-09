@@ -4,6 +4,7 @@ import com.ib.client.*;
 import lv.sergluka.tws.connection.ConnectionMonitor;
 import lv.sergluka.tws.connection.TwsFuture;
 import lv.sergluka.tws.connection.TwsSender;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,15 +12,15 @@ import java.io.IOException;
 import java.net.SocketException;
 import java.util.concurrent.*;
 
-public class TwsClient extends TwsClientWrapper implements AutoCloseable {
+public class TwsClient implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(TwsClient.class);
 
     private EClientSocket socket;
-
     private TwsReader reader;
     private TwsSender sender;
     private ConnectionMonitor connectionMonitor;
+    private TwsBaseWrapper wrapper;
 
     enum Status {
         DISCONNECTED,
@@ -36,21 +37,20 @@ public class TwsClient extends TwsClientWrapper implements AutoCloseable {
         connectionMonitor.disconnect();
     }
 
-    public void connect(final String ip, final int port, final int connId) {
+    public void connect(final @NotNull String ip, final int port, final int connId) {
         log.debug("Connecting...");
         status = Status.CONNECTING;
 
         EJavaSignal signal = new EJavaSignal();
-        socket = new EClientSocket(this, signal);
-        reader = new TwsReader(socket, signal);
         sender = new TwsSender(this);
+        wrapper = new TwsWrapper();
+        socket = new EClientSocket(wrapper, signal);
+        reader = new TwsReader(socket, signal);
         connectionMonitor = new ConnectionMonitor(socket, reader);
 
-        TwsFuture fConnect = sender.post(TwsSender.Event.REQ_CONNECT, () -> connectionMonitor.connect(ip, port, connId));
+        TwsFuture fConnect = sender.post(TwsSender.Event.REQ_CONNECT,
+                () -> connectionMonitor.connect(ip, port, connId));
         fConnect.get();
-
-//        reader = new TwsReader(socket, signal);
-//        reader.start();
     }
 
     public void disconnect() throws TimeoutException {
@@ -77,77 +77,73 @@ public class TwsClient extends TwsClientWrapper implements AutoCloseable {
         }
     }
 
-    public TwsFuture<Object> placeOrder(Contract contract, Order order) throws TimeoutException {
+    public TwsFuture<Object> placeOrder(@NotNull Contract contract, @NotNull Order order) throws TimeoutException {
         Integer id = reqIdsSync();
         return sender.postIfConnected(TwsSender.Event.REQ_ORDER_PLACE, () -> socket.placeOrder(id, contract, order));
     }
 
-    @Override
-    public void nextValidId(final int orderId) {
-        sender.confirmWeak(TwsSender.Event.REQ_ID, orderId);
-    }
+    private class TwsWrapper extends TwsBaseWrapper {
 
-    @Override
-    public void openOrder(final int orderId, final Contract contract, final Order order, final OrderState orderState) {
-        sender.confirmStrict(TwsSender.Event.REQ_ORDER_PLACE, orderId); // TODO: return struct
-    }
+        TwsWrapper() {
+            super(sender);
+        }
 
-    @Override
-    public void connectAck() {
-        log.info("Connection opened. version: {}", socket.serverVersion());
-        status = Status.CONNECTED;
+        @Override
+        public void connectAck() {
+            log.info("Connection opened. version: {}", socket.serverVersion());
+            status = Status.CONNECTED;
 
-        reader.start();
+            reader.start();
+            super.connectAck();
+        }
 
-        sender.confirmStrict(TwsSender.Event.REQ_CONNECT);
-    }
-
-    @Override
-    public void connectionClosed() {
-        log.error("TWS closes the connection");
-        status = Status.CONNECTION_LOST;
-        connectionMonitor.reconnect(1000);
-    }
-
-    @Override
-    public void error(final Exception e) { // TODO, awaike all futures with exception
-        if (e instanceof SocketException) {
-            if (status == Status.DISCONNECTING || status == Status.DISCONNECTED) {
-                log.debug("Socket has been closed at shutdown");
-                return;
-            }
-
+        @Override
+        public void connectionClosed() {
+            log.error("TWS closes the connection");
             status = Status.CONNECTION_LOST;
-            log.warn("Connection lost", e);
             connectionMonitor.reconnect(1000);
         }
 
-        log.error("TWS error", e);
-    }
+        @Override
+        public void error(final Exception e) {
+            if (e instanceof SocketException) {
+                if (status == Status.DISCONNECTING || status == Status.DISCONNECTED) {
+                    log.debug("Socket has been closed at shutdown");
+                    return;
+                }
 
-    @Override
-    public void error(final String str) {
-        log.error("TWS error: ", str);
-    }
+                status = Status.CONNECTION_LOST;
+                log.warn("Connection lost", e);
+                connectionMonitor.reconnect(1000);
+            }
 
-    @Override
-    public void error(final int id, final int errorCode, final String errorMsg) {
-        if (id == -1 && (errorCode == 2104 || errorCode == 2106)) {
-            log.debug("Connection is OK: {}", errorMsg);
-            return;
+            log.error("TWS error", e);
         }
 
-        log.error("Terminal returns an error: id={}, code={}, msg={}", id, errorCode, errorMsg);
+        @Override
+        public void error(final String str) {
+            log.error("TWS error: ", str);
+        }
 
-        switch (errorCode) {
-            case 503: // The TWS is out of date and must be upgraded
-                break;
-            case 2104: // OK
-            case 2106: // OK
+        @Override
+        public void error(final int id, final int errorCode, final String errorMsg) {
+            if (id == -1 && (errorCode == 2104 || errorCode == 2106)) {
                 log.debug("Connection is OK: {}", errorMsg);
-                break;
-            default:
-                connectionMonitor.reconnect(10_000);
+                return;
+            }
+
+            log.error("Terminal returns an error: id={}, code={}, msg={}", id, errorCode, errorMsg);
+
+            switch (errorCode) {
+                case 503: // The TWS is out of date and must be upgraded
+                    break;
+                case 2104: // OK
+                case 2106: // OK
+                    log.debug("Connection is OK: {}", errorMsg);
+                    break;
+                default:
+                    connectionMonitor.reconnect(10_000);
+            }
         }
     }
 }
