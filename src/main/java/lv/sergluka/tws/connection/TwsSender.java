@@ -12,7 +12,6 @@ public class TwsSender {
 
     public enum Event {
         REQ_CONNECT,
-        REQ_DISCONNECT,
         REQ_ID,
         REQ_ORDER_PLACE,
     }
@@ -36,6 +35,7 @@ public class TwsSender {
         final TwsFuture future = new TwsFuture<T>(() -> futures.remove(event));
         futures.put(event, future);
         try {
+            log.debug("<= {}", event.name());
             runnable.run();
         } catch (Exception e) {
             futures.remove(event); // TODO: wrap with lock all procedure?
@@ -45,27 +45,28 @@ public class TwsSender {
     }
 
     public boolean confirmWeak(Event event, Object result) {
-        final TwsFuture future = futures.remove(event);
-        if (future != null) {
-            future.setDone(result);
-            return true;
-        }
-
-        return false;
+        return confirm(event, result);
     }
 
     public void confirmStrict(Event event, Object result) {
-        final TwsFuture future = futures.remove(event);
-        if (future == null) {
+        if (!confirm(event, result)) {
             log.error(String.format("TWS sends unexpected event: %s", event.name())); // TODO: check does needed?
             throw new IllegalStateException(String.format("TWS sends unexpected event: %s", event.name()));
-
         }
-        future.setDone(result);
     }
 
     public void confirmStrict(Event event) {
         confirmStrict(event, null);
     }
 
+    private boolean confirm(Event event, Object result) {
+        final TwsFuture future = futures.remove(event);
+        if (future != null) {
+            log.debug("=> {}: {}", event.name(), result);
+            future.setDone(result);
+            return true;
+        }
+
+        return false;
+    }
 }

@@ -10,35 +10,35 @@ public class TwsReader implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(TwsReader.class);
 
+    private static final int STOP_TIMEOUT_MS = 1000;
+    private static final int WAIT_TIMEOUT_MS = 100;
+
     private final Thread readerThread = new Thread(this::processMessages);
-    private final EReader reader;
     private final EJavaSignal signal;
     private final EClientSocket socket;
+
+    private EReader reader;
 
     TwsReader(EClientSocket socket, final EJavaSignal signal) {
         this.socket = socket;
         this.signal = signal;
-        reader = new EReader(socket, signal);
     }
 
     public void start() {
+        reader = new EReader(socket, signal);
         reader.start();
         readerThread.start();
     }
 
-    void stop() {
-        signal.issueSignal();
+    @Override
+    public void close() {
+//        reader.interrupt();
         readerThread.interrupt();
         try {
-            readerThread.join(1000);
+            readerThread.join(STOP_TIMEOUT_MS);
         } catch (InterruptedException e) {
             log.warn("Timeout of reader thread shutdown");
         }
-    }
-
-    @Override
-    public void close() {
-        stop();
     }
 
     private void processMessages() {
@@ -52,8 +52,9 @@ public class TwsReader implements AutoCloseable {
                 }
             } else {
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(WAIT_TIMEOUT_MS);
                 } catch (InterruptedException e) {
+                    log.info("Reader thread has been interrupted");
                     break;
                 }
             }

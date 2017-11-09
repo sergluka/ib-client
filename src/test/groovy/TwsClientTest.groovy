@@ -29,7 +29,6 @@ class TwsClientTest extends Specification {
 
         when:
         def id = client.reqIdsSync()
-        Thread.sleep(100000);
 
         then:
         id > 0

@@ -15,13 +15,11 @@ public class TwsClient extends TwsClientWrapper implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(TwsClient.class);
 
-    private final EJavaSignal signal = new EJavaSignal();
-    private final EClientSocket socket = new EClientSocket(this, signal);
+    private EClientSocket socket;
 
-    private TwsReader reader = new TwsReader(socket, signal);
-    private final TwsSender sender = new TwsSender(this);
-
-    private final ConnectionMonitor connectionMonitor = new ConnectionMonitor(socket, reader);
+    private TwsReader reader;
+    private TwsSender sender;
+    private ConnectionMonitor connectionMonitor;
 
     enum Status {
         DISCONNECTED,
@@ -42,6 +40,12 @@ public class TwsClient extends TwsClientWrapper implements AutoCloseable {
         log.debug("Connecting...");
         status = Status.CONNECTING;
 
+        EJavaSignal signal = new EJavaSignal();
+        socket = new EClientSocket(this, signal);
+        reader = new TwsReader(socket, signal);
+        sender = new TwsSender(this);
+        connectionMonitor = new ConnectionMonitor(socket, reader);
+
         TwsFuture fConnect = sender.post(TwsSender.Event.REQ_CONNECT, () -> connectionMonitor.connect(ip, port, connId));
         fConnect.get();
 
@@ -54,26 +58,12 @@ public class TwsClient extends TwsClientWrapper implements AutoCloseable {
         status = Status.DISCONNECTING;
         connectionMonitor.disconnect();
         status = Status.DISCONNECTED;
+        log.info("Disconnected");
     }
 
     public boolean isConnected() {
         return socket.isConnected() && status == Status.CONNECTED;
     }
-
-//    private <T> connection.TwsFuture<T> postIfConnected(Event event, Runnable runnable) {
-//        if (!isConnected()) {
-//            throw new RuntimeException("No connection");
-//        }
-//
-//        return post(event, runnable);
-//    }
-//
-//    private <T> connection.TwsFuture<T> post(Event event, Runnable runnable) {
-//        final connection.TwsFuture future = new connection.TwsFuture<T>(() -> futures.remove(event));
-//        futures.put(event, future);
-//        runnable.run();
-//        return future;
-//    }
 
     public TwsFuture<Integer> reqId() {
         return sender.postIfConnected(TwsSender.Event.REQ_ID, () -> socket.reqIds(-1));
@@ -92,10 +82,12 @@ public class TwsClient extends TwsClientWrapper implements AutoCloseable {
         return sender.postIfConnected(TwsSender.Event.REQ_ORDER_PLACE, () -> socket.placeOrder(id, contract, order));
     }
 
+    @Override
     public void nextValidId(final int orderId) {
         sender.confirmWeak(TwsSender.Event.REQ_ID, orderId);
     }
 
+    @Override
     public void openOrder(final int orderId, final Contract contract, final Order order, final OrderState orderState) {
         sender.confirmStrict(TwsSender.Event.REQ_ORDER_PLACE, orderId); // TODO: return struct
     }
@@ -114,20 +106,20 @@ public class TwsClient extends TwsClientWrapper implements AutoCloseable {
     public void connectionClosed() {
         log.error("TWS closes the connection");
         status = Status.CONNECTION_LOST;
-        connectionMonitor.reconnect();
+        connectionMonitor.reconnect(1000);
     }
 
     @Override
     public void error(final Exception e) { // TODO, awaike all futures with exception
         if (e instanceof SocketException) {
-            if (status == Status.DISCONNECTING) {
+            if (status == Status.DISCONNECTING || status == Status.DISCONNECTED) {
                 log.debug("Socket has been closed at shutdown");
                 return;
             }
 
             status = Status.CONNECTION_LOST;
             log.warn("Connection lost", e);
-//            connectionMonitor.reconnect();
+            connectionMonitor.reconnect(1000);
         }
 
         log.error("TWS error", e);
@@ -155,7 +147,7 @@ public class TwsClient extends TwsClientWrapper implements AutoCloseable {
                 log.debug("Connection is OK: {}", errorMsg);
                 break;
             default:
-                connectionMonitor.reconnect();
+                connectionMonitor.reconnect(10_000);
         }
     }
 }

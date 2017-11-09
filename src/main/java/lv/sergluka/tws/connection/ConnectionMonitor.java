@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 public class ConnectionMonitor {
 
     private static final Logger log = LoggerFactory.getLogger(ConnectionMonitor.class);
+    public static final int RECONNECT_DELAY_MS = 1000;
 
     private final EClientSocket socket;
     private final TwsReader reader;
@@ -29,7 +30,6 @@ public class ConnectionMonitor {
 
         log.debug("Connecting to {}:{}, id={}", ip, port, connId);
 
-        socket.disableUseV100Plus();
         socket.setAsyncEConnect(false);
         socket.eConnect(ip, port, connId);
         socket.setServerLogLevel(5); // TODO
@@ -37,9 +37,15 @@ public class ConnectionMonitor {
 //        reader.start();
     }
 
-    public void reconnect() {
+    public void reconnect(int delay_ms) {
         log.warn("Reconnecting");
         disconnect();
+
+        try {
+            Thread.sleep(delay_ms);
+        } catch (InterruptedException ignored) {
+        }
+
         connect(this.ip, this.port, this.connId);
     }
 
