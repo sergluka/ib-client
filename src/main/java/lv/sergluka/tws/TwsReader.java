@@ -32,7 +32,6 @@ public class TwsReader implements AutoCloseable {
 
     @Override
     public void close() {
-//        reader.interrupt();
         readerThread.interrupt();
         try {
             readerThread.join(STOP_TIMEOUT_MS);
