@@ -1,5 +1,6 @@
 package lv.sergluka.tws.impl.future;
 
+import lv.sergluka.tws.TwsExceptions;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.TimeUnit;
@@ -49,13 +50,13 @@ public class TwsFuture<T> {
         return value;
     }
 
-    public T get(long timeout, TimeUnit unit) throws TimeoutException {
+    public T get(long timeout, TimeUnit unit) {
         try {
             lock.lock();
             while (!isDone()) {
                 if (!condition.await(timeout, unit)) {
                     onTimeout.run();
-                    throw new TimeoutException("Request timeout");
+                    throw new TwsExceptions.ResponseTimeout("Request timeout");
                 }
             }
         } catch (InterruptedException e) {

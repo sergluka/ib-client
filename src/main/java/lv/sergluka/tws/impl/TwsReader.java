@@ -33,10 +33,23 @@ public class TwsReader implements AutoCloseable {
 
     @Override
     public void close() {
+        reader.interrupt();
+        try {
+            reader.join(10_000);
+        } catch (Exception e) {
+            log.error("Exception at reader shutdown", e);
+        }
+        if (reader.isAlive()) {
+            log.warn("Fail to shutdown reader thread");
+        }
+
         readerThread.interrupt();
         try {
             readerThread.join(STOP_TIMEOUT_MS);
-        } catch (InterruptedException e) {
+        } catch (Exception e) {
+            log.error("Exception at reader threads shutdown", e);
+        }
+        if (readerThread.isAlive()) {
             log.warn("Timeout of reader thread shutdown");
         }
     }

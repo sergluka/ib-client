@@ -2,7 +2,7 @@ package lv.sergluka.tws;
 
 public class TwsExceptions {
 
-    static class ServerError extends RuntimeException {
+    public static class ServerError extends RuntimeException {
 
         private final String errorMsg;
         private final int errorCode;
@@ -20,8 +20,13 @@ public class TwsExceptions {
         public int getErrorCode() {
             return errorCode;
         }
-
-
     }
 
+    public static class NotConnected extends RuntimeException {}
+
+    public static class ResponseTimeout extends RuntimeException {
+        public ResponseTimeout(String message) {
+            super(message);
+        }
+    }
 }

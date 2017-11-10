@@ -47,8 +47,12 @@ public class ConnectionMonitor {
     }
 
     public void disconnect() {
-        reader.close();
         socket.eDisconnect();
+        try {
+            Thread.sleep(300);
+        } catch (InterruptedException ignored) {
+        }
+        reader.close();
     }
 
     public boolean isConnected() {

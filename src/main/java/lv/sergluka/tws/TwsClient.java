@@ -1,7 +1,10 @@
 package lv.sergluka.tws;
 
 import com.ib.client.*;
-import lv.sergluka.tws.impl.*;
+import lv.sergluka.tws.impl.ConnectionMonitor;
+import lv.sergluka.tws.impl.TwsBaseWrapper;
+import lv.sergluka.tws.impl.TwsReader;
+import lv.sergluka.tws.impl.TwsSender;
 import lv.sergluka.tws.impl.future.TwsFuture;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -10,31 +13,19 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.SocketException;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class TwsClient implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(TwsClient.class);
-
     private static final int INVALID_ID = -1;
-
     private EClientSocket socket;
     private TwsReader reader;
     private TwsSender sender;
     private ConnectionMonitor connectionMonitor;
     private TwsBaseWrapper wrapper;
-
     private AtomicInteger requestId;
-
-    enum Status {
-        DISCONNECTED,
-        CONNECTING,
-        CONNECTED,
-        CONNECTION_LOST,
-        DISCONNECTING,
-    }
-
     private Status status = Status.DISCONNECTED;
 
     @Override
@@ -44,9 +35,15 @@ public class TwsClient implements AutoCloseable {
 
     public void connect(final @NotNull String ip, final int port, final int connId) {
         log.debug("Connecting...");
+
+        if (isConnected()) {
+            log.warn("Already is connected");
+            return;
+        }
+
         status = Status.CONNECTING;
 
-        this.requestId = new AtomicInteger(INVALID_ID);
+        requestId = new AtomicInteger(INVALID_ID);
 
         EJavaSignal signal = new EJavaSignal();
         sender = new TwsSender(this);
@@ -62,7 +59,7 @@ public class TwsClient implements AutoCloseable {
 
     public void disconnect() throws TimeoutException {
         if (!isConnected()) {
-            log.info("Already is disconnected");
+            log.debug("Already is disconnected");
             return;
         }
 
@@ -77,43 +74,44 @@ public class TwsClient implements AutoCloseable {
         return socket != null && socket.isConnected() && status == Status.CONNECTED;
     }
 
-    public int getRequestId() {
-        if (requestId.get() == INVALID_ID) {
-            throw new IllegalStateException("Has no request ID from TWS");
-        }
-
-        return requestId.get();
+    @NotNull
+    public TwsFuture<Object> placeOrder(@NotNull Contract contract, @NotNull Order order) {
+        final Integer id = getAndRefreshRequestId();
+        return sender.postSingleRequest(TwsSender.Event.REQ_ORDER_PLACE, id,
+                () -> socket.placeOrder(id, contract, order));
     }
 
-    public TwsFuture<Integer> reqId() {
-        return sender.postInternalRequest(TwsSender.Event.REQ_ID, () -> socket.reqIds(-1));
-    }
-
-    public Integer reqIdsSync() throws TimeoutException {
-        try {
-            return reqId().get(10, TimeUnit.SECONDS);
-        } catch (TimeoutException e) {
-            throw new TimeoutException("Timeout of 'reqId' call");
-        }
-    }
-
-    public TwsFuture<Object> placeOrder(@NotNull Contract contract, @NotNull Order order) throws TimeoutException {
-        final Integer id = getRequestId();
-        return sender.postSingleRequest(TwsSender.Event.REQ_ORDER_PLACE, id, () -> socket.placeOrder(id, contract, order));
-    }
-
+    @NotNull
     public TwsFuture<List<ContractDetails>> reqContractDetails(@NotNull Contract contract) {
         shouldBeConnected();
 
-        final Integer id = getRequestId();
+        final Integer id = getAndRefreshRequestId();
         return sender.postListRequest(TwsSender.Event.REQ_CONTRACT_DETAIL, id,
                 () -> socket.reqContractDetails(id, contract));
     }
 
+    private int getAndRefreshRequestId() {
+        if (requestId.get() == INVALID_ID) {
+            throw new IllegalStateException("Has no request ID from TWS");
+        }
+
+        int id = requestId.get();
+        socket.reqIds(-1);
+        return id;
+    }
+
     private void shouldBeConnected() {
         if (!isConnected()) {
-            throw new IllegalStateException("Not connected");
+            throw new TwsExceptions.NotConnected();
         }
+    }
+
+    enum Status {
+        DISCONNECTED,
+        CONNECTING,
+        CONNECTED,
+        CONNECTION_LOST,
+        DISCONNECTING,
     }
 
     private class TwsWrapper extends TwsBaseWrapper {
@@ -124,7 +122,7 @@ public class TwsClient implements AutoCloseable {
 
         @Override
         public void connectAck() {
-            log.info("Connection opened. version: {}", socket.serverVersion());
+            log.info("Connection is opened. version: {}", socket.serverVersion());
             status = Status.CONNECTED;
 
             reader.start();
@@ -181,14 +179,14 @@ public class TwsClient implements AutoCloseable {
                     log.debug("Connection is OK: {}", errorMsg);
                     break;
                 default:
-                    connectionMonitor.reconnect(10_000);
+                    connectionMonitor.reconnect(1000);
             }
         }
 
         @Override
         public void nextValidId(int id) {
-            requestId.set(id);
             log.debug("New request ID: {}", id);
+            requestId.set(id);
         }
     }
 }

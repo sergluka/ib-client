@@ -81,7 +81,7 @@ public class TwsSender {
         this.twsClient = twsClient;
     }
 
-    public <T> TwsFuture<T> postSingleRequest(@NotNull Event event, int requestId, @NotNull Runnable runnable) {
+    public <T> TwsFuture<T> postSingleRequest(@NotNull Event event, Integer requestId, @NotNull Runnable runnable) {
         if (!twsClient.isConnected()) {
             throw new RuntimeException("Not connected");
         }
@@ -142,7 +142,7 @@ public class TwsSender {
         future.add(element);
     }
 
-    private <T> void post(EventKey key, @NotNull TwsFuture future, @NotNull Runnable runnable) {
+    private void post(EventKey key, @NotNull TwsFuture future, @NotNull Runnable runnable) {
         futures.put(key, future);
         try {
             log.debug("<= {}", key);
