@@ -10,12 +10,14 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class TwsFuture<T> {
 
+    protected T value;
+
     private final Condition condition;
     private final Lock lock;
     private final Runnable onTimeout;
 
-    private T value;
     private boolean done;
+    private RuntimeException exception;
 
     public TwsFuture(@NotNull Runnable onTimeout) {
         this.onTimeout = onTimeout;
@@ -41,6 +43,9 @@ public class TwsFuture<T> {
             lock.unlock();
         }
 
+        if (exception != null) {
+            throw exception;
+        }
         return value;
     }
 
@@ -59,6 +64,9 @@ public class TwsFuture<T> {
             lock.unlock();
         }
 
+        if (exception != null) {
+            throw exception;
+        }
         return value;
     }
 
@@ -68,6 +76,17 @@ public class TwsFuture<T> {
             if (value != null) {
                 this.value = value;
             }
+            done = true;
+            condition.signal();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void setException(RuntimeException e) {
+        lock.lock();
+        try {
+            exception = e;
             done = true;
             condition.signal();
         } finally {

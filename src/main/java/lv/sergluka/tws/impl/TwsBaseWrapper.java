@@ -67,7 +67,7 @@ public class TwsBaseWrapper implements EWrapper {
 
     @Override
     public void orderStatus(int orderId, String status, double filled, double remaining, double avgFillPrice, int permId, int parentId, double lastFillPrice, int clientId, String whyHeld, double mktCapPrice) {
-        log.info("orderStatus: orderId={}, status={}, filled={}, remaining={}, avgFillPrice={}, permId={}, " +
+        log.info("orderStatus: requestId={}, status={}, filled={}, remaining={}, avgFillPrice={}, permId={}, " +
                         "parentId={}, lastFillPrice={}, clientId={}, whyHeld={}, mktCapPrice={}",
                 orderId, status, filled, remaining, avgFillPrice, permId, parentId, lastFillPrice, clientId, whyHeld,
                 mktCapPrice);
@@ -75,8 +75,8 @@ public class TwsBaseWrapper implements EWrapper {
 
     @Override
     public void openOrder(final int orderId, final Contract contract, final Order order, final OrderState orderState) {
-        log.info("openOrder: orderId={}, contract={}, order={}, orderState={}", orderId, contract, order, orderState);
-        sender.confirmStrict(TwsSender.Event.REQ_ORDER_PLACE, orderId); // TODO: return struct
+        log.info("openOrder: requestId={}, contract={}, order={}, orderState={}", orderId, contract, order, orderState);
+        sender.confirmResponse(TwsSender.Event.REQ_ORDER_PLACE, null, orderId); // TODO: return struct
     }
 
     @Override
@@ -115,14 +115,12 @@ public class TwsBaseWrapper implements EWrapper {
     }
 
     @Override
-    public void nextValidId(final int orderId) {
-        log.debug("next ID: {}", orderId);
-        sender.confirmWeak(TwsSender.Event.REQ_ID, orderId);
+    public void nextValidId(int id) {
     }
 
     @Override
     public void contractDetails(final int reqId, final ContractDetails contractDetails) {
-        sender.addElement(TwsSender.Event.REQ_CONTRACT_DETAIL, contractDetails);
+        sender.addElement(TwsSender.Event.REQ_CONTRACT_DETAIL, reqId, contractDetails);
     }
 
     @Override
@@ -132,7 +130,7 @@ public class TwsBaseWrapper implements EWrapper {
 
     @Override
     public void contractDetailsEnd(final int reqId) {
-        sender.confirmStrict(TwsSender.Event.REQ_CONTRACT_DETAIL);
+        sender.confirmResponse(TwsSender.Event.REQ_CONTRACT_DETAIL, reqId, null);
     }
 
     @Override
@@ -325,7 +323,7 @@ public class TwsBaseWrapper implements EWrapper {
 
     @Override
     public void connectAck() {
-        sender.confirmStrict(TwsSender.Event.REQ_CONNECT);
+        sender.confirmInnerResponse(TwsSender.Event.REQ_CONNECT);
     }
 
     @Override

@@ -3,7 +3,6 @@ package lv.sergluka.tws;
 import com.ib.client.*;
 import lv.sergluka.tws.impl.*;
 import lv.sergluka.tws.impl.future.TwsFuture;
-import lv.sergluka.tws.impl.future.TwsListFuture;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,16 +11,21 @@ import java.io.IOException;
 import java.net.SocketException;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class TwsClient implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(TwsClient.class);
+
+    private static final int INVALID_ID = -1;
 
     private EClientSocket socket;
     private TwsReader reader;
     private TwsSender sender;
     private ConnectionMonitor connectionMonitor;
     private TwsBaseWrapper wrapper;
+
+    private AtomicInteger requestId;
 
     enum Status {
         DISCONNECTED,
@@ -42,14 +46,16 @@ public class TwsClient implements AutoCloseable {
         log.debug("Connecting...");
         status = Status.CONNECTING;
 
+        this.requestId = new AtomicInteger(INVALID_ID);
+
         EJavaSignal signal = new EJavaSignal();
         sender = new TwsSender(this);
-        wrapper = new TwsWrapper();
+        wrapper = new TwsWrapper(sender);
         socket = new EClientSocket(wrapper, signal);
         reader = new TwsReader(socket, signal);
         connectionMonitor = new ConnectionMonitor(socket, reader);
 
-        TwsFuture fConnect = sender.post(TwsSender.Event.REQ_CONNECT,
+        TwsFuture fConnect = sender.postInternalRequest(TwsSender.Event.REQ_CONNECT,
                 () -> connectionMonitor.connect(ip, port, connId));
         fConnect.get();
     }
@@ -71,8 +77,16 @@ public class TwsClient implements AutoCloseable {
         return socket != null && socket.isConnected() && status == Status.CONNECTED;
     }
 
+    public int getRequestId() {
+        if (requestId.get() == INVALID_ID) {
+            throw new IllegalStateException("Has no request ID from TWS");
+        }
+
+        return requestId.get();
+    }
+
     public TwsFuture<Integer> reqId() {
-        return sender.postIfConnected(TwsSender.Event.REQ_ID, () -> socket.reqIds(-1));
+        return sender.postInternalRequest(TwsSender.Event.REQ_ID, () -> socket.reqIds(-1));
     }
 
     public Integer reqIdsSync() throws TimeoutException {
@@ -84,22 +98,15 @@ public class TwsClient implements AutoCloseable {
     }
 
     public TwsFuture<Object> placeOrder(@NotNull Contract contract, @NotNull Order order) throws TimeoutException {
-        Integer id = reqIdsSync();
-        return sender.postIfConnected(TwsSender.Event.REQ_ORDER_PLACE, () -> socket.placeOrder(id, contract, order));
+        final Integer id = getRequestId();
+        return sender.postSingleRequest(TwsSender.Event.REQ_ORDER_PLACE, id, () -> socket.placeOrder(id, contract, order));
     }
 
     public TwsFuture<List<ContractDetails>> reqContractDetails(@NotNull Contract contract) {
         shouldBeConnected();
 
-        final Integer id;
-        try {
-             id = reqIdsSync();
-        } catch (TimeoutException e) {
-            e.printStackTrace();
-            return null;
-        }
-
-        return sender.postIfConnected(TwsSender.Event.REQ_CONTRACT_DETAIL,
+        final Integer id = getRequestId();
+        return sender.postListRequest(TwsSender.Event.REQ_CONTRACT_DETAIL, id,
                 () -> socket.reqContractDetails(id, contract));
     }
 
@@ -111,7 +118,7 @@ public class TwsClient implements AutoCloseable {
 
     private class TwsWrapper extends TwsBaseWrapper {
 
-        TwsWrapper() {
+        TwsWrapper(TwsSender sender) {
             super(sender);
         }
 
@@ -126,7 +133,7 @@ public class TwsClient implements AutoCloseable {
 
         @Override
         public void connectionClosed() {
-            log.error("TWS closes the impl");
+            log.error("TWS closes the connection");
             status = Status.CONNECTION_LOST;
             connectionMonitor.reconnect(1000);
         }
@@ -161,6 +168,11 @@ public class TwsClient implements AutoCloseable {
 
             log.error("Terminal returns an error: id={}, code={}, msg={}", id, errorCode, errorMsg);
 
+            if (id >= 0) {
+                sender.setError(id, new TwsExceptions.ServerError(errorMsg, errorCode));
+                return;
+            }
+
             switch (errorCode) {
                 case 503: // The TWS is out of date and must be upgraded
                     break;
@@ -171,6 +183,12 @@ public class TwsClient implements AutoCloseable {
                 default:
                     connectionMonitor.reconnect(10_000);
             }
+        }
+
+        @Override
+        public void nextValidId(int id) {
+            requestId.set(id);
+            log.debug("New request ID: {}", id);
         }
     }
 }

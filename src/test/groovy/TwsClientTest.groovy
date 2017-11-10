@@ -1,4 +1,5 @@
 import com.ib.client.Contract
+import com.ib.client.Types
 import lv.sergluka.tws.TwsClient
 import spock.lang.Specification
 
@@ -41,16 +42,20 @@ class TwsClientTest extends Specification {
         given:
         client.connect("127.0.0.1", 7497, 1)
         def contract = new Contract();
-        contract.symbol("EURUSD")
-        contract.secType("NEWS")
+        contract.exchange("SMART")
+        contract.symbol("NVDA")
+        contract.secType(Types.SecType.STK)
 
         when:
-        def f = client.reqContractDetails(contract)
-        def list = f.get(1, TimeUnit.MINUTES)
+        def list = client.reqContractDetails(contract).get(1, TimeUnit.MINUTES)
+
+        Thread.sleep(1000)
+
+        def list2 = client.reqContractDetails(contract).get(1, TimeUnit.MINUTES)
 
         then:
+        println(list)
         list.size() > 0
-
     }
 
 }

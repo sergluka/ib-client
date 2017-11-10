@@ -7,13 +7,12 @@ import java.util.List;
 
 public class TwsListFuture<T> extends TwsFuture<List<T>> {
 
-    private final List<T> data = new LinkedList<>();
-
-    TwsListFuture(@NotNull final Runnable onTimeout) {
+    public TwsListFuture(@NotNull final Runnable onTimeout) {
         super(onTimeout);
+        value = new LinkedList<>();
     }
 
     public void add(T element) {
-        data.add(element);
+        value.add(element);
     }
 }
