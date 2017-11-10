@@ -1,4 +1,4 @@
-package lv.sergluka.tws;
+package lv.sergluka.tws.impl;
 
 import com.ib.client.EClientSocket;
 import com.ib.client.EJavaSignal;
@@ -20,7 +20,7 @@ public class TwsReader implements AutoCloseable {
 
     private EReader reader;
 
-    TwsReader(@NotNull EClientSocket socket, @NotNull EJavaSignal signal) {
+    public TwsReader(@NotNull EClientSocket socket, @NotNull EJavaSignal signal) {
         this.socket = socket;
         this.signal = signal;
     }

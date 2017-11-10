@@ -1,15 +1,16 @@
 package lv.sergluka.tws;
 
 import com.ib.client.*;
-import lv.sergluka.tws.connection.ConnectionMonitor;
-import lv.sergluka.tws.connection.TwsFuture;
-import lv.sergluka.tws.connection.TwsSender;
+import lv.sergluka.tws.impl.*;
+import lv.sergluka.tws.impl.future.TwsFuture;
+import lv.sergluka.tws.impl.future.TwsListFuture;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.SocketException;
+import java.util.List;
 import java.util.concurrent.*;
 
 public class TwsClient implements AutoCloseable {
@@ -54,6 +55,11 @@ public class TwsClient implements AutoCloseable {
     }
 
     public void disconnect() throws TimeoutException {
+        if (!isConnected()) {
+            log.info("Already is disconnected");
+            return;
+        }
+
         log.debug("Disconnecting...");
         status = Status.DISCONNECTING;
         connectionMonitor.disconnect();
@@ -62,7 +68,7 @@ public class TwsClient implements AutoCloseable {
     }
 
     public boolean isConnected() {
-        return socket.isConnected() && status == Status.CONNECTED;
+        return socket != null && socket.isConnected() && status == Status.CONNECTED;
     }
 
     public TwsFuture<Integer> reqId() {
@@ -82,6 +88,27 @@ public class TwsClient implements AutoCloseable {
         return sender.postIfConnected(TwsSender.Event.REQ_ORDER_PLACE, () -> socket.placeOrder(id, contract, order));
     }
 
+    public TwsFuture<List<ContractDetails>> reqContractDetails(@NotNull Contract contract) {
+        shouldBeConnected();
+
+        final Integer id;
+        try {
+             id = reqIdsSync();
+        } catch (TimeoutException e) {
+            e.printStackTrace();
+            return null;
+        }
+
+        return sender.postIfConnected(TwsSender.Event.REQ_CONTRACT_DETAIL,
+                () -> socket.reqContractDetails(id, contract));
+    }
+
+    private void shouldBeConnected() {
+        if (!isConnected()) {
+            throw new IllegalStateException("Not connected");
+        }
+    }
+
     private class TwsWrapper extends TwsBaseWrapper {
 
         TwsWrapper() {
@@ -99,7 +126,7 @@ public class TwsClient implements AutoCloseable {
 
         @Override
         public void connectionClosed() {
-            log.error("TWS closes the connection");
+            log.error("TWS closes the impl");
             status = Status.CONNECTION_LOST;
             connectionMonitor.reconnect(1000);
         }

@@ -1,6 +1,8 @@
-package lv.sergluka.tws.connection;
+package lv.sergluka.tws.impl;
 
 import lv.sergluka.tws.TwsClient;
+import lv.sergluka.tws.impl.future.TwsFuture;
+import lv.sergluka.tws.impl.future.TwsListFuture;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +16,7 @@ public class TwsSender {
     public enum Event {
         REQ_CONNECT,
         REQ_ID,
+        REQ_CONTRACT_DETAIL,
         REQ_ORDER_PLACE,
     }
 
@@ -26,7 +29,7 @@ public class TwsSender {
 
     public <T> TwsFuture<T> postIfConnected(@NotNull Event event, @NotNull Runnable runnable) {
         if (!twsClient.isConnected()) {
-            throw new RuntimeException("No connection");
+            throw new RuntimeException("No impl");
         }
 
         return post(event, runnable);
@@ -58,6 +61,11 @@ public class TwsSender {
 
     public void confirmStrict(@NotNull Event event) {
         confirmStrict(event, null);
+    }
+
+    public <E> void addElement(@NotNull Event event, @NotNull E element) {
+        final TwsListFuture future = (TwsListFuture) futures.get(event);
+        future.add(element);
     }
 
     private boolean confirm(@NotNull Event event, Object result) {

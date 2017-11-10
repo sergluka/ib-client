@@ -1,7 +1,6 @@
-package lv.sergluka.tws;
+package lv.sergluka.tws.impl;
 
 import com.ib.client.*;
-import lv.sergluka.tws.connection.TwsSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -123,7 +122,7 @@ public class TwsBaseWrapper implements EWrapper {
 
     @Override
     public void contractDetails(final int reqId, final ContractDetails contractDetails) {
-        log.debug("contractDetails: NOT IMPLEMENTED");
+        sender.addElement(TwsSender.Event.REQ_CONTRACT_DETAIL, contractDetails);
     }
 
     @Override
@@ -133,7 +132,7 @@ public class TwsBaseWrapper implements EWrapper {
 
     @Override
     public void contractDetailsEnd(final int reqId) {
-        log.debug("contractDetailsEnd: NOT IMPLEMENTED");
+        sender.confirmStrict(TwsSender.Event.REQ_CONTRACT_DETAIL);
     }
 
     @Override

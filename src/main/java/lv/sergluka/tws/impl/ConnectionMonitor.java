@@ -1,7 +1,6 @@
-package lv.sergluka.tws.connection;
+package lv.sergluka.tws.impl;
 
 import com.ib.client.EClientSocket;
-import lv.sergluka.tws.TwsReader;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,4 +1,4 @@
-package lv.sergluka.tws.connection;
+package lv.sergluka.tws.impl.future;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -17,7 +17,7 @@ public class TwsFuture<T> {
     private T value;
     private boolean done;
 
-    TwsFuture(@NotNull Runnable onTimeout) {
+    public TwsFuture(@NotNull Runnable onTimeout) {
         this.onTimeout = onTimeout;
 
         lock = new ReentrantLock();
@@ -44,15 +44,14 @@ public class TwsFuture<T> {
         return value;
     }
 
-    public T get(final long timeout, final TimeUnit unit) throws TimeoutException {
+    public T get(long timeout, TimeUnit unit) throws TimeoutException {
         try {
             lock.lock();
             while (!isDone()) {
-                if (condition.await(timeout, unit)) {
-                    break;
+                if (!condition.await(timeout, unit)) {
+                    onTimeout.run();
+                    throw new TimeoutException("Request timeout");
                 }
-                onTimeout.run();
-                throw new TimeoutException("Request timeout");
             }
         } catch (InterruptedException e) {
             return null;
@@ -63,10 +62,12 @@ public class TwsFuture<T> {
         return value;
     }
 
-    void setDone(T value) {
+    public void setDone(T value) {
         lock.lock();
         try {
-            this.value = value;
+            if (value != null) {
+                this.value = value;
+            }
             done = true;
             condition.signal();
         } finally {
