@@ -17,9 +17,9 @@ public class TwsSender {
 
     public enum Event {
         REQ_CONNECT,
-        REQ_ID,
         REQ_CONTRACT_DETAIL,
         REQ_ORDER_PLACE,
+        REQ_CURRENT_TIME,
     }
 
     // TODO: test

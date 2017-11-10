@@ -26,11 +26,11 @@ public class TwsClient implements AutoCloseable {
     private ConnectionMonitor connectionMonitor;
     private TwsBaseWrapper wrapper;
     private AtomicInteger requestId;
-    private Status status = Status.DISCONNECTED;
 
     @Override
-    public void close() throws IOException {
+    public void close() throws Exception {
         connectionMonitor.disconnect();
+        connectionMonitor.close();
     }
 
     public void connect(final @NotNull String ip, final int port, final int connId) {
@@ -41,8 +41,6 @@ public class TwsClient implements AutoCloseable {
             return;
         }
 
-        status = Status.CONNECTING;
-
         requestId = new AtomicInteger(INVALID_ID);
 
         EJavaSignal signal = new EJavaSignal();
@@ -51,6 +49,7 @@ public class TwsClient implements AutoCloseable {
         socket = new EClientSocket(wrapper, signal);
         reader = new TwsReader(socket, signal);
         connectionMonitor = new ConnectionMonitor(socket, reader);
+        connectionMonitor.start();
 
         TwsFuture fConnect = sender.postInternalRequest(TwsSender.Event.REQ_CONNECT,
                 () -> connectionMonitor.connect(ip, port, connId));
@@ -58,20 +57,20 @@ public class TwsClient implements AutoCloseable {
     }
 
     public void disconnect() throws TimeoutException {
-        if (!isConnected()) {
-            log.debug("Already is disconnected");
-            return;
-        }
-
         log.debug("Disconnecting...");
-        status = Status.DISCONNECTING;
         connectionMonitor.disconnect();
-        status = Status.DISCONNECTED;
         log.info("Disconnected");
     }
 
     public boolean isConnected() {
-        return socket != null && socket.isConnected() && status == Status.CONNECTED;
+        return socket != null &&
+                socket.isConnected() &&
+                connectionMonitor.status() == ConnectionMonitor.Status.CONNECTED;
+    }
+
+    @NotNull
+    public TwsFuture<Integer> reqCurrentTime() {
+        return sender.postSingleRequest(TwsSender.Event.REQ_CURRENT_TIME, null, () -> socket.reqCurrentTime());
     }
 
     @NotNull
@@ -106,14 +105,6 @@ public class TwsClient implements AutoCloseable {
         }
     }
 
-    enum Status {
-        DISCONNECTED,
-        CONNECTING,
-        CONNECTED,
-        CONNECTION_LOST,
-        DISCONNECTING,
-    }
-
     private class TwsWrapper extends TwsBaseWrapper {
 
         TwsWrapper(TwsSender sender) {
@@ -123,30 +114,35 @@ public class TwsClient implements AutoCloseable {
         @Override
         public void connectAck() {
             log.info("Connection is opened. version: {}", socket.serverVersion());
-            status = Status.CONNECTED;
+            reader.start(); // TODO: maybe move it into Conn Manager thread
 
-            reader.start();
+            connectionMonitor.confirmConnection();
             super.connectAck();
+
         }
 
         @Override
         public void connectionClosed() {
             log.error("TWS closes the connection");
-            status = Status.CONNECTION_LOST;
-            connectionMonitor.reconnect(1000);
+
+            connectionMonitor.reconnect();
         }
 
         @Override
         public void error(final Exception e) {
             if (e instanceof SocketException) {
-                if (status == Status.DISCONNECTING || status == Status.DISCONNECTED) {
+
+                final ConnectionMonitor.Status connectionStatus = connectionMonitor.status();
+
+                if (connectionStatus == ConnectionMonitor.Status.DISCONNECTING ||
+                        connectionStatus == ConnectionMonitor.Status.DISCONNECTED) {
+
                     log.debug("Socket has been closed at shutdown");
                     return;
                 }
 
-                status = Status.CONNECTION_LOST;
                 log.warn("Connection lost", e);
-                connectionMonitor.reconnect(1000);
+                connectionMonitor.reconnect();
             }
 
             log.error("TWS error", e);
@@ -159,27 +155,27 @@ public class TwsClient implements AutoCloseable {
 
         @Override
         public void error(final int id, final int errorCode, final String errorMsg) {
+
             if (id == -1 && (errorCode == 2104 || errorCode == 2106)) {
-                log.debug("Connection is OK: {}", errorMsg);
+                log.debug("Server message - {}", errorMsg);
                 return;
             }
 
             log.error("Terminal returns an error: id={}, code={}, msg={}", id, errorCode, errorMsg);
 
-            if (id >= 0) {
-                sender.setError(id, new TwsExceptions.ServerError(errorMsg, errorCode));
-                return;
-            }
-
             switch (errorCode) {
                 case 503: // The TWS is out of date and must be upgraded
-                    break;
-                case 2104: // OK
-                case 2106: // OK
-                    log.debug("Connection is OK: {}", errorMsg);
+                    log.error("Incompatible cline/server versions. Shutdown.");
+                    connectionMonitor.disconnect();
                     break;
                 default:
-                    connectionMonitor.reconnect(1000);
+                    log.error("Try to reconnect on error");
+                    connectionMonitor.reconnect();
+                    break;
+            }
+
+            if (id >= 0) {
+                sender.setError(id, new TwsExceptions.ServerError(errorMsg, errorCode));
             }
         }
 

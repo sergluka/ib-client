@@ -11,7 +11,6 @@ class TwsClientTest extends Specification {
 
     void setup() {
         client.connect("127.0.0.1", 7497, 1)
-        assert client.isConnected()
     }
 
     void cleanup() {
@@ -20,9 +19,68 @@ class TwsClientTest extends Specification {
         }
     }
 
+    def "smoke"() {
+        expect:
+        client.isConnected()
+    }
+
+    def "reqCurrentTime"() {
+        when:
+        def time = client.reqCurrentTime().get(10, TimeUnit.SECONDS)
+
+        then:
+        time > 1510320971
+    }
+
+    def "test constant reconnects doesn't interfere a functionality"() {
+        expect:
+
+        client.connect("127.0.0.1", 7497, 1)
+        assert client.isConnected()
+        client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
+
+        client.disconnect()
+        assert !client.isConnected()
+        client.connect("127.0.0.1", 7497, 1)
+        assert client.isConnected()
+        client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
+
+        client.disconnect()
+        assert !client.isConnected()
+        client.connect("127.0.0.1", 7497, 1)
+        assert client.isConnected()
+        client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
+
+        client.disconnect()
+        assert !client.isConnected()
+        client.connect("127.0.0.1", 7497, 1)
+        assert client.isConnected()
+        client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
+
+        client.disconnect()
+        assert !client.isConnected()
+        client.connect("127.0.0.1", 7497, 1)
+        assert client.isConnected()
+        client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
+
+        client.disconnect()
+        assert !client.isConnected()
+        client.connect("127.0.0.1", 7497, 1)
+        assert client.isConnected()
+        client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
+
+        client.disconnect()
+        assert !client.isConnected()
+        client.connect("127.0.0.1", 7497, 1)
+        assert client.isConnected()
+        client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
+
+        client.disconnect()
+        assert !client.isConnected()
+    }
+
     def "reqContractDetails"() {
         given:
-        client.connect("127.0.0.1", 7497, 1)
         def contract = new Contract();
         contract.symbol("EUR");
         contract.currency("USD");

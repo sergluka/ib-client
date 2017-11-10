@@ -223,7 +223,7 @@ public class TwsBaseWrapper implements EWrapper {
 
     @Override
     public void currentTime(final long time) {
-        log.debug("currentTime: NOT IMPLEMENTED");
+        sender.confirmResponse(TwsSender.Event.REQ_CURRENT_TIME, null, time);
     }
 
     @Override
