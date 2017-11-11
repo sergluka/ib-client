@@ -4,7 +4,6 @@ import lv.sergluka.tws.TwsExceptions;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -17,7 +16,7 @@ public class TwsFuture<T> {
     private final Lock lock;
     private final Runnable onTimeout;
 
-    private boolean done;
+    private boolean done = false;
     private RuntimeException exception;
 
     public TwsFuture(@NotNull Runnable onTimeout) {

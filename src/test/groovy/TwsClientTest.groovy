@@ -1,4 +1,5 @@
 import com.ib.client.Contract
+import com.ib.client.Order
 import com.ib.client.Types
 import lv.sergluka.tws.TwsClient
 import spock.lang.Specification
@@ -35,8 +36,8 @@ class TwsClientTest extends Specification {
     def "Call reqContractDetails is OK"() {
         given:
         def contract = new Contract();
-        contract.symbol("EUR");
-        contract.currency("USD");
+        contract.symbol("EUR")
+        contract.currency("USD")
         contract.secType(Types.SecType.CASH)
 
         when:
@@ -45,6 +46,38 @@ class TwsClientTest extends Specification {
         then:
         println(list)
         list.size() > 0
+    }
+
+    def "Call placeOrder is OK"() {
+        given:
+        def contract = new Contract();
+        contract.symbol("GC");
+        contract.currency("USD");
+        contract.exchange("NYMEX");
+        contract.secType(Types.SecType.FUT)
+        contract.multiplier("100")
+        contract.lastTradeDateOrContractMonth("201712");
+
+        def order = new Order()
+        order.orderId(client.nextOrderId())
+        order.action("BUY");
+        order.orderType("STP");
+        order.auxPrice(1.1);
+        order.triggerPrice(1.23)
+        order.tif("GTC");
+        order.totalQuantity(1.0)
+        order.outsideRth(true)
+
+        when:
+        def future = client.placeOrder(contract, order)
+        def state = future.get(10, TimeUnit.SECONDS)
+
+        then:
+        state.status()
+
+        and:
+
+        Thread.sleep(100000)
     }
 
     def "Few reconnects doesn't impact to functionality"() {

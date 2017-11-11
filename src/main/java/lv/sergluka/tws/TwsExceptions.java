@@ -2,12 +2,12 @@ package lv.sergluka.tws;
 
 public class TwsExceptions {
 
-    public static class ServerError extends RuntimeException {
+    public static class TerminalError extends RuntimeException {
 
         private final String errorMsg;
         private final int errorCode;
 
-        public ServerError(String errorMsg, int errorCode) {
+        public TerminalError(String errorMsg, int errorCode) {
             super(errorMsg);
             this.errorMsg = errorMsg;
             this.errorCode = errorCode;

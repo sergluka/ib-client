@@ -4,7 +4,7 @@ import com.ib.client.*;
 import lv.sergluka.tws.impl.ConnectionMonitor;
 import lv.sergluka.tws.impl.TwsBaseWrapper;
 import lv.sergluka.tws.impl.TwsReader;
-import lv.sergluka.tws.impl.TwsSender;
+import lv.sergluka.tws.impl.sender.TwsSender;
 import lv.sergluka.tws.impl.future.TwsFuture;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -17,13 +17,21 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class TwsClient implements AutoCloseable {
 
+    private enum ErrorType {
+        INFO,
+        ERROR,
+        REQUEST, CRITICAL
+    };
+
     private static final Logger log = LoggerFactory.getLogger(TwsClient.class);
     private static final int INVALID_ID = -1;
     private EClientSocket socket;
     private TwsReader reader;
     private TwsSender sender;
     private ConnectionMonitor connectionMonitor;
-    private AtomicInteger requestId;
+
+    private AtomicInteger requestId = new AtomicInteger(0);
+    private AtomicInteger orderId;
 
     @Override
     public void close() throws Exception {
@@ -47,11 +55,11 @@ public class TwsClient implements AutoCloseable {
             protected void onConnect() {
                 init();
 
-                sender.postInternalRequest(TwsSender.Event.REQ_CONNECT,
+                sender.postUncheckedRequest(TwsSender.Event.REQ_CONNECT,
                     () -> {
                         socket.setAsyncEConnect(false);
-                        socket.setServerLogLevel(5); // TODO
                         socket.eConnect(ip, port, connId);
+                        socket.setServerLogLevel(5); // TODO
                     });
             }
 
@@ -78,14 +86,25 @@ public class TwsClient implements AutoCloseable {
                connectionMonitor.status() == ConnectionMonitor.Status.CONNECTED;
     }
 
+    public int nextOrderId() {
+        if (orderId.get() == INVALID_ID) {
+            throw new IllegalStateException("Has no request ID from TWS");
+        }
+
+        int id = orderId.getAndSet(INVALID_ID);
+        socket.reqIds(-1);
+        return id;
+    }
+
     @NotNull
     public TwsFuture<Integer> reqCurrentTime() {
         return sender.postSingleRequest(TwsSender.Event.REQ_CURRENT_TIME, null, () -> socket.reqCurrentTime());
     }
 
     @NotNull
-    public TwsFuture<Object> placeOrder(@NotNull Contract contract, @NotNull Order order) {
-        final Integer id = getAndRefreshRequestId();
+    public TwsFuture<OrderState> placeOrder(@NotNull Contract contract, @NotNull Order order) {
+//        final Integer id = nextRequestId();
+        final Integer id = order.orderId();
         return sender.postSingleRequest(TwsSender.Event.REQ_ORDER_PLACE, id,
                 () -> socket.placeOrder(id, contract, order));
     }
@@ -94,13 +113,13 @@ public class TwsClient implements AutoCloseable {
     public TwsFuture<List<ContractDetails>> reqContractDetails(@NotNull Contract contract) {
         shouldBeConnected();
 
-        final Integer id = getAndRefreshRequestId();
+        final Integer id = nextOrderId();
         return sender.postListRequest(TwsSender.Event.REQ_CONTRACT_DETAIL, id,
                 () -> socket.reqContractDetails(id, contract));
     }
 
     private void init() {
-        requestId = new AtomicInteger(INVALID_ID);
+        orderId = new AtomicInteger(INVALID_ID);
 
         EJavaSignal signal = new EJavaSignal();
 
@@ -109,15 +128,9 @@ public class TwsClient implements AutoCloseable {
         reader = new TwsReader(socket, signal);
     }
 
-    private int getAndRefreshRequestId() {
-        if (requestId.get() == INVALID_ID) {
-            throw new IllegalStateException("Has no request ID from TWS");
-        }
-
-        int id = requestId.get();
-        socket.reqIds(-1);
-        return id;
-    }
+//    private int nextRequestId() {
+//        return requestId.getAndIncrement();
+//    }
 
     private void shouldBeConnected() {
         if (!isConnected()) {
@@ -168,35 +181,71 @@ public class TwsClient implements AutoCloseable {
         }
 
         @Override
-        public void error(final int id, final int errorCode, final String errorMsg) {
-
-            if (id == -1 && (errorCode == 2104 || errorCode == 2106)) {
-                log.debug("Server message - {}", errorMsg);
-                return;
-            }
-
-            log.error("Terminal returns an error: id={}, code={}, msg={}", id, errorCode, errorMsg);
-
-            switch (errorCode) {
-                case 503: // The TWS is out of date and must be upgraded
-                    log.error("Incompatible cline/server versions. Shutdown.");
-                    connectionMonitor.disconnect();
-                    break;
-                default:
-                    log.error("Try to reconnect on error");
-                    connectionMonitor.reconnect();
-                    break;
-            }
-
-            if (id >= 0) {
-                sender.setError(id, new TwsExceptions.ServerError(errorMsg, errorCode));
-            }
+        public void error(final int id, final int code, final String message) {
+            new TerminalErrorHandler(id, code, message).invoke();
         }
 
         @Override
         public void nextValidId(int id) {
             log.debug("New request ID: {}", id);
-            requestId.set(id);
+            orderId.set(id);
+        }
+
+        private class TerminalErrorHandler {
+            private final int id;
+            private final int code;
+            private final String message;
+
+            public TerminalErrorHandler(final int id, final int code, final String message) {
+                this.id = id;
+                this.code = code;
+                this.message = message;
+            }
+
+            public void invoke() {
+                ErrorType severity;
+                switch (code) {
+                    case 2104:
+                    case 2106:
+                        severity = ErrorType.INFO;
+                        break;
+                    case 202: // Order canceled
+                        sender.removeRequest(TwsSender.Event.REQ_ORDER_PLACE, id);
+                        severity = ErrorType.INFO;
+                        break;
+
+                    case 320: // Server error when reading an API client request.
+                    case 321: // Server error when validating an API client request.
+                        severity = ErrorType.REQUEST;
+                        break;
+
+                    case 503: // The TWS is out of date and must be upgraded
+                        severity = ErrorType.CRITICAL;
+                        break;
+
+                    default:
+                        log.error("Try to reconnect on error");
+                        severity = ErrorType.ERROR;
+                        break;
+                }
+
+                switch (severity) {
+                    case REQUEST:
+                        sender.setError(id, new TwsExceptions.TerminalError(message, code));
+                        break;
+                    case INFO:
+                        log.debug("Server message - {}", message);
+                        break;
+                    case ERROR:
+                        log.error("Terminal error: code={}, msg={}. Reconnecting.", code, message);
+                        connectionMonitor.reconnect();
+                        break;
+                    case CRITICAL:
+                        log.error("Terminal critical error: code={}, msg={}. Disconnecting.", code, message);
+                        connectionMonitor.disconnect();
+                        break;
+                }
+            }
         }
     }
 }

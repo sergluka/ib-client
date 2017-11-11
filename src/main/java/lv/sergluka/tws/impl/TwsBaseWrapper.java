@@ -1,6 +1,7 @@
 package lv.sergluka.tws.impl;
 
 import com.ib.client.*;
+import lv.sergluka.tws.impl.sender.TwsSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,8 +76,9 @@ public class TwsBaseWrapper implements EWrapper {
 
     @Override
     public void openOrder(final int orderId, final Contract contract, final Order order, final OrderState orderState) {
-        log.info("openOrder: requestId={}, contract={}, order={}, orderState={}", orderId, contract, order, orderState);
-        sender.confirmResponse(TwsSender.Event.REQ_ORDER_PLACE, null, orderId); // TODO: return struct
+        log.info("openOrder: requestId={}, contract={}, order={}, orderState={}",
+                orderId, contract.symbol(), order.orderId(), orderState.status());
+        sender.confirmResponse(TwsSender.Event.REQ_ORDER_PLACE, orderId, orderState); // TODO: return struct
     }
 
     @Override
@@ -323,7 +325,7 @@ public class TwsBaseWrapper implements EWrapper {
 
     @Override
     public void connectAck() {
-        sender.confirmInnerResponse(TwsSender.Event.REQ_CONNECT);
+        sender.confirmResponse(TwsSender.Event.REQ_CONNECT, null, null);
     }
 
     @Override
