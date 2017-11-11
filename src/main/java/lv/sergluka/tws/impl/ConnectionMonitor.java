@@ -1,14 +1,12 @@
 package lv.sergluka.tws.impl;
 
-import com.ib.client.EClientSocket;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class ConnectionMonitor implements AutoCloseable {
+public abstract class ConnectionMonitor implements AutoCloseable {
 
     public enum Command {
         NONE,
@@ -27,22 +25,15 @@ public class ConnectionMonitor implements AutoCloseable {
     }
 
     private static final Logger log = LoggerFactory.getLogger(ConnectionMonitor.class);
-
-    private final EClientSocket socket;
-    private final TwsReader reader;
-    private String ip;
-    private int port;
-    private int connId;
+    private static final int RECONNECT_DELAY = 1_000;
 
     private Thread thread;
 
     private AtomicReference<Status> status;
     private AtomicReference<Command> command;
 
-    public ConnectionMonitor(@NotNull EClientSocket socket, @NotNull TwsReader reader) {
-        this.socket = socket;
-        this.reader = reader;
-    }
+    protected abstract void onConnect();
+    protected abstract void onDisconnect();
 
     public void start() {
         status = new AtomicReference<>(Status.UNKNOWN);
@@ -85,17 +76,7 @@ public class ConnectionMonitor implements AutoCloseable {
         }
     }
 
-    public void connect(@NotNull String ip, int port, int connId) {
-
-        if (!thread.isAlive()) {
-            throw new IllegalStateException("Thread has not been started");
-        }
-
-        this.ip = ip;
-        this.port = port;
-        this.connId = connId;
-
-        log.debug("Connecting to {}:{}, id={}", ip, port, connId);
+    public void connect() {
         setCommand(Command.CONNECT);
         waitForStatus(Status.CONNECTED);
     }
@@ -119,38 +100,35 @@ public class ConnectionMonitor implements AutoCloseable {
 
     private void run() {
         try {
-
             setStatus(Status.DISCONNECTED);
 
-            while (true) {
-                Command commandLocal = command.get();
+            while (!Thread.interrupted()) {
+                Command commandLocal = command.getAndSet(Command.NONE);
                 switch (commandLocal) {
                     case CONNECT:
                         setStatus(Status.CONNECTING);
-                        connectSync();
+                        onConnect();
                         break;
                     case RECONNECT:
                         setStatus(Status.DISCONNECTING);
-                        disconnectSync();
+                        onDisconnect();
+                        setStatus(Status.DISCONNECTED);
+                        Thread.sleep(RECONNECT_DELAY);
                         setStatus(Status.CONNECTING);
-                        connectSync();
+                        onConnect();
                         break;
                     case CONFIRM_CONNECT:
                         setStatus(Status.CONNECTED);
                         break;
                     case DISCONNECT:
                         setStatus(Status.DISCONNECTING);
-                        disconnectSync();
+                        onDisconnect();
                         setStatus(Status.DISCONNECTED);
                         break;
                 }
 
                 if (commandLocal == Command.NONE) {
                     Thread.sleep(100);
-                }
-
-                if (commandLocal != Command.NONE) {
-                    setCommand(Command.NONE);
                 }
             }
         } catch (Exception e) {
@@ -168,44 +146,5 @@ public class ConnectionMonitor implements AutoCloseable {
         if (oldStatus != newStatus) {
             log.debug("Status change: {} => {}", oldStatus.name(), newStatus.name());
         }
-    }
-
-    private void connectSync() {
-        Objects.requireNonNull(ip);
-        Objects.requireNonNull(socket);
-
-        socket.setAsyncEConnect(false);
-        socket.eConnect(ip, port, connId);
-        socket.setServerLogLevel(5); // TODO
-    }
-
-//    public void reconnect(int delay_ms) {
-//        Future<?> future = Executors.newSingleThreadExecutor().submit(() -> {
-//            log.warn("Reconnecting");
-//            disconnect();
-//
-//            try {
-//                Thread.sleep(delay_ms);
-//            } catch (InterruptedException e) {
-//                log.error("Current thread is interrupted at reconnect");
-//            }
-//
-//            connect(this.ip, this.port, this.connId);
-//        });
-////        try {
-////            future.get();
-////        } catch (InterruptedException e) {
-////            e.printStackTrace();
-////        } catch (ExecutionException e) {
-////            e.printStackTrace();
-////        }
-//    }
-
-    private void disconnectSync() {
-        Objects.requireNonNull(socket);
-        Objects.requireNonNull(reader);
-
-        socket.eDisconnect();
-        reader.close();
     }
 }

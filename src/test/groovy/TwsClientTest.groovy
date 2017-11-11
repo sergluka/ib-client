@@ -24,7 +24,7 @@ class TwsClientTest extends Specification {
         client.isConnected()
     }
 
-    def "reqCurrentTime"() {
+    def "Call reqCurrentTime is OK"() {
         when:
         def time = client.reqCurrentTime().get(10, TimeUnit.SECONDS)
 
@@ -32,62 +32,12 @@ class TwsClientTest extends Specification {
         time > 1510320971
     }
 
-    def "test constant reconnects doesn't interfere a functionality"() {
-        expect:
-
-        client.connect("127.0.0.1", 7497, 1)
-        assert client.isConnected()
-        client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
-
-        client.disconnect()
-        assert !client.isConnected()
-        client.connect("127.0.0.1", 7497, 1)
-        assert client.isConnected()
-        client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
-
-        client.disconnect()
-        assert !client.isConnected()
-        client.connect("127.0.0.1", 7497, 1)
-        assert client.isConnected()
-        client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
-
-        client.disconnect()
-        assert !client.isConnected()
-        client.connect("127.0.0.1", 7497, 1)
-        assert client.isConnected()
-        client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
-
-        client.disconnect()
-        assert !client.isConnected()
-        client.connect("127.0.0.1", 7497, 1)
-        assert client.isConnected()
-        client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
-
-        client.disconnect()
-        assert !client.isConnected()
-        client.connect("127.0.0.1", 7497, 1)
-        assert client.isConnected()
-        client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
-
-        client.disconnect()
-        assert !client.isConnected()
-        client.connect("127.0.0.1", 7497, 1)
-        assert client.isConnected()
-        client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
-
-        client.disconnect()
-        assert !client.isConnected()
-    }
-
-    def "reqContractDetails"() {
+    def "Call reqContractDetails is OK"() {
         given:
         def contract = new Contract();
         contract.symbol("EUR");
         contract.currency("USD");
         contract.secType(Types.SecType.CASH)
-//        contract.exchange("SMART")
-//        contract.symbol("NVDA")
-//        contract.secType(Types.SecType.STK)
 
         when:
         def list = client.reqContractDetails(contract).get(1, TimeUnit.MINUTES)
@@ -97,4 +47,14 @@ class TwsClientTest extends Specification {
         list.size() > 0
     }
 
+    def "Few reconnects doesn't impact to functionality"() {
+        expect:
+
+        (0..10).each {
+            client.connect("127.0.0.1", 7497, 1)
+            assert client.isConnected()
+            client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
+            client.disconnect()
+        }
+    }
 }

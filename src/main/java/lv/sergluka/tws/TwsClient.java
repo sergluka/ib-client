@@ -10,7 +10,6 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.net.SocketException;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
@@ -24,7 +23,6 @@ public class TwsClient implements AutoCloseable {
     private TwsReader reader;
     private TwsSender sender;
     private ConnectionMonitor connectionMonitor;
-    private TwsBaseWrapper wrapper;
     private AtomicInteger requestId;
 
     @Override
@@ -41,19 +39,31 @@ public class TwsClient implements AutoCloseable {
             return;
         }
 
-        requestId = new AtomicInteger(INVALID_ID);
-
-        EJavaSignal signal = new EJavaSignal();
         sender = new TwsSender(this);
-        wrapper = new TwsWrapper(sender);
-        socket = new EClientSocket(wrapper, signal);
-        reader = new TwsReader(socket, signal);
-        connectionMonitor = new ConnectionMonitor(socket, reader);
-        connectionMonitor.start();
 
-        TwsFuture fConnect = sender.postInternalRequest(TwsSender.Event.REQ_CONNECT,
-                () -> connectionMonitor.connect(ip, port, connId));
-        fConnect.get();
+        connectionMonitor = new ConnectionMonitor() {
+
+            @Override
+            protected void onConnect() {
+                init();
+
+                sender.postInternalRequest(TwsSender.Event.REQ_CONNECT,
+                    () -> {
+                        socket.setAsyncEConnect(false);
+                        socket.setServerLogLevel(5); // TODO
+                        socket.eConnect(ip, port, connId);
+                    });
+            }
+
+            @Override
+            protected void onDisconnect() {
+                socket.eDisconnect();
+                reader.close();
+            }
+        };
+        connectionMonitor.start();
+        connectionMonitor.connect();
+        connectionMonitor.waitForStatus(ConnectionMonitor.Status.CONNECTED);
     }
 
     public void disconnect() throws TimeoutException {
@@ -64,8 +74,8 @@ public class TwsClient implements AutoCloseable {
 
     public boolean isConnected() {
         return socket != null &&
-                socket.isConnected() &&
-                connectionMonitor.status() == ConnectionMonitor.Status.CONNECTED;
+               socket.isConnected() &&
+               connectionMonitor.status() == ConnectionMonitor.Status.CONNECTED;
     }
 
     @NotNull
@@ -87,6 +97,16 @@ public class TwsClient implements AutoCloseable {
         final Integer id = getAndRefreshRequestId();
         return sender.postListRequest(TwsSender.Event.REQ_CONTRACT_DETAIL, id,
                 () -> socket.reqContractDetails(id, contract));
+    }
+
+    private void init() {
+        requestId = new AtomicInteger(INVALID_ID);
+
+        EJavaSignal signal = new EJavaSignal();
+
+        final TwsBaseWrapper wrapper = new TwsWrapper(sender);
+        socket = new EClientSocket(wrapper, signal);
+        reader = new TwsReader(socket, signal);
     }
 
     private int getAndRefreshRequestId() {
@@ -118,7 +138,6 @@ public class TwsClient implements AutoCloseable {
 
             connectionMonitor.confirmConnection();
             super.connectAck();
-
         }
 
         @Override
@@ -135,7 +154,7 @@ public class TwsClient implements AutoCloseable {
                 final ConnectionMonitor.Status connectionStatus = connectionMonitor.status();
 
                 if (connectionStatus == ConnectionMonitor.Status.DISCONNECTING ||
-                        connectionStatus == ConnectionMonitor.Status.DISCONNECTED) {
+                    connectionStatus == ConnectionMonitor.Status.DISCONNECTED) {
 
                     log.debug("Socket has been closed at shutdown");
                     return;
@@ -146,11 +165,6 @@ public class TwsClient implements AutoCloseable {
             }
 
             log.error("TWS error", e);
-        }
-
-        @Override
-        public void error(final String str) {
-            log.error("TWS error: ", str);
         }
 
         @Override

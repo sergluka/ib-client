@@ -66,7 +66,7 @@ public class TwsSender {
                 return id.toString();
             }
 
-            if (id == null && event != null) {
+            if (id == null) {
                 return event.name();
             }
 

@@ -39,29 +39,13 @@ public class TwsReader {
 
     public synchronized void close() {
         processor.interrupt();
-        reader.interrupt();
-
-        try {
-            reader.join(10_000);
-        } catch (InterruptedException e) {
-            log.debug("Reader has been interrupted");
-        }
-        if (reader.isAlive()) {
-            log.warn("Fail to shutdown reader thread");
-            try {
-                reader.join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+        if (reader != null) {
+            reader.interrupt();
         }
 
-        try {
-            processor.join(STOP_TIMEOUT_MS);
-        } catch (InterruptedException e) {
-            log.debug("Reader thread has been interrupted");
-        }
-        if (processor.isAlive()) {
-            log.warn("Timeout of reader thread shutdown");
+        stopThread(processor);
+        if (reader != null) {
+            stopThread(reader);
         }
     }
 
@@ -82,6 +66,18 @@ public class TwsReader {
                     break;
                 }
             }
+        }
+    }
+
+    private void stopThread(Thread thread) {
+        try {
+            thread.join(STOP_TIMEOUT_MS);
+        } catch (InterruptedException e) {
+            log.debug("Current thread has been interrupted");
+            return;
+        }
+        if (thread.isAlive()) {
+            log.warn("Fail to shutdown thread '{}'", thread.getName());
         }
     }
 }
