@@ -1,7 +1,7 @@
 package lv.sergluka.tws.impl;
 
 import com.ib.client.*;
-import lv.sergluka.tws.impl.sender.TwsSender;
+import lv.sergluka.tws.impl.sender.Repository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,13 +9,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class TwsBaseWrapper implements EWrapper {
+public class Wrapper implements EWrapper {
 
-    private static final Logger log = LoggerFactory.getLogger(TwsBaseWrapper.class);
+    private static final Logger log = LoggerFactory.getLogger(Wrapper.class);
 
-    private final TwsSender sender;
+    private final Repository sender;
 
-    public TwsBaseWrapper(final TwsSender sender) {
+    public Wrapper(final Repository sender) {
         this.sender = sender;
     }
 
@@ -78,7 +78,7 @@ public class TwsBaseWrapper implements EWrapper {
     public void openOrder(final int orderId, final Contract contract, final Order order, final OrderState orderState) {
         log.info("openOrder: requestId={}, contract={}, order={}, orderState={}",
                 orderId, contract.symbol(), order.orderId(), orderState.status());
-        sender.confirmResponse(TwsSender.Event.REQ_ORDER_PLACE, orderId, orderState); // TODO: return struct
+        sender.confirmResponse(Repository.Event.REQ_ORDER_PLACE, orderId, orderState); // TODO: return struct
     }
 
     @Override
@@ -122,7 +122,7 @@ public class TwsBaseWrapper implements EWrapper {
 
     @Override
     public void contractDetails(final int reqId, final ContractDetails contractDetails) {
-        sender.addElement(TwsSender.Event.REQ_CONTRACT_DETAIL, reqId, contractDetails);
+        sender.addElement(Repository.Event.REQ_CONTRACT_DETAIL, reqId, contractDetails);
     }
 
     @Override
@@ -132,7 +132,7 @@ public class TwsBaseWrapper implements EWrapper {
 
     @Override
     public void contractDetailsEnd(final int reqId) {
-        sender.confirmResponse(TwsSender.Event.REQ_CONTRACT_DETAIL, reqId, null);
+        sender.confirmResponse(Repository.Event.REQ_CONTRACT_DETAIL, reqId, null);
     }
 
     @Override
@@ -225,7 +225,7 @@ public class TwsBaseWrapper implements EWrapper {
 
     @Override
     public void currentTime(final long time) {
-        sender.confirmResponse(TwsSender.Event.REQ_CURRENT_TIME, null, time);
+        sender.confirmResponse(Repository.Event.REQ_CURRENT_TIME, null, time);
     }
 
     @Override
@@ -325,7 +325,7 @@ public class TwsBaseWrapper implements EWrapper {
 
     @Override
     public void connectAck() {
-        sender.confirmResponse(TwsSender.Event.REQ_CONNECT, null, null);
+        sender.confirmResponse(Repository.Event.REQ_CONNECT, null, null);
     }
 
     @Override

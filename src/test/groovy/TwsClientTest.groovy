@@ -1,10 +1,12 @@
 import com.ib.client.Contract
+import com.ib.client.ContractDetails
 import com.ib.client.Order
 import com.ib.client.Types
 import lv.sergluka.tws.TwsClient
 import spock.lang.Specification
 
 import java.util.concurrent.TimeUnit
+import java.util.function.Consumer
 
 class TwsClientTest extends Specification {
 
@@ -48,6 +50,26 @@ class TwsClientTest extends Specification {
         list.size() > 0
     }
 
+    def "Call reqContractDetails is OK2"() {
+        given:
+        def consumer = Mock(Consumer);
+
+        def contract = new Contract();
+        contract.symbol("EUR")
+        contract.currency("USD")
+        contract.secType(Types.SecType.CASH)
+
+//        1 * consumer.accept({
+//            it.size() > 0
+//        })
+
+        when:
+        client.reqContractDetails(contract, consumer)
+
+        then:
+        1 * consumer.accept(_)
+    }
+
     def "Call placeOrder is OK"() {
         given:
         def contract = new Contract();
@@ -69,8 +91,8 @@ class TwsClientTest extends Specification {
         order.outsideRth(true)
 
         when:
-        def future = client.placeOrder(contract, order)
-        def state = future.get(10, TimeUnit.SECONDS)
+        def promise = client.placeOrder(contract, order)
+        def state = promise.get(10, TimeUnit.SECONDS)
 
         then:
         state.status()

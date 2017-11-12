@@ -144,7 +144,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
     private void setStatus(Status newStatus) {
         Status oldStatus = this.status.getAndSet(newStatus);
         if (oldStatus != newStatus) {
-            log.debug("Status change: {} => {}", oldStatus.name(), newStatus.name());
+            log.debug("OrderStatus change: {} => {}", oldStatus.name(), newStatus.name());
         }
     }
 }

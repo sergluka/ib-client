@@ -1,4 +1,4 @@
-package lv.sergluka.tws.impl.future;
+package lv.sergluka.tws.impl.promise;
 
 import lv.sergluka.tws.TwsExceptions;
 import org.jetbrains.annotations.NotNull;
@@ -7,19 +7,23 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 
-public class TwsFuture<T> {
+public class TwsPromise<T> {
 
     protected T value;
 
+    private final Runnable onTimeout;
+    private final Consumer<T> consumer;
+
     private final Condition condition;
     private final Lock lock;
-    private final Runnable onTimeout;
 
     private boolean done = false;
     private RuntimeException exception;
 
-    public TwsFuture(@NotNull Runnable onTimeout) {
+    public TwsPromise(Consumer<T> consumer, @NotNull Runnable onTimeout) {
+        this.consumer = consumer;
         this.onTimeout = onTimeout;
 
         lock = new ReentrantLock();
@@ -76,6 +80,10 @@ public class TwsFuture<T> {
             if (value != null) {
                 this.value = value;
             }
+            if (consumer != null) {
+                consumer.accept(value);
+            }
+
             done = true;
             condition.signal();
         } finally {
