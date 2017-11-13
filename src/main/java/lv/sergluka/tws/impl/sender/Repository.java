@@ -40,7 +40,7 @@ public class Repository {
         }
 
         final EventKey key = new EventKey(event, requestId);
-        final TwsPromise promise = new TwsPromise<T>(consumer, () -> promises.remove(key));
+        final TwsPromise promise = new TwsPromise<>(consumer, () -> promises.remove(key));
         post(key, promise, runnable);
         return promise;
     }
@@ -52,7 +52,7 @@ public class Repository {
         }
 
         final EventKey key = new EventKey(event, requestId);
-        final TwsPromise promise = new TwsListPromise<T>(consumer, () -> promises.remove(key));
+        final TwsPromise promise = new TwsListPromise<>(consumer, () -> promises.remove(key));
         post(key, promise, runnable);
         return promise;
     }

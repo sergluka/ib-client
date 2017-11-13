@@ -1,9 +1,12 @@
 import com.ib.client.Contract
 import com.ib.client.ContractDetails
 import com.ib.client.Order
+import com.ib.client.OrderStatus
 import com.ib.client.Types
 import lv.sergluka.tws.TwsClient
 import spock.lang.Specification
+import spock.util.concurrent.AsyncConditions
+import spock.util.concurrent.BlockingVariable
 
 import java.util.concurrent.TimeUnit
 import java.util.function.Consumer
@@ -50,56 +53,60 @@ class TwsClientTest extends Specification {
         list.size() > 0
     }
 
-    def "Call reqContractDetails is OK2"() {
+    def "Call reqContractDetails with callback is OK"() {
         given:
-        def consumer = Mock(Consumer);
+        def consumer = Mock(Consumer)
 
         def contract = new Contract();
         contract.symbol("EUR")
         contract.currency("USD")
         contract.secType(Types.SecType.CASH)
 
-//        1 * consumer.accept({
-//            it.size() > 0
-//        })
+        def result = new BlockingVariable()
+        consumer.accept(_) >> {
+            result.set(it.get(0))
+        }
 
         when:
         client.reqContractDetails(contract, consumer)
 
         then:
-        1 * consumer.accept(_)
+        def list = result.get()
+        list.size() == 1
+        list.get(0).longName() == "European Monetary Union Euro"
     }
 
     def "Call placeOrder is OK"() {
         given:
-        def contract = new Contract();
-        contract.symbol("GC");
-        contract.currency("USD");
-        contract.exchange("NYMEX");
-        contract.secType(Types.SecType.FUT)
-        contract.multiplier("100")
-        contract.lastTradeDateOrContractMonth("201712");
-
-        def order = new Order()
-        order.orderId(client.nextOrderId())
-        order.action("BUY");
-        order.orderType("STP");
-        order.auxPrice(1.1);
-        order.triggerPrice(1.23)
-        order.tif("GTC");
-        order.totalQuantity(1.0)
-        order.outsideRth(true)
+        def contract = createContract()
+        def order = createOrder()
 
         when:
         def promise = client.placeOrder(contract, order)
         def state = promise.get(10, TimeUnit.SECONDS)
 
         then:
-        state.status()
+        state.status() == OrderStatus.PreSubmitted
+    }
 
-        and:
+    def "Call placeOrder with callback is OK"() {
+        given:
+        def contract = createContract()
+        def order = createOrder()
+        def consumer = Mock(Consumer)
 
-        Thread.sleep(100000)
+        def result = new BlockingVariable()
+        consumer.accept(_) >> {
+            result.set(it.get(0))
+        }
+
+        when:
+        client.placeOrder(contract, order, consumer)
+
+        then:
+        result.get().with {
+            status() == OrderStatus.PreSubmitted
+        }
     }
 
     def "Few reconnects doesn't impact to functionality"() {
@@ -111,5 +118,29 @@ class TwsClientTest extends Specification {
             client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
             client.disconnect()
         }
+    }
+
+    private def createContract() {
+        def contract = new Contract();
+        contract.symbol("GC");
+        contract.currency("USD");
+        contract.exchange("NYMEX");
+        contract.secType(Types.SecType.FUT)
+        contract.multiplier("100")
+        contract.lastTradeDateOrContractMonth("201712");
+        return contract
+    }
+
+    private def createOrder() {
+        def order = new Order()
+        order.orderId(client.nextOrderId())
+        order.action("BUY");
+        order.orderType("STP");
+        order.auxPrice(1.1);
+        order.triggerPrice(0.23)
+        order.tif("GTC");
+        order.totalQuantity(1.0)
+        order.outsideRth(true)
+        return order;
     }
 }

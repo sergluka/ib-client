@@ -2,8 +2,11 @@ package lv.sergluka.tws.impl.promise;
 
 import lv.sergluka.tws.TwsExceptions;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -11,7 +14,10 @@ import java.util.function.Consumer;
 
 public class TwsPromise<T> {
 
+    private static final Logger log = LoggerFactory.getLogger(TwsPromise.class);
+
     protected T value;
+    protected AtomicBoolean done = new AtomicBoolean(false);
 
     private final Runnable onTimeout;
     private final Consumer<T> consumer;
@@ -19,10 +25,9 @@ public class TwsPromise<T> {
     private final Condition condition;
     private final Lock lock;
 
-    private boolean done = false;
     private RuntimeException exception;
 
-    public TwsPromise(Consumer<T> consumer, @NotNull Runnable onTimeout) {
+    public TwsPromise(Consumer<T> consumer, Runnable onTimeout) {
         this.consumer = consumer;
         this.onTimeout = onTimeout;
 
@@ -30,14 +35,14 @@ public class TwsPromise<T> {
         condition = lock.newCondition();
     }
 
-    public boolean isDone() {
-        return done;
-    }
+//    public boolean isDone() {
+//        return done;
+//    }
 
     public T get() {
         try {
             lock.lock();
-            while (!isDone()) {
+            while (!done.get()) {
                 condition.await();
             }
         } catch (InterruptedException e) {
@@ -56,13 +61,14 @@ public class TwsPromise<T> {
     public T get(long timeout, TimeUnit unit) {
         try {
             lock.lock();
-            while (!isDone()) {
+            while (!done.get()) {
                 if (!condition.await(timeout, unit)) {
                     onTimeout.run();
                     throw new TwsExceptions.ResponseTimeout("Request timeout");
                 }
             }
         } catch (InterruptedException e) {
+            log.warn("Promise has been interrupted");
             return null;
         } finally {
             lock.unlock();
@@ -81,10 +87,10 @@ public class TwsPromise<T> {
                 this.value = value;
             }
             if (consumer != null) {
-                consumer.accept(value);
+                consumer.accept(this.value);
             }
 
-            done = true;
+            done.set(true);
             condition.signal();
         } finally {
             lock.unlock();
@@ -95,7 +101,7 @@ public class TwsPromise<T> {
         lock.lock();
         try {
             exception = e;
-            done = true;
+            done.set(true);
             condition.signal();
         } finally {
             lock.unlock();

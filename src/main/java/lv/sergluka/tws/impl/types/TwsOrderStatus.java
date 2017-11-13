@@ -1,6 +1,6 @@
 package lv.sergluka.tws.impl.types;
 
-public class OrderStatus {
+public class TwsOrderStatus {
     private final int orderId;
     private final String status;
     private final double filled;
@@ -13,15 +13,15 @@ public class OrderStatus {
     private final String whyHeld;
     private final double mktCapPrice;
 
-    public OrderStatus(final int orderId,
-                       final String status,
-                       final double filled,
-                       final double remaining,
-                       final double avgFillPrice,
-                       final int permId,
-                       final int parentId,
-                       final double lastFillPrice,
-                       final int clientId, final String whyHeld, final double mktCapPrice) {
+    public TwsOrderStatus(final int orderId,
+                          final String status,
+                          final double filled,
+                          final double remaining,
+                          final double avgFillPrice,
+                          final int permId,
+                          final int parentId,
+                          final double lastFillPrice,
+                          final int clientId, final String whyHeld, final double mktCapPrice) {
         this.orderId = orderId;
         this.status = status;
         this.filled = filled;
