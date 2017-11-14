@@ -4,9 +4,11 @@ import com.ib.client.Order
 import com.ib.client.OrderStatus
 import com.ib.client.Types
 import lv.sergluka.tws.TwsClient
+import lv.sergluka.tws.impl.types.TwsOrderStatus
 import spock.lang.Specification
 import spock.util.concurrent.AsyncConditions
 import spock.util.concurrent.BlockingVariable
+import spock.util.concurrent.BlockingVariables
 
 import java.util.concurrent.TimeUnit
 import java.util.function.Consumer
@@ -32,7 +34,7 @@ class TwsClientTest extends Specification {
 
     def "Call reqCurrentTime is OK"() {
         when:
-        def time = client.reqCurrentTime().get(10, TimeUnit.SECONDS)
+        int time = client.reqCurrentTime().get(10, TimeUnit.SECONDS)
 
         then:
         time > 1510320971
@@ -107,6 +109,29 @@ class TwsClientTest extends Specification {
         result.get().with {
             status() == OrderStatus.PreSubmitted
         }
+    }
+
+    def "Expect for states after placeOrder"() {
+        given:
+        def contract = createContract()
+        def order = createOrder()
+
+        Consumer<TwsOrderStatus> consumer = Mock()
+
+        def vars = new BlockingVariables(5)
+        def calls = 1
+
+        client.setOnOrderStatus { TwsOrderStatus status ->
+            vars.setProperty("call${calls++}", status)
+        }
+
+        when:
+        client.placeOrder(contract, order).get(10, TimeUnit.SECONDS)
+
+        then:
+        vars.call1.status == "PreSubmitted"
+        vars.call2.status == "Submitted"
+        vars.call3.status == "Filled"
     }
 
     def "Few reconnects doesn't impact to functionality"() {

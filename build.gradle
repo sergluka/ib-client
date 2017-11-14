@@ -1,6 +1,18 @@
 group 'lv.sergluka'
 version '1.0-SNAPSHOT'
 
+buildscript {
+    repositories {
+        jcenter()
+    }
+
+    dependencies {
+        classpath 'eu.appsatori:gradle-fatjar-plugin:0.3'
+    }
+}
+
+apply plugin: 'eu.appsatori.fatjar'
+
 apply plugin: 'java'
 apply plugin: 'groovy'
 

@@ -3,6 +3,7 @@ package lv.sergluka.tws.impl.sender;
 import lv.sergluka.tws.TwsClient;
 import lv.sergluka.tws.TwsExceptions;
 import lv.sergluka.tws.impl.promise.TwsListPromise;
+import lv.sergluka.tws.impl.promise.TwsOrderPromise;
 import lv.sergluka.tws.impl.promise.TwsPromise;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -14,9 +15,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 @SuppressWarnings("unchecked")
-public class Repository {
+public class RequestRepository {
 
-    private static final Logger log = LoggerFactory.getLogger(Repository.class);
+    private static final Logger log = LoggerFactory.getLogger(RequestRepository.class);
 
     public enum Event {
         REQ_CONNECT,
@@ -26,10 +27,11 @@ public class Repository {
     }
 
     private final ConcurrentHashMap<EventKey, TwsPromise> promises = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, TwsOrderPromise> orders = new ConcurrentHashMap<>();
 
     private final TwsClient client;
 
-    public Repository(@NotNull TwsClient client) {
+    public RequestRepository(@NotNull TwsClient client) {
         this.client = client;
     }
 
@@ -63,6 +65,16 @@ public class Repository {
         post(key, promise, runnable);
     }
 
+//    public TwsOrderPromise postOrderRequest(Integer requestId, @NotNull Runnable runnable, Consumer<OrderStatus> consumer) {
+//        if (!client.isConnected()) {
+//            throw new TwsExceptions.NotConnected();
+//        }
+//
+//        final TwsPromise promise = new TwsOrderPromise(consumer);
+//        post(key, promise, runnable);
+//        return promise;
+//    }
+
     public void confirmResponse(@NotNull Event event, @Nullable Integer id, @Nullable Object result) {
         confirm(event, id, result);
     }
@@ -85,7 +97,7 @@ public class Repository {
         promise.setException(exception);
     }
 
-    public <E> void addElement(@NotNull Event event, int id, @NotNull E element) {
+    public <E> void addToList(@NotNull Event event, int id, @NotNull E element) {
         final EventKey key = new EventKey(event, id);
         log.debug("=> {}:add", key);
 

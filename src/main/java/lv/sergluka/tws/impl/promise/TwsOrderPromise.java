@@ -1,22 +1,16 @@
-package lv.sergluka.tws.impl.future;
+package lv.sergluka.tws.impl.promise;
 
 import com.ib.client.OrderStatus;
 import lv.sergluka.tws.impl.promise.TwsPromise;
 import lv.sergluka.tws.impl.types.TwsOrderStatus;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
 import java.util.function.Consumer;
 
-public class TwsOrderPromise extends TwsPromise<TwsOrderStatus> {
+public class TwsOrderPromise extends TwsPromise<OrderStatus> {
 
 //    private final ConcurrentHashMap<OrderStatus, Condition> conditions = new ConcurrentHashMap<>();
 
-    public TwsOrderPromise(Consumer<TwsOrderStatus> consumer) {
+    public TwsOrderPromise(Consumer<OrderStatus> consumer) {
         super(consumer, null);
     }
 

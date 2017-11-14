@@ -5,7 +5,9 @@ import lv.sergluka.tws.impl.ConnectionMonitor;
 import lv.sergluka.tws.impl.Wrapper;
 import lv.sergluka.tws.impl.TwsReader;
 import lv.sergluka.tws.impl.promise.TwsPromise;
-import lv.sergluka.tws.impl.sender.Repository;
+import lv.sergluka.tws.impl.sender.OrdersRepository;
+import lv.sergluka.tws.impl.sender.RequestRepository;
+import lv.sergluka.tws.impl.types.TwsOrderStatus;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,17 +26,18 @@ public class TwsClient implements AutoCloseable {
         REQUEST, CRITICAL
     }
 
-    ;
-
     private static final Logger log = LoggerFactory.getLogger(TwsClient.class);
     private static final int INVALID_ID = -1;
     private EClientSocket socket;
     private TwsReader reader;
-    private Repository sender;
+    private RequestRepository requestsRepository;
+    private OrdersRepository ordersRepository;
     private ConnectionMonitor connectionMonitor;
 
     private AtomicInteger requestId = new AtomicInteger(0);
     private AtomicInteger orderId;
+
+    private Consumer<TwsOrderStatus> onOrderStatus;
 
     @Override
     public void close() throws Exception {
@@ -50,7 +53,8 @@ public class TwsClient implements AutoCloseable {
             return;
         }
 
-        sender = new Repository(this);
+        requestsRepository = new RequestRepository(this);
+        ordersRepository = new OrdersRepository();
 
         connectionMonitor = new ConnectionMonitor() {
 
@@ -58,7 +62,7 @@ public class TwsClient implements AutoCloseable {
             protected void onConnect() {
                 init();
 
-                sender.postUncheckedRequest(Repository.Event.REQ_CONNECT,
+                requestsRepository.postUncheckedRequest(RequestRepository.Event.REQ_CONNECT,
                         () -> {
                             socket.setAsyncEConnect(false);
                             socket.eConnect(ip, port, connId);
@@ -89,6 +93,10 @@ public class TwsClient implements AutoCloseable {
                connectionMonitor.status() == ConnectionMonitor.Status.CONNECTED;
     }
 
+    public void setOnOrderStatus(Consumer<TwsOrderStatus> callback) {
+        onOrderStatus = callback;
+    }
+
     public int nextOrderId() {
         if (orderId.get() == INVALID_ID) {
             throw new IllegalStateException("Has no request ID from TWS");
@@ -102,12 +110,12 @@ public class TwsClient implements AutoCloseable {
     @NotNull
     public TwsPromise<Integer> reqCurrentTime() {
         shouldBeConnected();
-        return sender.postSingleRequest(Repository.Event.REQ_CURRENT_TIME, null, () -> socket.reqCurrentTime(), null);
+        return requestsRepository.postSingleRequest(RequestRepository.Event.REQ_CURRENT_TIME, null, () -> socket.reqCurrentTime(), null);
     }
 
     public void reqCurrentTime(Consumer<Integer> consumer) {
         shouldBeConnected();
-        sender.postSingleRequest(Repository.Event.REQ_CURRENT_TIME, null, () -> socket.reqCurrentTime(), consumer);
+        requestsRepository.postSingleRequest(RequestRepository.Event.REQ_CURRENT_TIME, null, () -> socket.reqCurrentTime(), consumer);
     }
 
     @NotNull
@@ -115,7 +123,7 @@ public class TwsClient implements AutoCloseable {
         shouldBeConnected();
 
         final Integer id = order.orderId();
-        return sender.postSingleRequest(Repository.Event.REQ_ORDER_PLACE, id,
+        return requestsRepository.postSingleRequest(RequestRepository.Event.REQ_ORDER_PLACE, id,
                 () -> socket.placeOrder(id, contract, order), null);
     }
 
@@ -123,7 +131,7 @@ public class TwsClient implements AutoCloseable {
         shouldBeConnected();
 
         final Integer id = order.orderId();
-        sender.postSingleRequest(Repository.Event.REQ_ORDER_PLACE, id,
+        requestsRepository.postSingleRequest(RequestRepository.Event.REQ_ORDER_PLACE, id,
                 () -> socket.placeOrder(id, contract, order), consumer);
     }
 
@@ -132,7 +140,7 @@ public class TwsClient implements AutoCloseable {
         shouldBeConnected();
 
         final Integer id = nextOrderId();
-        return sender.postListRequest(Repository.Event.REQ_CONTRACT_DETAIL, id,
+        return requestsRepository.postListRequest(RequestRepository.Event.REQ_CONTRACT_DETAIL, id,
                 () -> socket.reqContractDetails(id, contract), null);
     }
 
@@ -140,7 +148,7 @@ public class TwsClient implements AutoCloseable {
         shouldBeConnected();
 
         final Integer id = nextOrderId();
-        sender.postListRequest(Repository.Event.REQ_CONTRACT_DETAIL, id,
+        requestsRepository.postListRequest(RequestRepository.Event.REQ_CONTRACT_DETAIL, id,
                 () -> socket.reqContractDetails(id, contract), consumer);
     }
 
@@ -149,7 +157,7 @@ public class TwsClient implements AutoCloseable {
 
         EJavaSignal signal = new EJavaSignal();
 
-        final Wrapper wrapper = new TwsWrapper(sender);
+        final Wrapper wrapper = new TwsWrapper(requestsRepository);
         socket = new EClientSocket(wrapper, signal);
         reader = new TwsReader(socket, signal);
     }
@@ -166,7 +174,7 @@ public class TwsClient implements AutoCloseable {
 
     private class TwsWrapper extends Wrapper {
 
-        TwsWrapper(Repository sender) {
+        TwsWrapper(RequestRepository sender) {
             super(sender);
         }
 
@@ -184,6 +192,18 @@ public class TwsClient implements AutoCloseable {
             log.error("TWS closes the connection");
 
             connectionMonitor.reconnect();
+        }
+
+        @Override
+        public void orderStatus(int orderId, String status, double filled, double remaining, double avgFillPrice,
+                                int permId, int parentId, double lastFillPrice, int clientId, String whyHeld,
+                                double mktCapPrice) {
+
+            final TwsOrderStatus twsStatus = new TwsOrderStatus(orderId, status, filled, remaining, avgFillPrice, permId,
+                    parentId, lastFillPrice, clientId, whyHeld, mktCapPrice);
+
+            log.info("New order status: {}", twsStatus);
+            onOrderStatus.accept(twsStatus);
         }
 
         @Override
@@ -236,7 +256,7 @@ public class TwsClient implements AutoCloseable {
                         severity = ErrorType.INFO;
                         break;
                     case 202: // Order canceled
-                        sender.removeRequest(Repository.Event.REQ_ORDER_PLACE, id);
+                        requestsRepository.removeRequest(RequestRepository.Event.REQ_ORDER_PLACE, id);
                         severity = ErrorType.INFO;
                         break;
 
@@ -256,7 +276,7 @@ public class TwsClient implements AutoCloseable {
 
                 switch (severity) {
                     case REQUEST:
-                        sender.setError(id, new TwsExceptions.TerminalError(message, code));
+                        requestsRepository.setError(id, new TwsExceptions.TerminalError(message, code));
                         break;
                     case INFO:
                         log.debug("Server message - {}", message);

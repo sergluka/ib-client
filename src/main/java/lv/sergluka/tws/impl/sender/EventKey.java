@@ -4,15 +4,15 @@ import java.util.Objects;
 
 // TODO: test
 class EventKey {
-    private final Repository.Event event;
+    private final RequestRepository.Event event;
     private final Integer id;
 
-    EventKey(Repository.Event event, Integer id) {
+    EventKey(RequestRepository.Event event, Integer id) {
         this.event = event;
         this.id = id;
     }
 
-    private Repository.Event getEvent() {
+    private RequestRepository.Event getEvent() {
         return event;
     }
 

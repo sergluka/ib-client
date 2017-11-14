@@ -1,7 +1,8 @@
 package lv.sergluka.tws.impl;
 
 import com.ib.client.*;
-import lv.sergluka.tws.impl.sender.Repository;
+import lv.sergluka.tws.impl.sender.OrdersRepository;
+import lv.sergluka.tws.impl.sender.RequestRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,10 +14,65 @@ public class Wrapper implements EWrapper {
 
     private static final Logger log = LoggerFactory.getLogger(Wrapper.class);
 
-    private final Repository sender;
+    private final RequestRepository requests;
 
-    public Wrapper(final Repository sender) {
-        this.sender = sender;
+    public Wrapper(final RequestRepository requests) {
+        this.requests = requests;
+    }
+
+    @Override
+    public void connectAck() {
+        requests.confirmResponse(RequestRepository.Event.REQ_CONNECT, null, null);
+    }
+
+    @Override
+    public void orderStatus(int orderId, String status, double filled, double remaining, double avgFillPrice, int permId, int parentId, double lastFillPrice, int clientId, String whyHeld, double mktCapPrice) {
+        log.info("orderStatus: requestId={}, status={}, filled={}, remaining={}, avgFillPrice={}, permId={}, " +
+                        "parentId={}, lastFillPrice={}, clientId={}, whyHeld={}, mktCapPrice={}",
+                orderId, status, filled, remaining, avgFillPrice, permId, parentId, lastFillPrice, clientId, whyHeld,
+                mktCapPrice);
+    }
+
+    @Override
+    public void openOrder(final int orderId, final Contract contract, final Order order, final OrderState state) {
+        log.info("openOrder: requestId={}, contract={}, order={}, orderState={}",
+                orderId, contract.symbol(), order.orderId(), state.status());
+        requests.confirmResponse(RequestRepository.Event.REQ_ORDER_PLACE, orderId, state);
+    }
+
+    @Override
+    public void contractDetails(final int reqId, final ContractDetails contractDetails) {
+        requests.addToList(RequestRepository.Event.REQ_CONTRACT_DETAIL, reqId, contractDetails);
+    }
+
+    @Override
+    public void contractDetailsEnd(final int reqId) {
+        requests.confirmResponse(RequestRepository.Event.REQ_CONTRACT_DETAIL, reqId, null);
+    }
+
+    @Override
+    public void currentTime(final long time) {
+        requests.confirmResponse(RequestRepository.Event.REQ_CURRENT_TIME, null, time);
+    }
+
+    @Override
+    public void nextValidId(int id) {
+    }
+
+    @Override
+    public void error(final Exception e) {
+    }
+
+    @Override
+    public void error(final String str) {
+    }
+
+    @Override
+    public void error(final int id, final int errorCode, final String errorMsg) {
+    }
+
+    @Override
+    public void connectionClosed() {
     }
 
     @Override
@@ -67,21 +123,6 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
-    public void orderStatus(int orderId, String status, double filled, double remaining, double avgFillPrice, int permId, int parentId, double lastFillPrice, int clientId, String whyHeld, double mktCapPrice) {
-        log.info("orderStatus: requestId={}, status={}, filled={}, remaining={}, avgFillPrice={}, permId={}, " +
-                        "parentId={}, lastFillPrice={}, clientId={}, whyHeld={}, mktCapPrice={}",
-                orderId, status, filled, remaining, avgFillPrice, permId, parentId, lastFillPrice, clientId, whyHeld,
-                mktCapPrice);
-    }
-
-    @Override
-    public void openOrder(final int orderId, final Contract contract, final Order order, final OrderState orderState) {
-        log.info("openOrder: requestId={}, contract={}, order={}, orderState={}",
-                orderId, contract.symbol(), order.orderId(), orderState.status());
-        sender.confirmResponse(Repository.Event.REQ_ORDER_PLACE, orderId, orderState); // TODO: return struct
-    }
-
-    @Override
     public void openOrderEnd() {
         log.info("openOrderEnd: NOT IMPLEMENTED");
     }
@@ -117,22 +158,8 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
-    public void nextValidId(int id) {
-    }
-
-    @Override
-    public void contractDetails(final int reqId, final ContractDetails contractDetails) {
-        sender.addElement(Repository.Event.REQ_CONTRACT_DETAIL, reqId, contractDetails);
-    }
-
-    @Override
     public void bondContractDetails(final int reqId, final ContractDetails contractDetails) {
         log.debug("bondContractDetails: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void contractDetailsEnd(final int reqId) {
-        sender.confirmResponse(Repository.Event.REQ_CONTRACT_DETAIL, reqId, null);
     }
 
     @Override
@@ -191,6 +218,7 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void scannerParameters(final String xml) {
+        log.debug("scannerParameters: NOT IMPLEMENTED");
     }
 
     @Override
@@ -221,11 +249,6 @@ public class Wrapper implements EWrapper {
                             final double wap,
                             final int count) {
         log.debug("realtimeBar: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void currentTime(final long time) {
-        sender.confirmResponse(Repository.Event.REQ_CURRENT_TIME, null, time);
     }
 
     @Override
@@ -305,27 +328,6 @@ public class Wrapper implements EWrapper {
     @Override
     public void displayGroupUpdated(final int reqId, final String contractInfo) {
         log.debug("displayGroupUpdated: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void error(final Exception e) {
-    }
-
-    @Override
-    public void error(final String str) {
-    }
-
-    @Override
-    public void error(final int id, final int errorCode, final String errorMsg) {
-    }
-
-    @Override
-    public void connectionClosed() {
-    }
-
-    @Override
-    public void connectAck() {
-        sender.confirmResponse(Repository.Event.REQ_CONNECT, null, null);
     }
 
     @Override

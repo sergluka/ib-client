@@ -1,5 +1,7 @@
 package lv.sergluka.tws.impl.types;
 
+import java.util.Objects;
+
 public class TwsOrderStatus {
     private final int orderId;
     private final String status;
@@ -21,7 +23,9 @@ public class TwsOrderStatus {
                           final int permId,
                           final int parentId,
                           final double lastFillPrice,
-                          final int clientId, final String whyHeld, final double mktCapPrice) {
+                          final int clientId,
+                          final String whyHeld,
+                          final double mktCapPrice) {
         this.orderId = orderId;
         this.status = status;
         this.filled = filled;
@@ -35,47 +39,94 @@ public class TwsOrderStatus {
         this.mktCapPrice = mktCapPrice;
     }
 
-    private int getOrderId() {
+    public int getOrderId() {
         return orderId;
     }
 
-    private String getStatus() {
+    public String getStatus() {
         return status;
     }
 
-    private double getFilled() {
+    public double getFilled() {
         return filled;
     }
 
-    private double getRemaining() {
+    public double getRemaining() {
         return remaining;
     }
 
-    private double getAvgFillPrice() {
+    public double getAvgFillPrice() {
         return avgFillPrice;
     }
 
-    private int getPermId() {
+    public int getPermId() {
         return permId;
     }
 
-    private int getParentId() {
+    public int getParentId() {
         return parentId;
     }
 
-    private double getLastFillPrice() {
+    public double getLastFillPrice() {
         return lastFillPrice;
     }
 
-    private int getClientId() {
+    public int getClientId() {
         return clientId;
     }
 
-    private String getWhyHeld() {
+    public String getWhyHeld() {
         return whyHeld;
     }
 
-    private double getMktCapPrice() {
+    public double getMktCapPrice() {
         return mktCapPrice;
+    }
+
+    @Override
+    public String toString() {
+        final StringBuffer buffer = new StringBuffer("{");
+        buffer.append("orderId=").append(orderId);
+        buffer.append(", status='").append(status).append('\'');
+        buffer.append(", filled=").append(filled);
+        buffer.append(", remaining=").append(remaining);
+        buffer.append(", avgFillPrice=").append(avgFillPrice);
+        buffer.append(", permId=").append(permId);
+        buffer.append(", parentId=").append(parentId);
+        buffer.append(", lastFillPrice=").append(lastFillPrice);
+        buffer.append(", clientId=").append(clientId);
+        buffer.append(", whyHeld='").append(whyHeld).append('\'');
+        buffer.append(", mktCapPrice=").append(mktCapPrice);
+        buffer.append('}');
+        return buffer.toString();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+
+        TwsOrderStatus that = (TwsOrderStatus) obj;
+        return orderId == that.orderId &&
+                Double.compare(that.filled, filled) == 0 &&
+                Double.compare(that.remaining, remaining) == 0 &&
+                Double.compare(that.avgFillPrice, avgFillPrice) == 0 &&
+                permId == that.permId &&
+                parentId == that.parentId &&
+                Double.compare(that.lastFillPrice, lastFillPrice) == 0 &&
+                clientId == that.clientId &&
+                Double.compare(that.mktCapPrice, mktCapPrice) == 0 &&
+                Objects.equals(status, that.status) &&
+                Objects.equals(whyHeld, that.whyHeld);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(orderId, status, filled, remaining, avgFillPrice, permId, parentId, lastFillPrice, clientId,
+                            whyHeld, mktCapPrice);
     }
 }
