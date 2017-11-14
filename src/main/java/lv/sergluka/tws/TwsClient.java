@@ -16,6 +16,7 @@ import java.net.SocketException;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public class TwsClient implements AutoCloseable {
@@ -37,7 +38,7 @@ public class TwsClient implements AutoCloseable {
     private AtomicInteger requestId = new AtomicInteger(0);
     private AtomicInteger orderId;
 
-    private Consumer<TwsOrderStatus> onOrderStatus;
+    private BiConsumer<Integer, TwsOrderStatus> onOrderStatus;
 
     @Override
     public void close() throws Exception {
@@ -93,7 +94,7 @@ public class TwsClient implements AutoCloseable {
                connectionMonitor.status() == ConnectionMonitor.Status.CONNECTED;
     }
 
-    public void setOnOrderStatus(Consumer<TwsOrderStatus> callback) {
+    public void setOnOrderStatus(BiConsumer<Integer, TwsOrderStatus> callback) {
         onOrderStatus = callback;
     }
 
@@ -108,7 +109,7 @@ public class TwsClient implements AutoCloseable {
     }
 
     @NotNull
-    public TwsPromise<Integer> reqCurrentTime() {
+    public TwsPromise<Long> reqCurrentTime() {
         shouldBeConnected();
         return requestsRepository.postSingleRequest(RequestRepository.Event.REQ_CURRENT_TIME, null, () -> socket.reqCurrentTime(), null);
     }
@@ -199,11 +200,15 @@ public class TwsClient implements AutoCloseable {
                                 int permId, int parentId, double lastFillPrice, int clientId, String whyHeld,
                                 double mktCapPrice) {
 
-            final TwsOrderStatus twsStatus = new TwsOrderStatus(orderId, status, filled, remaining, avgFillPrice, permId,
-                    parentId, lastFillPrice, clientId, whyHeld, mktCapPrice);
+            final TwsOrderStatus twsStatus = new TwsOrderStatus(orderId, status, filled, remaining, avgFillPrice,
+                    permId, parentId, lastFillPrice, clientId, whyHeld, mktCapPrice);
 
             log.info("New order status: {}", twsStatus);
-            onOrderStatus.accept(twsStatus);
+            if (ordersRepository.addNewStatus(orderId, twsStatus)) {
+                if (onOrderStatus != null) {
+                    onOrderStatus.accept(orderId, twsStatus);
+                }
+            }
         }
 
         @Override

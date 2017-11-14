@@ -1,12 +1,9 @@
 import com.ib.client.Contract
-import com.ib.client.ContractDetails
 import com.ib.client.Order
 import com.ib.client.OrderStatus
 import com.ib.client.Types
 import lv.sergluka.tws.TwsClient
-import lv.sergluka.tws.impl.types.TwsOrderStatus
 import spock.lang.Specification
-import spock.util.concurrent.AsyncConditions
 import spock.util.concurrent.BlockingVariable
 import spock.util.concurrent.BlockingVariables
 
@@ -116,12 +113,11 @@ class TwsClientTest extends Specification {
         def contract = createContract()
         def order = createOrder()
 
-        Consumer<TwsOrderStatus> consumer = Mock()
-
-        def vars = new BlockingVariables(5)
+        def vars = new BlockingVariables(60)
         def calls = 1
 
-        client.setOnOrderStatus { TwsOrderStatus status ->
+        client.setOnOrderStatus { id, status ->
+            assert id == order.orderId()
             vars.setProperty("call${calls++}", status)
         }
 
@@ -129,9 +125,8 @@ class TwsClientTest extends Specification {
         client.placeOrder(contract, order).get(10, TimeUnit.SECONDS)
 
         then:
-        vars.call1.status == "PreSubmitted"
-        vars.call2.status == "Submitted"
-        vars.call3.status == "Filled"
+        vars.call1.status == OrderStatus.PreSubmitted
+        vars.call2.status == OrderStatus.Filled
     }
 
     def "Few reconnects doesn't impact to functionality"() {

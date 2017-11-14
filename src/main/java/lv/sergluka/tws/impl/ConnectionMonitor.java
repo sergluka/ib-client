@@ -131,6 +131,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
                     Thread.sleep(100);
                 }
             }
+        } catch (InterruptedException ignored) {
         } catch (Exception e) {
             log.error("Exception in Connection Monitor", e);
         }

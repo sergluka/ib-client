@@ -1,10 +1,12 @@
 package lv.sergluka.tws.impl.types;
 
+import com.ib.client.OrderStatus;
+
 import java.util.Objects;
 
 public class TwsOrderStatus {
     private final int orderId;
-    private final String status;
+    private final OrderStatus status;
     private final double filled;
     private final double remaining;
     private final double avgFillPrice;
@@ -27,7 +29,7 @@ public class TwsOrderStatus {
                           final String whyHeld,
                           final double mktCapPrice) {
         this.orderId = orderId;
-        this.status = status;
+        this.status = OrderStatus.get(status);
         this.filled = filled;
         this.remaining = remaining;
         this.avgFillPrice = avgFillPrice;
@@ -43,7 +45,7 @@ public class TwsOrderStatus {
         return orderId;
     }
 
-    public String getStatus() {
+    public OrderStatus getStatus() {
         return status;
     }
 

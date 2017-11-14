@@ -27,10 +27,6 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void orderStatus(int orderId, String status, double filled, double remaining, double avgFillPrice, int permId, int parentId, double lastFillPrice, int clientId, String whyHeld, double mktCapPrice) {
-        log.info("orderStatus: requestId={}, status={}, filled={}, remaining={}, avgFillPrice={}, permId={}, " +
-                        "parentId={}, lastFillPrice={}, clientId={}, whyHeld={}, mktCapPrice={}",
-                orderId, status, filled, remaining, avgFillPrice, permId, parentId, lastFillPrice, clientId, whyHeld,
-                mktCapPrice);
     }
 
     @Override

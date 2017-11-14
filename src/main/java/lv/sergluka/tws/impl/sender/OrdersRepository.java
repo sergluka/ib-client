@@ -14,10 +14,8 @@ public class OrdersRepository {
     private static final Logger log = LoggerFactory.getLogger(OrdersRepository.class);
 
     private final ConcurrentHashMap<Integer, TwsOrder> orders = new ConcurrentHashMap<>();
-    private final BiConsumer<Integer, TwsOrderStatus> onNewStatus;
 
-    public OrdersRepository(BiConsumer<Integer, TwsOrderStatus> onNewStatus) {
-        this.onNewStatus = onNewStatus;
+    public OrdersRepository() {
     }
 
     public boolean addNewStatus(int orderId, @NotNull TwsOrderStatus status) {
@@ -28,7 +26,6 @@ public class OrdersRepository {
         }
 
         order.addStatus(status);
-        onNewStatus.accept(orderId, status);
         return true;
     }
 }
