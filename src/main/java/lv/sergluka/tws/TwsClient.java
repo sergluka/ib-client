@@ -41,6 +41,9 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
 
     // TODO: Temporall accessors as a short term solution.
     // After all TWS client functionality will be done, should e removed
+    public EClientSocket getSocket() {
+        return socket;
+    }
     AtomicInteger getOrderId() {
         return orderId;
     }
@@ -49,9 +52,6 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     }
     ConnectionMonitor getConnectionMonitor() {
         return connectionMonitor;
-    }
-    EClientSocket getSocket() {
-        return socket;
     }
     TwsReader getReader() {
         return reader;

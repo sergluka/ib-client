@@ -12,6 +12,8 @@ class Main {
     public static void main(String[] args) throws Exception {
         try (TwsClientImpl client = new TwsClientImpl()) {
             client.connect("127.0.0.1", 7497, 1);
+
+            // client.getSocket().placeOrder(.....)
         }
     }
 }
