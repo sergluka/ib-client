@@ -12,26 +12,20 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.SocketException;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-public class TwsClient implements AutoCloseable {
-
-    private enum ErrorType {
-        INFO,
-        ERROR,
-        REQUEST, CRITICAL
-    }
+public class TwsClient extends TwsWrapper implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(TwsClient.class);
     private static final int INVALID_ID = -1;
+    static private RequestRepository requests;
+
     private EClientSocket socket;
     private TwsReader reader;
-    private RequestRepository requestsRepository;
     private OrdersRepository ordersRepository;
     private ConnectionMonitor connectionMonitor;
 
@@ -39,6 +33,35 @@ public class TwsClient implements AutoCloseable {
     private AtomicInteger orderId;
 
     private BiConsumer<Integer, TwsOrderStatus> onOrderStatus;
+
+    public TwsClient() {
+        super();
+        setClient(this);
+    }
+
+    // TODO: Temporall accessors as a short term solution.
+    // After all TWS client functionality will be done, should e removed
+    AtomicInteger getOrderId() {
+        return orderId;
+    }
+    BiConsumer<Integer, TwsOrderStatus> getOnOrderStatus() {
+        return onOrderStatus;
+    }
+    ConnectionMonitor getConnectionMonitor() {
+        return connectionMonitor;
+    }
+    EClientSocket getSocket() {
+        return socket;
+    }
+    TwsReader getReader() {
+        return reader;
+    }
+    RequestRepository getRequests() {
+        return requests;
+    }
+    OrdersRepository getOrdersRepository() {
+        return ordersRepository;
+    }
 
     @Override
     public void close() throws Exception {
@@ -54,7 +77,9 @@ public class TwsClient implements AutoCloseable {
             return;
         }
 
-        requestsRepository = new RequestRepository(this);
+        requests = new RequestRepository(this);
+        setRequests(requests);
+
         ordersRepository = new OrdersRepository();
 
         connectionMonitor = new ConnectionMonitor() {
@@ -63,7 +88,7 @@ public class TwsClient implements AutoCloseable {
             protected void onConnect() {
                 init();
 
-                requestsRepository.postUncheckedRequest(RequestRepository.Event.REQ_CONNECT,
+                requests.postUncheckedRequest(RequestRepository.Event.REQ_CONNECT,
                         () -> {
                             socket.setAsyncEConnect(false);
                             socket.eConnect(ip, port, connId);
@@ -111,12 +136,12 @@ public class TwsClient implements AutoCloseable {
     @NotNull
     public TwsPromise<Long> reqCurrentTime() {
         shouldBeConnected();
-        return requestsRepository.postSingleRequest(RequestRepository.Event.REQ_CURRENT_TIME, null, () -> socket.reqCurrentTime(), null);
+        return requests.postSingleRequest(RequestRepository.Event.REQ_CURRENT_TIME, null, () -> socket.reqCurrentTime(), null);
     }
 
     public void reqCurrentTime(Consumer<Integer> consumer) {
         shouldBeConnected();
-        requestsRepository.postSingleRequest(RequestRepository.Event.REQ_CURRENT_TIME, null, () -> socket.reqCurrentTime(), consumer);
+        requests.postSingleRequest(RequestRepository.Event.REQ_CURRENT_TIME, null, () -> socket.reqCurrentTime(), consumer);
     }
 
     @NotNull
@@ -124,7 +149,7 @@ public class TwsClient implements AutoCloseable {
         shouldBeConnected();
 
         final Integer id = order.orderId();
-        return requestsRepository.postSingleRequest(RequestRepository.Event.REQ_ORDER_PLACE, id,
+        return requests.postSingleRequest(RequestRepository.Event.REQ_ORDER_PLACE, id,
                 () -> socket.placeOrder(id, contract, order), null);
     }
 
@@ -132,7 +157,7 @@ public class TwsClient implements AutoCloseable {
         shouldBeConnected();
 
         final Integer id = order.orderId();
-        requestsRepository.postSingleRequest(RequestRepository.Event.REQ_ORDER_PLACE, id,
+        requests.postSingleRequest(RequestRepository.Event.REQ_ORDER_PLACE, id,
                 () -> socket.placeOrder(id, contract, order), consumer);
     }
 
@@ -141,7 +166,7 @@ public class TwsClient implements AutoCloseable {
         shouldBeConnected();
 
         final Integer id = nextOrderId();
-        return requestsRepository.postListRequest(RequestRepository.Event.REQ_CONTRACT_DETAIL, id,
+        return requests.postListRequest(RequestRepository.Event.REQ_CONTRACT_DETAIL, id,
                 () -> socket.reqContractDetails(id, contract), null);
     }
 
@@ -149,7 +174,7 @@ public class TwsClient implements AutoCloseable {
         shouldBeConnected();
 
         final Integer id = nextOrderId();
-        requestsRepository.postListRequest(RequestRepository.Event.REQ_CONTRACT_DETAIL, id,
+        requests.postListRequest(RequestRepository.Event.REQ_CONTRACT_DETAIL, id,
                 () -> socket.reqContractDetails(id, contract), consumer);
     }
 
@@ -158,8 +183,8 @@ public class TwsClient implements AutoCloseable {
 
         EJavaSignal signal = new EJavaSignal();
 
-        final Wrapper wrapper = new TwsWrapper(requestsRepository);
-        socket = new EClientSocket(wrapper, signal);
+//        final Wrapper wrapper = new TwsWrapper(this, requests);
+        socket = new EClientSocket(this, signal);
         reader = new TwsReader(socket, signal);
     }
 
@@ -173,129 +198,4 @@ public class TwsClient implements AutoCloseable {
         }
     }
 
-    private class TwsWrapper extends Wrapper {
-
-        TwsWrapper(RequestRepository sender) {
-            super(sender);
-        }
-
-        @Override
-        public void connectAck() {
-            log.info("Connection is opened. version: {}", socket.serverVersion());
-            reader.start(); // TODO: maybe move it into Conn Manager thread
-
-            connectionMonitor.confirmConnection();
-            super.connectAck();
-        }
-
-        @Override
-        public void connectionClosed() {
-            log.error("TWS closes the connection");
-
-            connectionMonitor.reconnect();
-        }
-
-        @Override
-        public void orderStatus(int orderId, String status, double filled, double remaining, double avgFillPrice,
-                                int permId, int parentId, double lastFillPrice, int clientId, String whyHeld,
-                                double mktCapPrice) {
-
-            final TwsOrderStatus twsStatus = new TwsOrderStatus(orderId, status, filled, remaining, avgFillPrice,
-                    permId, parentId, lastFillPrice, clientId, whyHeld, mktCapPrice);
-
-            log.info("New order status: {}", twsStatus);
-            if (ordersRepository.addNewStatus(orderId, twsStatus)) {
-                if (onOrderStatus != null) {
-                    onOrderStatus.accept(orderId, twsStatus);
-                }
-            }
-        }
-
-        @Override
-        public void error(final Exception e) {
-            if (e instanceof SocketException) {
-
-                final ConnectionMonitor.Status connectionStatus = connectionMonitor.status();
-
-                if (connectionStatus == ConnectionMonitor.Status.DISCONNECTING ||
-                    connectionStatus == ConnectionMonitor.Status.DISCONNECTED) {
-
-                    log.debug("Socket has been closed at shutdown");
-                    return;
-                }
-
-                log.warn("Connection lost", e);
-                connectionMonitor.reconnect();
-            }
-
-            log.error("TWS error", e);
-        }
-
-        @Override
-        public void error(final int id, final int code, final String message) {
-            new TerminalErrorHandler(id, code, message).invoke();
-        }
-
-        @Override
-        public void nextValidId(int id) {
-            log.debug("New request ID: {}", id);
-            orderId.set(id);
-        }
-
-        private class TerminalErrorHandler {
-            private final int id;
-            private final int code;
-            private final String message;
-
-            public TerminalErrorHandler(final int id, final int code, final String message) {
-                this.id = id;
-                this.code = code;
-                this.message = message;
-            }
-
-            public void invoke() {
-                ErrorType severity;
-                switch (code) {
-                    case 2104:
-                    case 2106:
-                        severity = ErrorType.INFO;
-                        break;
-                    case 202: // Order canceled
-                        requestsRepository.removeRequest(RequestRepository.Event.REQ_ORDER_PLACE, id);
-                        severity = ErrorType.INFO;
-                        break;
-
-                    case 320: // Server error when reading an API client request.
-                    case 321: // Server error when validating an API client request.
-                        severity = ErrorType.REQUEST;
-                        break;
-
-                    case 503: // The TWS is out of date and must be upgraded
-                        severity = ErrorType.CRITICAL;
-                        break;
-
-                    default:
-                        severity = ErrorType.ERROR;
-                        break;
-                }
-
-                switch (severity) {
-                    case REQUEST:
-                        requestsRepository.setError(id, new TwsExceptions.TerminalError(message, code));
-                        break;
-                    case INFO:
-                        log.debug("Server message - {}", message);
-                        break;
-                    case ERROR:
-                        log.error("Terminal error: code={}, msg={}. Reconnecting.", code, message);
-                        connectionMonitor.reconnect();
-                        break;
-                    case CRITICAL:
-                        log.error("Terminal critical error: code={}, msg={}. Disconnecting.", code, message);
-                        connectionMonitor.disconnect();
-                        break;
-                }
-            }
-        }
-    }
 }

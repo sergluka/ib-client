@@ -14,9 +14,12 @@ public class Wrapper implements EWrapper {
 
     private static final Logger log = LoggerFactory.getLogger(Wrapper.class);
 
-    private final RequestRepository requests;
+    private RequestRepository requests;
 
-    public Wrapper(final RequestRepository requests) {
+    public Wrapper() {
+    }
+
+    protected void setRequests(final RequestRepository requests) {
         this.requests = requests;
     }
 
