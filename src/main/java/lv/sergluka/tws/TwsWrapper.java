@@ -1,9 +1,11 @@
 package lv.sergluka.tws;
 
+import com.ib.client.Contract;
 import lv.sergluka.tws.impl.ConnectionMonitor;
 import lv.sergluka.tws.impl.Wrapper;
 import lv.sergluka.tws.impl.sender.RequestRepository;
 import lv.sergluka.tws.impl.types.TwsOrderStatus;
+import lv.sergluka.tws.impl.types.TwsPosition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,6 +61,21 @@ class TwsWrapper extends Wrapper {
                 twsClient.getOnOrderStatus().accept(orderId, twsStatus);
             }
         }
+    }
+
+    @Override
+    public void position(String account, Contract contract, double pos, double avgCost) {
+        log.info("Position change: {}/{}/{}", account, contract.localSymbol(), pos);
+
+        if (twsClient.getOnPosition() != null) {
+            TwsPosition position = new TwsPosition(account, contract, pos, avgCost);
+            twsClient.getOnPosition().accept(position);
+        }
+    }
+
+    @Override
+    public void positionEnd() {
+        twsClient.getOnPosition().accept(null);
     }
 
     @Override

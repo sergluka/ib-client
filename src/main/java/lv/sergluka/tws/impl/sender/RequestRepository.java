@@ -47,7 +47,7 @@ public class RequestRepository {
         return promise;
     }
 
-    public <T> TwsPromise<T> postListRequest(@NotNull Event event, int requestId,
+    public <T> TwsPromise<T> postListRequest(@NotNull Event event, Integer requestId,
                                              @NotNull Runnable runnable, Consumer<List<T>> consumer) {
         if (!client.isConnected()) {
             throw new TwsExceptions.NotConnected();
@@ -75,7 +75,7 @@ public class RequestRepository {
 //        return promise;
 //    }
 
-    public void confirmResponse(@NotNull Event event, @Nullable Integer id, @Nullable Object result) {
+    public void confirmAndRemove(@NotNull Event event, @Nullable Integer id, @Nullable Object result) {
         confirm(event, id, result);
     }
 
@@ -97,7 +97,7 @@ public class RequestRepository {
         promise.setException(exception);
     }
 
-    public <E> void addToList(@NotNull Event event, int id, @NotNull E element) {
+    public <E> void addToList(@NotNull Event event, Integer id, @NotNull E element) {
         final EventKey key = new EventKey(event, id);
         log.debug("=> {}:add", key);
 

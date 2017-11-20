@@ -31,7 +31,7 @@ class TwsClientTest extends Specification {
 
     def "Call reqCurrentTime is OK"() {
         when:
-        int time = client.reqCurrentTime().get(10, TimeUnit.SECONDS)
+        long time = client.reqCurrentTime().get(10, TimeUnit.SECONDS)
 
         then:
         time > 1510320971
@@ -116,7 +116,7 @@ class TwsClientTest extends Specification {
         def vars = new BlockingVariables(60)
         def calls = 1
 
-        client.setOnOrderStatus { id, status ->
+        client.subscribeOnOrderStatus { id, status ->
             assert id == order.orderId()
             vars.setProperty("call${calls++}", status)
         }
@@ -127,6 +127,25 @@ class TwsClientTest extends Specification {
         then:
         vars.call1.status == OrderStatus.PreSubmitted
         vars.call2.status == OrderStatus.Filled
+    }
+
+    def "Request positions"() {
+        given:
+        def vars = new BlockingVariables(60)
+        vars.data = []
+
+        when:
+        client.subscribeOnPosition { position ->
+            if (position != null) {
+                vars.data.add(position)
+            } else {
+                vars.done = true
+            }
+        }
+
+        then:
+        vars.done
+        vars.data.size() > 0
     }
 
     def "Few reconnects doesn't impact to functionality"() {

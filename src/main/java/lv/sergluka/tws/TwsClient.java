@@ -8,6 +8,7 @@ import lv.sergluka.tws.impl.promise.TwsPromise;
 import lv.sergluka.tws.impl.sender.OrdersRepository;
 import lv.sergluka.tws.impl.sender.RequestRepository;
 import lv.sergluka.tws.impl.types.TwsOrderStatus;
+import lv.sergluka.tws.impl.types.TwsPosition;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +34,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     private AtomicInteger orderId;
 
     private BiConsumer<Integer, TwsOrderStatus> onOrderStatus;
+    private Consumer<TwsPosition> onPosition;
 
     public TwsClient() {
         super();
@@ -49,6 +51,9 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     }
     BiConsumer<Integer, TwsOrderStatus> getOnOrderStatus() {
         return onOrderStatus;
+    }
+    Consumer<TwsPosition> getOnPosition() {
+        return onPosition;
     }
     ConnectionMonitor getConnectionMonitor() {
         return connectionMonitor;
@@ -119,8 +124,17 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
                connectionMonitor.status() == ConnectionMonitor.Status.CONNECTED;
     }
 
-    public void setOnOrderStatus(BiConsumer<Integer, TwsOrderStatus> callback) {
+    public void subscribeOnOrderStatus(BiConsumer<Integer, TwsOrderStatus> callback) {
         onOrderStatus = callback;
+    }
+
+    public void subscribeOnPosition(Consumer<TwsPosition> callback) {
+        onPosition = callback;
+        socket.reqPositions();
+    }
+
+    public void unsubscribeOnPosition() {
+        socket.cancelPositions();
     }
 
     public int nextOrderId() {
@@ -197,5 +211,4 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
             throw new TwsExceptions.NotConnected();
         }
     }
-
 }

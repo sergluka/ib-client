@@ -1,8 +1,8 @@
 package lv.sergluka.tws.impl;
 
 import com.ib.client.*;
-import lv.sergluka.tws.impl.sender.OrdersRepository;
 import lv.sergluka.tws.impl.sender.RequestRepository;
+import lv.sergluka.tws.impl.types.TwsPosition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,7 +25,7 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void connectAck() {
-        requests.confirmResponse(RequestRepository.Event.REQ_CONNECT, null, null);
+        requests.confirmAndRemove(RequestRepository.Event.REQ_CONNECT, null, null);
     }
 
     @Override
@@ -36,7 +36,7 @@ public class Wrapper implements EWrapper {
     public void openOrder(final int orderId, final Contract contract, final Order order, final OrderState state) {
         log.info("openOrder: requestId={}, contract={}, order={}, orderState={}",
                 orderId, contract.symbol(), order.orderId(), state.status());
-        requests.confirmResponse(RequestRepository.Event.REQ_ORDER_PLACE, orderId, state);
+        requests.confirmAndRemove(RequestRepository.Event.REQ_ORDER_PLACE, orderId, state);
     }
 
     @Override
@@ -46,12 +46,20 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void contractDetailsEnd(final int reqId) {
-        requests.confirmResponse(RequestRepository.Event.REQ_CONTRACT_DETAIL, reqId, null);
+        requests.confirmAndRemove(RequestRepository.Event.REQ_CONTRACT_DETAIL, reqId, null);
     }
 
     @Override
     public void currentTime(final long time) {
-        requests.confirmResponse(RequestRepository.Event.REQ_CURRENT_TIME, null, time);
+        requests.confirmAndRemove(RequestRepository.Event.REQ_CURRENT_TIME, null, time);
+    }
+
+    @Override
+    public void position(final String account, final Contract contract, final double pos, final double avgCost) {
+    }
+
+    @Override
+    public void positionEnd() {
     }
 
     @Override
@@ -273,16 +281,6 @@ public class Wrapper implements EWrapper {
     @Override
     public void commissionReport(final CommissionReport commissionReport) {
         log.debug("commissionReport: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void position(final String account, final Contract contract, final double pos, final double avgCost) {
-        log.debug("position: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void positionEnd() {
-        log.debug("positionEnd: NOT IMPLEMENTED");
     }
 
     @Override
