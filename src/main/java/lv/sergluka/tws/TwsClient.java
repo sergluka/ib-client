@@ -2,7 +2,6 @@ package lv.sergluka.tws;
 
 import com.ib.client.*;
 import lv.sergluka.tws.impl.ConnectionMonitor;
-import lv.sergluka.tws.impl.Wrapper;
 import lv.sergluka.tws.impl.TwsReader;
 import lv.sergluka.tws.impl.promise.TwsPromise;
 import lv.sergluka.tws.impl.sender.OrdersRepository;
@@ -14,11 +13,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+@SuppressWarnings("unused")
 public class TwsClient extends TwsWrapper implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(TwsClient.class);
@@ -41,7 +40,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         setClient(this);
     }
 
-    // TODO: Temporall accessors as a short term solution.
+    // TODO: Temporal accessors as a short term solution.
     // After all TWS client functionality will be done, should e removed
     public EClientSocket getSocket() {
         return socket;
@@ -94,7 +93,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         connectionMonitor.waitForStatus(ConnectionMonitor.Status.CONNECTED);
     }
 
-    public void disconnect() throws TimeoutException {
+    public void disconnect() {
         log.debug("Disconnecting...");
         connectionMonitor.disconnect();
         log.info("Disconnected");
@@ -127,9 +126,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
             throw new IllegalStateException("Has no request ID from TWS");
         }
 
-        int id = orderId.getAndSet(INVALID_ID);
-        socket.reqIds(-1);
-        return id;
+        return orderId.getAndIncrement();
     }
 
     @NotNull
@@ -158,6 +155,14 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         final Integer id = order.orderId();
         requests.postSingleRequest(RequestRepository.Event.REQ_ORDER_PLACE, id,
                 () -> socket.placeOrder(id, contract, order), consumer);
+    }
+
+    public void cancelOrder(int orderId) {
+        socket.cancelOrder(orderId);
+    }
+
+    public void reqGlobalCancel(int orderId) {
+        socket.reqGlobalCancel();
     }
 
     @NotNull

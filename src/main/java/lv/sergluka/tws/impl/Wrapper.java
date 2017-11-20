@@ -40,6 +40,11 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
+    public void openOrderEnd() {
+        log.info("openOrderEnd: NOT IMPLEMENTED");
+    }
+
+    @Override
     public void contractDetails(final int reqId, final ContractDetails contractDetails) {
         requests.addToList(RequestRepository.Event.REQ_CONTRACT_DETAIL, reqId, contractDetails);
     }
@@ -127,11 +132,6 @@ public class Wrapper implements EWrapper {
                         final double dividendImpact,
                         final double dividendsToLastTradeDate) {
         log.debug("dividendsToLastTradeDate: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void openOrderEnd() {
-        log.info("openOrderEnd: NOT IMPLEMENTED");
     }
 
     @Override
