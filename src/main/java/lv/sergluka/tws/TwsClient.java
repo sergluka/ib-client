@@ -129,11 +129,12 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     }
 
     public void subscribeOnPosition(Consumer<TwsPosition> callback) {
+        shouldBeConnected();
         onPosition = callback;
-        socket.reqPositions();
     }
 
     public void unsubscribeOnPosition() {
+        shouldBeConnected();
         socket.cancelPositions();
     }
 
