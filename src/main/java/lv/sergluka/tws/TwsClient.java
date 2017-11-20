@@ -23,18 +23,18 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(TwsClient.class);
     private static final int INVALID_ID = -1;
-    static private RequestRepository requests;
+    protected static RequestRepository requests;
 
     private EClientSocket socket;
-    private TwsReader reader;
-    private OrdersRepository ordersRepository;
-    private ConnectionMonitor connectionMonitor;
+    protected TwsReader reader;
+    protected OrdersRepository ordersRepository;
+    protected ConnectionMonitor connectionMonitor;
 
-    private AtomicInteger requestId = new AtomicInteger(0);
+//    private AtomicInteger requestId = new AtomicInteger(0);
     private AtomicInteger orderId;
 
-    private BiConsumer<Integer, TwsOrderStatus> onOrderStatus;
-    private Consumer<TwsPosition> onPosition;
+    protected BiConsumer<Integer, TwsOrderStatus> onOrderStatus;
+    protected Consumer<TwsPosition> onPosition;
 
     public TwsClient() {
         super();
@@ -48,24 +48,6 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     }
     AtomicInteger getOrderId() {
         return orderId;
-    }
-    BiConsumer<Integer, TwsOrderStatus> getOnOrderStatus() {
-        return onOrderStatus;
-    }
-    Consumer<TwsPosition> getOnPosition() {
-        return onPosition;
-    }
-    ConnectionMonitor getConnectionMonitor() {
-        return connectionMonitor;
-    }
-    TwsReader getReader() {
-        return reader;
-    }
-    RequestRepository getRequests() {
-        return requests;
-    }
-    OrdersRepository getOrdersRepository() {
-        return ordersRepository;
     }
 
     @Override
@@ -131,11 +113,13 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     public void subscribeOnPosition(Consumer<TwsPosition> callback) {
         shouldBeConnected();
         onPosition = callback;
+        socket.reqPositions();
     }
 
     public void unsubscribeOnPosition() {
         shouldBeConnected();
         socket.cancelPositions();
+        onPosition = null;
     }
 
     public int nextOrderId() {

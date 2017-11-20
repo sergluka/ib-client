@@ -131,7 +131,7 @@ class TwsClientTest extends Specification {
 
     def "Request positions"() {
         given:
-        def vars = new BlockingVariables(60)
+        def vars = new BlockingVariables(5)
         vars.data = []
 
         when:
