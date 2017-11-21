@@ -45,7 +45,7 @@ abstract class TerminalErrorHandler {
         }
 
         switch (severity) {
-            case REQUEST:
+            case REQUEST://TODO
                 TwsClient.requests.setError(id, new TwsExceptions.TerminalError(message, code));
                 break;
             case INFO:

@@ -6,6 +6,7 @@ import lv.sergluka.tws.impl.TwsReader;
 import lv.sergluka.tws.impl.promise.TwsPromise;
 import lv.sergluka.tws.impl.sender.OrdersRepository;
 import lv.sergluka.tws.impl.sender.RequestRepository;
+import lv.sergluka.tws.impl.types.TwsOrder;
 import lv.sergluka.tws.impl.types.TwsOrderStatus;
 import lv.sergluka.tws.impl.types.TwsPosition;
 import org.jetbrains.annotations.NotNull;
@@ -163,6 +164,14 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
 
     public void reqGlobalCancel(int orderId) {
         socket.reqGlobalCancel();
+    }
+
+    @NotNull
+    public TwsPromise<List<TwsOrder>> reqAllOpenOrders() {
+        shouldBeConnected();
+
+        return requests.postListRequest(RequestRepository.Event.REQ_CONTRACT_DETAIL, null,
+                () -> socket.reqAllOpenOrders(), null);
     }
 
     @NotNull

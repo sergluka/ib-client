@@ -88,6 +88,35 @@ class TwsClientTest extends Specification {
         state.status() == OrderStatus.PreSubmitted
     }
 
+    def "Few placeOrder shouldn't interfere"() {
+        given:
+        def contract = createContract()
+
+        when:
+        def promise1 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def promise2 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def promise3 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def promise4 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def promise5 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def promise6 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def promise7 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def promise8 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def promise9 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def promise10 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+
+        then:
+        promise1.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
+        promise2.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
+        promise3.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
+        promise4.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
+        promise5.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
+        promise6.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
+        promise7.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
+        promise8.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
+        promise9.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
+        promise10.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
+    }
+
     def "Call placeOrder with callback is OK"() {
         given:
         def contract = createContract()
@@ -127,6 +156,27 @@ class TwsClientTest extends Specification {
         then:
         vars.call1.status == OrderStatus.PreSubmitted
         vars.call2.status == OrderStatus.Filled
+    }
+
+
+    def "Request orders and plca orders shouldn't interfere each other"() {
+        given:
+        def contract = createContract()
+
+        when:
+        def promise1 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def list1 = client.reqAllOpenOrders()
+        def promise2 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def promise3 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def list2 = client.reqAllOpenOrders()
+        def promise4 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def promise5 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def list3 = client.reqAllOpenOrders()
+        def promise6 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def list4 = client.reqAllOpenOrders().get(10, TimeUnit.SECONDS);
+
+        then:
+        list4
     }
 
     def "Request positions"() {
@@ -171,8 +221,12 @@ class TwsClientTest extends Specification {
     }
 
     private def createOrder() {
+        return createOrder(client.nextOrderId())
+    }
+
+    private def createOrder(int id) {
         def order = new Order()
-        order.orderId(client.nextOrderId())
+        order.orderId(id)
         order.action("BUY");
         order.orderType("STP");
         order.auxPrice(1.1);
