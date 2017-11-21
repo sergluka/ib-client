@@ -3,7 +3,7 @@ package lv.sergluka.tws.impl.sender;
 import java.util.Objects;
 
 // TODO: test
-class EventKey {
+public class EventKey {
     private final RequestRepository.Event event;
     private final Integer id;
 

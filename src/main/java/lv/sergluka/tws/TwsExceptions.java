@@ -1,5 +1,7 @@
 package lv.sergluka.tws;
 
+import lv.sergluka.tws.impl.sender.EventKey;
+
 public class TwsExceptions {
 
     public static class TerminalError extends RuntimeException {
@@ -29,4 +31,11 @@ public class TwsExceptions {
             super(message);
         }
     }
+
+    public static class DuplicatedRequest extends RuntimeException {
+        public DuplicatedRequest(EventKey key) {
+            super(String.format("Request already exists: %s", key));
+        }
+    }
+
 }

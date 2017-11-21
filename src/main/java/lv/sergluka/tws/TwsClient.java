@@ -4,7 +4,7 @@ import com.ib.client.*;
 import lv.sergluka.tws.impl.ConnectionMonitor;
 import lv.sergluka.tws.impl.TwsReader;
 import lv.sergluka.tws.impl.promise.TwsPromise;
-import lv.sergluka.tws.impl.sender.OrdersRepository;
+import lv.sergluka.tws.impl.sender.OrderStatusesRepository;
 import lv.sergluka.tws.impl.sender.RequestRepository;
 import lv.sergluka.tws.impl.types.TwsOrder;
 import lv.sergluka.tws.impl.types.TwsOrderStatus;
@@ -27,7 +27,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
 
     private EClientSocket socket;
     protected TwsReader reader;
-    protected OrdersRepository ordersRepository;
+    protected OrderStatusesRepository ordersRepository;
     protected ConnectionMonitor connectionMonitor;
 
 //    private AtomicInteger requestId = new AtomicInteger(0);
@@ -67,7 +67,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         requests = new RequestRepository(this);
         setRequests(requests);
 
-        ordersRepository = new OrdersRepository();
+        ordersRepository = new OrderStatusesRepository();
 
         connectionMonitor = new ConnectionMonitor() {
 
@@ -142,7 +142,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     }
 
     @NotNull
-    public TwsPromise<OrderState> placeOrder(@NotNull Contract contract, @NotNull Order order) {
+    public TwsPromise<TwsOrder> placeOrder(@NotNull Contract contract, @NotNull Order order) {
         shouldBeConnected();
 
         final Integer id = order.orderId();
@@ -170,7 +170,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     public TwsPromise<List<TwsOrder>> reqAllOpenOrders() {
         shouldBeConnected();
 
-        return requests.postListRequest(RequestRepository.Event.REQ_CONTRACT_DETAIL, null,
+        return requests.postListRequest(RequestRepository.Event.REQ_ORDER_LIST, null,
                 () -> socket.reqAllOpenOrders(), null);
     }
 

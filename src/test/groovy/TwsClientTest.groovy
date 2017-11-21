@@ -3,6 +3,7 @@ import com.ib.client.Order
 import com.ib.client.OrderStatus
 import com.ib.client.Types
 import lv.sergluka.tws.TwsClient
+import lv.sergluka.tws.TwsExceptions
 import spock.lang.Specification
 import spock.util.concurrent.BlockingVariable
 import spock.util.concurrent.BlockingVariables
@@ -159,24 +160,79 @@ class TwsClientTest extends Specification {
     }
 
 
-    def "Request orders and plca orders shouldn't interfere each other"() {
+    def "Request cannot be duplicated"() {
+        when:
+        client.reqAllOpenOrders()
+        client.reqAllOpenOrders()
+        client.reqAllOpenOrders()
+        client.reqAllOpenOrders()
+
+        then:
+        TwsExceptions.DuplicatedRequest ex = thrown()
+    }
+
+    def "Request orders and place orders shouldn't interfere each other"() {
         given:
         def contract = createContract()
 
         when:
         def promise1 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def list1 = client.reqAllOpenOrders()
+        def list1 = client.reqAllOpenOrders().get(10, TimeUnit.SECONDS)
         def promise2 = client.placeOrder(contract, createOrder(client.nextOrderId()))
         def promise3 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def list2 = client.reqAllOpenOrders()
+        def list2 = client.reqAllOpenOrders().get(10, TimeUnit.SECONDS)
         def promise4 = client.placeOrder(contract, createOrder(client.nextOrderId()))
         def promise5 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def list3 = client.reqAllOpenOrders()
+        def list3 = client.reqAllOpenOrders().get(10, TimeUnit.SECONDS)
         def promise6 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def list4 = client.reqAllOpenOrders().get(10, TimeUnit.SECONDS);
+        def list4 = client.reqAllOpenOrders().get(10, TimeUnit.SECONDS)
+
+        and:
+
+        def order1 = promise1.get(10, TimeUnit.SECONDS)
+        def order2 = promise2.get(10, TimeUnit.SECONDS)
+        def order3 = promise3.get(10, TimeUnit.SECONDS)
+        def order4 = promise4.get(10, TimeUnit.SECONDS)
+        def order5 = promise5.get(10, TimeUnit.SECONDS)
+        def order6 = promise6.get(10, TimeUnit.SECONDS)
+
 
         then:
-        list4
+        list1.size() == 1
+        list1.get(0).getOrderId() == order1.getOrderId()
+
+        list2.size() == 3
+        list2.get(0).getOrderId() == order1.getOrderId()
+        list2.get(1).getOrderId() == order2.getOrderId()
+        list2.get(2).getOrderId() == order3.getOrderId()
+
+        list3.size() == 5
+        list3.get(0).getOrderId() == order1.getOrderId()
+        list3.get(1).getOrderId() == order2.getOrderId()
+        list3.get(2).getOrderId() == order3.getOrderId()
+        list3.get(3).getOrderId() == order4.getOrderId()
+        list3.get(4).getOrderId() == order5.getOrderId()
+
+        list4.size() == 6
+        list4.get(0).getOrderId() == order1.getOrderId()
+        list4.get(1).getOrderId() == order2.getOrderId()
+        list4.get(2).getOrderId() == order3.getOrderId()
+        list4.get(3).getOrderId() == order4.getOrderId()
+        list4.get(4).getOrderId() == order5.getOrderId()
+        list4.get(5).getOrderId() == order6.getOrderId()
+    }
+
+    def "Request orders"() {
+        given:
+        def contract = createContract()
+
+        when:
+        client.placeOrder(contract, createOrder(client.nextOrderId())).get(3, TimeUnit.SECONDS)
+        def list = client.reqAllOpenOrders().get(2, TimeUnit.SECONDS)
+
+        then:
+        println list
+        list.size() > 0
     }
 
     def "Request positions"() {

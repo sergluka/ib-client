@@ -3,6 +3,7 @@ package lv.sergluka.tws;
 import com.ib.client.Contract;
 import lv.sergluka.tws.impl.ConnectionMonitor;
 import lv.sergluka.tws.impl.Wrapper;
+import lv.sergluka.tws.impl.sender.RequestRepository;
 import lv.sergluka.tws.impl.types.TwsOrderStatus;
 import lv.sergluka.tws.impl.types.TwsPosition;
 import org.slf4j.Logger;
@@ -66,11 +67,13 @@ class TwsWrapper extends Wrapper {
 
         log.info("New order status: {}", twsStatus);
 
-        if (twsClient.ordersRepository.addNewStatus(orderId, twsStatus)) {
+        if (twsClient.ordersRepository.addNewStatus(twsStatus)) {
             if (twsClient.onOrderStatus != null) {
                 twsClient.onOrderStatus.accept(orderId, twsStatus);
             }
         }
+
+        TwsClient.requests.addToListWeak(RequestRepository.Event.REQ_ORDER_LIST, null, twsStatus);
     }
 
     @Override

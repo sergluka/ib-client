@@ -23,6 +23,7 @@ abstract class TerminalErrorHandler {
         switch (code) {
             case 2104:
             case 2106:
+            case 2108:
                 severity = ErrorType.INFO;
                 break;
             case 202: // Order canceled

@@ -2,6 +2,7 @@ package lv.sergluka.tws.impl.sender;
 
 import lv.sergluka.tws.TwsClient;
 import lv.sergluka.tws.TwsExceptions;
+import lv.sergluka.tws.impl.concurent.ScopedLock;
 import lv.sergluka.tws.impl.promise.TwsListPromise;
 import lv.sergluka.tws.impl.promise.TwsOrderPromise;
 import lv.sergluka.tws.impl.promise.TwsPromise;
@@ -24,6 +25,7 @@ public class RequestRepository {
         REQ_CONTRACT_DETAIL,
         REQ_CURRENT_TIME,
         REQ_ORDER_PLACE,
+        REQ_ORDER_LIST,
     }
 
     private final ConcurrentHashMap<EventKey, TwsPromise> promises = new ConcurrentHashMap<>();
@@ -65,16 +67,6 @@ public class RequestRepository {
         post(key, promise, runnable);
     }
 
-//    public TwsOrderPromise postOrderRequest(Integer requestId, @NotNull Runnable runnable, Consumer<OrderStatus> consumer) {
-//        if (!client.isConnected()) {
-//            throw new TwsExceptions.NotConnected();
-//        }
-//
-//        final TwsPromise promise = new TwsOrderPromise(consumer);
-//        post(key, promise, runnable);
-//        return promise;
-//    }
-
     public void confirmAndRemove(@NotNull Event event, @Nullable Integer id, @Nullable Object result) {
         confirm(event, id, result);
     }
@@ -110,8 +102,24 @@ public class RequestRepository {
         promise.add(element);
     }
 
+    public <E> void addToListWeak(@NotNull Event event, Integer id, @NotNull E element) {
+        final EventKey key = new EventKey(event, id);
+        log.debug("=> {}:add", key);
+
+        final TwsListPromise promise = (TwsListPromise) promises.get(key);
+        if (promise == null) {
+            return;
+        }
+
+        promise.add(element);
+    }
+
     private void post(EventKey key, @NotNull TwsPromise promise, @NotNull Runnable runnable) {
-        promises.put(key, promise);
+        final TwsPromise old = promises.put(key, promise);
+        if (old != null) {
+            throw new TwsExceptions.DuplicatedRequest(key);
+        }
+
         try {
             log.debug("<= {}", key);
             runnable.run();

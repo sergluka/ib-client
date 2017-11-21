@@ -2,6 +2,7 @@ package lv.sergluka.tws.impl;
 
 import com.ib.client.*;
 import lv.sergluka.tws.impl.sender.RequestRepository;
+import lv.sergluka.tws.impl.types.TwsOrder;
 import lv.sergluka.tws.impl.types.TwsPosition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,14 +35,18 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void openOrder(final int orderId, final Contract contract, final Order order, final OrderState state) {
+
+        TwsOrder twsOrder = new TwsOrder(orderId, contract, order, state);
+
         log.info("openOrder: requestId={}, contract={}, order={}, orderState={}",
                 orderId, contract.symbol(), order.orderId(), state.status());
-        requests.confirmAndRemove(RequestRepository.Event.REQ_ORDER_PLACE, orderId, state);
+        requests.confirmAndRemove(RequestRepository.Event.REQ_ORDER_PLACE, orderId, twsOrder);
     }
 
     @Override
     public void openOrderEnd() {
-        log.info("openOrderEnd: NOT IMPLEMENTED");
+        log.info(">>openOrderEnd");
+        requests.confirmAndRemove(RequestRepository.Event.REQ_ORDER_LIST, null, null);
     }
 
     @Override

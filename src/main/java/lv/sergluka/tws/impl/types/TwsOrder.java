@@ -1,37 +1,42 @@
 package lv.sergluka.tws.impl.types;
 
+import com.ib.client.Contract;
 import com.ib.client.Order;
-
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Objects;
+import com.ib.client.OrderState;
 
 public class TwsOrder {
 
-    private final int id;
-    private List<TwsOrderStatus> statuses = new LinkedList<>();
+    private final int orderId;
+    private final Contract contract;
+    private final Order order;
+    private final OrderState state;
 
-    public TwsOrder(int id) {
-        this.id = id;
+    private TwsOrderStatus statuses;
+
+    public TwsOrder(int orderId, Contract contract, Order order, OrderState state) {
+        this.orderId = orderId;
+        this.contract = contract;
+        this.order = order;
+        this.state = state;
     }
 
-    public int getId() {
-        return id;
+    public int getOrderId() {
+        return orderId;
     }
 
     public TwsOrderStatus getStatus() {
-        return statuses.get(statuses.size()-1);
-    }
-
-    public List<TwsOrderStatus> getStatuses() {
         return statuses;
     }
 
-    public void addStatus(TwsOrderStatus status) {
-        this.statuses.add(status);
+    public Contract getContract() {
+        return contract;
     }
 
-    public boolean statusExists(TwsOrderStatus status) {
-        return statuses.stream().anyMatch(it -> Objects.equals(it, status));
+    public Order getOrder() {
+        return order;
+    }
+
+    public OrderState getState() {
+        return state;
     }
 }
