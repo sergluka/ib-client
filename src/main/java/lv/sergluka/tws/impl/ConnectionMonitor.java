@@ -3,7 +3,6 @@ package lv.sergluka.tws.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
 public abstract class ConnectionMonitor implements AutoCloseable {
@@ -32,8 +31,9 @@ public abstract class ConnectionMonitor implements AutoCloseable {
     private AtomicReference<Status> status;
     private AtomicReference<Command> command;
 
-    protected abstract void onConnect();
-    protected abstract void onDisconnect();
+    protected abstract void connectRequest();
+    protected abstract void disconnectRequest();
+    protected abstract void onStatusChange(Status status);
 
     public void start() {
         status = new AtomicReference<>(Status.UNKNOWN);
@@ -107,22 +107,22 @@ public abstract class ConnectionMonitor implements AutoCloseable {
                 switch (commandLocal) {
                     case CONNECT:
                         setStatus(Status.CONNECTING);
-                        onConnect();
+                        connectRequest();
                         break;
                     case RECONNECT:
                         setStatus(Status.DISCONNECTING);
-                        onDisconnect();
+                        disconnectRequest();
                         setStatus(Status.DISCONNECTED);
                         Thread.sleep(RECONNECT_DELAY);
                         setStatus(Status.CONNECTING);
-                        onConnect();
+                        connectRequest();
                         break;
                     case CONFIRM_CONNECT:
                         setStatus(Status.CONNECTED);
                         break;
                     case DISCONNECT:
                         setStatus(Status.DISCONNECTING);
-                        onDisconnect();
+                        disconnectRequest();
                         setStatus(Status.DISCONNECTED);
                         break;
                 }
@@ -147,5 +147,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         if (oldStatus != newStatus) {
             log.debug("Status change: {} => {}", oldStatus.name(), newStatus.name());
         }
+
+        onStatusChange(newStatus);
     }
 }

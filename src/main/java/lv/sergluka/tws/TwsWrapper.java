@@ -1,15 +1,19 @@
 package lv.sergluka.tws;
 
 import com.ib.client.Contract;
+import com.ib.client.TickAttr;
 import lv.sergluka.tws.impl.ConnectionMonitor;
 import lv.sergluka.tws.impl.Wrapper;
 import lv.sergluka.tws.impl.sender.RequestRepository;
 import lv.sergluka.tws.impl.types.TwsOrderStatus;
 import lv.sergluka.tws.impl.types.TwsPosition;
+import lv.sergluka.tws.impl.types.TwsTick;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.SocketException;
+import java.util.HashMap;
+import java.util.Map;
 
 class TwsWrapper extends Wrapper {
 
@@ -53,7 +57,6 @@ class TwsWrapper extends Wrapper {
     @Override
     public void connectionClosed() {
         log.error("TWS closes the connection");
-
         twsClient.connectionMonitor.reconnect();
     }
 
@@ -69,7 +72,7 @@ class TwsWrapper extends Wrapper {
 
         if (twsClient.ordersRepository.addNewStatus(twsStatus)) {
             if (twsClient.onOrderStatus != null) {
-                twsClient.onOrderStatus.accept(orderId, twsStatus);
+                twsClient.executors.submit(() -> twsClient.onOrderStatus.accept(orderId, twsStatus));
             }
         }
 
@@ -82,13 +85,65 @@ class TwsWrapper extends Wrapper {
 
         if (twsClient.onPosition != null) {
             TwsPosition position = new TwsPosition(account, contract, pos, avgCost);
-            twsClient.onPosition.accept(position);
+            twsClient.executors.submit(() -> twsClient.onPosition.accept(position));
         }
     }
 
     @Override
     public void positionEnd() {
-        twsClient.onPosition.accept(null);
+        twsClient.executors.submit(() -> twsClient.onPosition.accept(null));
+    }
+
+    private Map<Integer, TwsTick> ticks = new HashMap<>();
+
+    @Override
+    public void updateMktDepth(int tickerId,
+                               int position,
+                               int operation,
+                               int side,
+                               double price,
+                               int size) {
+
+//        if (twsClient.onMarketDepth != null) {
+//            ticks.computeIfAbsent(tickerId, (key) -> new TwsTick(price, 0, 0));
+//            twsClient.executors.submit(() -> twsClient.onMarketDepth.accept(position));
+//        }
+
+        log.trace(">> {} {} {} {} {} {}", tickerId, position, operation, side, price, size);
+
+
+//        super.updateMktDepth(tickerId, position, operation, side, price, size);
+    }
+
+        @Override
+    public void tickPrice(int tickerId, int field, double price, TickAttr attrib) {
+
+        log.trace("New tick price: tickerId={}, field={}, price={}, attr={}", tickerId, field, price, attrib);
+
+//        if (twsClient.onMarketDepth != null) {
+//            ticks.computeIfAbsent(tickerId, (key) -> new TwsTick(price, 0, 0));
+//            TwsPosition position = new TwsPosition(account, contract, pos, avgCost);
+//            twsClient.executors.submit(() -> twsClient.onMarketDepth.accept(position));
+//        }
+    }
+//
+//    @Override
+//    public void tickSize(int tickerId, int field, int value) {
+//
+//        TwsTick tick = ticks.computeIfAbsent(tickerId, (key) -> new TwsTick());
+//        tick.setIntValue(field, value);
+//
+//        log.debug("tickSize: >>{}, {}, {}, {}", tickerId, field, value);
+//    }
+
+    @Override
+    public void tickGeneric(int tickerId, int tickType, double value) {
+        log.debug("tickGeneric: >>{}, {}, {}, {}", tickerId, tickType, value);
+    }
+
+    @Override
+    public void tickString(int tickerId, int tickType, String value) {
+        log.debug("tickString: >>{}, {}, {}, {}", tickerId, tickType, value);
     }
 
     @Override

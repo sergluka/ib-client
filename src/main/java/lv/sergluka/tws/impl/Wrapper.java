@@ -3,7 +3,7 @@ package lv.sergluka.tws.impl;
 import com.ib.client.*;
 import lv.sergluka.tws.impl.sender.RequestRepository;
 import lv.sergluka.tws.impl.types.TwsOrder;
-import lv.sergluka.tws.impl.types.TwsPosition;
+import lv.sergluka.tws.impl.types.TwsTick;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,7 +26,7 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void connectAck() {
-        requests.confirmAndRemove(RequestRepository.Event.REQ_CONNECT, null, null);
+//        requests.confirmAndRemove(RequestRepository.Event.REQ_CONNECT, null, null);
     }
 
     @Override
@@ -65,6 +65,19 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
+    public void tickSize(final int tickerId, final int field, final int value) {
+        requests.modify(RequestRepository.Event.REQ_MAKET_DATA_SNAPSHOT, tickerId, TwsTick.class, (tick) -> {
+            tick.setIntValue(field, value);
+        });
+    }
+
+    @Override
+    public void tickSnapshotEnd(final int reqId) {
+        log.info(">>tickSnapshotEnd: {}", reqId);
+        requests.confirmAndRemove(RequestRepository.Event.REQ_MAKET_DATA_SNAPSHOT, reqId, null);
+    }
+
+    @Override
     public void position(final String account, final Contract contract, final double pos, final double avgCost) {
     }
 
@@ -94,12 +107,6 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void tickPrice(int tickerId, int field, double price, TickAttr attrib) {
-        log.debug("tickPrice: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void tickSize(final int tickerId, final int field, final int size) {
-        log.debug("tickSize: NOT IMPLEMENTED");
     }
 
     @Override
@@ -191,7 +198,7 @@ public class Wrapper implements EWrapper {
                                final int side,
                                final double price,
                                final int size) {
-        log.debug("updateMktDepth: NOT IMPLEMENTED");
+//        log.debug("updateMktDepth: NOT IMPLEMENTED");
     }
 
     @Override
@@ -271,11 +278,6 @@ public class Wrapper implements EWrapper {
     @Override
     public void deltaNeutralValidation(final int reqId, final DeltaNeutralContract underComp) {
         log.debug("deltaNeutralValidation: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void tickSnapshotEnd(final int reqId) {
-        log.debug("tickSnapshotEnd: NOT IMPLEMENTED");
     }
 
     @Override

@@ -31,8 +31,10 @@ abstract class TerminalErrorHandler {
                 severity = ErrorType.INFO;
                 break;
 
+            case 200: // The contract description specified for <Symbol> is ambiguous.
             case 320: // Server error when reading an API client request.
             case 321: // Server error when validating an API client request.
+            case 354: // Requested market data is not subscribed
                 severity = ErrorType.REQUEST;
                 break;
 

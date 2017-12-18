@@ -17,6 +17,7 @@ class TwsClientTest extends Specification {
 
     void setup() {
         client.connect("127.0.0.1", 7497, 1)
+        client.waitForConnect()
     }
 
     void cleanup() {
@@ -265,6 +266,26 @@ class TwsClientTest extends Specification {
         }
     }
 
+
+    def "Listen for a ticks"() {
+        when:
+        def promise = client.reqMktDataSnapshot(createContract(), null)
+        def tick = promise.get(10, TimeUnit.SECONDS)
+
+        then:
+        tick.getBidSize() > 0
+    }
+
+//    def "Listen for a ticks"() {
+//        when:
+//        def id = client.subscribeOnMarketDepth(createContract(), 1, null)
+//        sleep(100000)
+//        client.unsubscribeOnMarketDepth(id)
+//
+//        then:
+//        true
+//    }
+//
     private def createContract() {
         def contract = new Contract();
         contract.symbol("GC");

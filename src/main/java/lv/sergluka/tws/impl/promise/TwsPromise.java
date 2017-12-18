@@ -35,10 +35,6 @@ public class TwsPromise<T> {
         condition = lock.newCondition();
     }
 
-//    public boolean isDone() {
-//        return done;
-//    }
-
     public T get() {
         try {
             lock.lock();
@@ -78,6 +74,18 @@ public class TwsPromise<T> {
             throw exception;
         }
         return value;
+    }
+
+    public void modify(Class<T> clazz, Consumer<T> consumer) {
+        if (value == null) { // TODO: refactor this mess
+            try {
+                value = clazz.newInstance();
+            } catch (Exception e) {
+                log.error("Cannot instantiate class", e);
+                return;
+            }
+        }
+        consumer.accept(value);
     }
 
     public void setDone(T value) {

@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 @SuppressWarnings("unchecked")
 public class RequestRepository {
@@ -21,11 +22,13 @@ public class RequestRepository {
     private static final Logger log = LoggerFactory.getLogger(RequestRepository.class);
 
     public enum Event {
-        REQ_CONNECT,
+//        REQ_CONNECT,
         REQ_CONTRACT_DETAIL,
         REQ_CURRENT_TIME,
         REQ_ORDER_PLACE,
         REQ_ORDER_LIST,
+        REQ_MAKET_DATA_SNAPSHOT,
+        REQ_MAKET_DEPTH,
     }
 
     private final ConcurrentHashMap<EventKey, TwsPromise> promises = new ConcurrentHashMap<>();
@@ -140,5 +143,17 @@ public class RequestRepository {
         }
 
         promise.setDone(result);
+    }
+
+    public <E> void modify(@NotNull Event event, Integer id, Class<E> clazz, Consumer<E> consumer) {
+        final EventKey key = new EventKey(event, id);
+
+        final TwsPromise promise = promises.get(key);
+        if (promise == null) {
+            log.error("Got event {} for unknown or expired request", key);
+            return;
+        }
+
+        promise.modify(clazz, consumer);
     }
 }
