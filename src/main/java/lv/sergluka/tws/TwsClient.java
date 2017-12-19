@@ -141,31 +141,34 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         onPosition = null;
     }
 
+    public enum MarketDataType {
+        LIVE(1),
+        FROZEN(2),
+        DELAYED(3),
+        DELAYED_FROZEN(4);
+
+        private int value;
+
+        private MarketDataType(int value) {
+            this.value = value;
+        }
+
+        public int getValue() {
+            return value;
+        }
+    }
+
+    public void reqMarketDataType(MarketDataType type) {
+        socket.reqMarketDataType(type.getValue());
+    }
+
     public TwsPromise<TwsTick> reqMktDataSnapshot(Contract contract, Consumer<TwsTick> callback) {
         shouldBeConnected();
-        onMarketData = callback;
 
         int tickerId = nextOrderId();
         return requests.postSingleRequest(RequestRepository.Event.REQ_MAKET_DATA_SNAPSHOT,
                 tickerId, () -> socket.reqMktData(tickerId, contract, "", true, false, null), null);
     }
-
-//    public int subscribeOnMarketData(Contract contract, Consumer<TwsTick> callback) {
-//        shouldBeConnected();
-//        onMarketData = callback;
-//
-//        int tickerId = nextOrderId();
-//        final TwsPromise<Object> promise = requests.postSingleRequest(
-//                RequestRepository.Event.REQ_MAKET_DATA_SNAPSHOT,
-//                tickerId, () -> socket.reqMktData(tickerId, contract, "", true, false, null), null);
-//        return tickerId;
-//    }
-//
-//    public void unsubscribeOnMarketData(int tickerId) {
-//        shouldBeConnected();
-//        socket.cancelMktData(tickerId);
-//        onMarketDepth = null;
-//    }
 
     public int subscribeOnMarketDepth(Contract contract, int depth, Consumer<TwsTick> callback) {
         shouldBeConnected();

@@ -16,7 +16,7 @@ class TwsClientTest extends Specification {
     TwsClient client = new TwsClient()
 
     void setup() {
-        client.connect("127.0.0.1", 7497, 1)
+        client.connect("127.0.0.1", 7497, 2)
         client.waitForConnect()
     }
 
@@ -266,10 +266,14 @@ class TwsClientTest extends Specification {
         }
     }
 
+    def "Set market data type"() {
+        expect:
+        client.reqMarketDataType(TwsClient.MarketDataType.DELAYED_FROZEN)
+    }
 
-    def "Listen for a ticks"() {
+    def "Get contract snapshot"() {
         when:
-        def promise = client.reqMktDataSnapshot(createContract(), null)
+        def promise = client.reqMktDataSnapshot(createContractEUR(), null)
         def tick = promise.get(10, TimeUnit.SECONDS)
 
         then:
@@ -294,6 +298,15 @@ class TwsClientTest extends Specification {
         contract.secType(Types.SecType.FUT)
         contract.multiplier("100")
         contract.lastTradeDateOrContractMonth("201712");
+        return contract
+    }
+
+    private def createContractEUR() {
+        def contract = new Contract();
+        contract.symbol("EUR");
+        contract.currency("USD");
+        contract.exchange("IDEALPRO");
+        contract.secType(Types.SecType.CASH)
         return contract
     }
 

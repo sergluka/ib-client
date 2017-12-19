@@ -35,6 +35,7 @@ abstract class TerminalErrorHandler {
             case 320: // Server error when reading an API client request.
             case 321: // Server error when validating an API client request.
             case 354: // Requested market data is not subscribed
+            case 10168: // Requested market data is not subscribed. Delayed market data is not enabled
                 severity = ErrorType.REQUEST;
                 break;
 

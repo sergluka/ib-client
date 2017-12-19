@@ -72,6 +72,27 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
+    public void tickPrice(int tickerId, int field, double value, TickAttr attrib) {
+        requests.modify(RequestRepository.Event.REQ_MAKET_DATA_SNAPSHOT, tickerId, TwsTick.class, (tick) -> {
+            tick.setPriceValue(field, value);
+        });
+    }
+
+    @Override
+    public void tickString(final int tickerId, final int field, final String value) {
+        requests.modify(RequestRepository.Event.REQ_MAKET_DATA_SNAPSHOT, tickerId, TwsTick.class, (tick) -> {
+            tick.setStringValue(field, value);
+        });
+    }
+
+    @Override
+    public void tickGeneric(final int tickerId, final int field, final double value) {
+        requests.modify(RequestRepository.Event.REQ_MAKET_DATA_SNAPSHOT, tickerId, TwsTick.class, (tick) -> {
+            tick.setGenericValue(field, value);
+        });
+    }
+
+    @Override
     public void tickSnapshotEnd(final int reqId) {
         log.info(">>tickSnapshotEnd: {}", reqId);
         requests.confirmAndRemove(RequestRepository.Event.REQ_MAKET_DATA_SNAPSHOT, reqId, null);
@@ -106,10 +127,6 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
-    public void tickPrice(int tickerId, int field, double price, TickAttr attrib) {
-    }
-
-    @Override
     public void tickOptionComputation(final int tickerId,
                                       final int field,
                                       final double impliedVol,
@@ -121,16 +138,6 @@ public class Wrapper implements EWrapper {
                                       final double theta,
                                       final double undPrice) {
         log.debug("tickOptionComputation: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void tickGeneric(final int tickerId, final int tickType, final double value) {
-        log.debug("tickGeneric: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void tickString(final int tickerId, final int tickType, final String value) {
-        log.debug("tickString: NOT IMPLEMENTED");
     }
 
     @Override
@@ -198,7 +205,7 @@ public class Wrapper implements EWrapper {
                                final int side,
                                final double price,
                                final int size) {
-//        log.debug("updateMktDepth: NOT IMPLEMENTED");
+        log.debug("updateMktDepth: NOT IMPLEMENTED");
     }
 
     @Override

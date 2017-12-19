@@ -97,46 +97,6 @@ class TwsWrapper extends Wrapper {
     private Map<Integer, TwsTick> ticks = new HashMap<>();
 
     @Override
-    public void updateMktDepth(int tickerId,
-                               int position,
-                               int operation,
-                               int side,
-                               double price,
-                               int size) {
-
-//        if (twsClient.onMarketDepth != null) {
-//            ticks.computeIfAbsent(tickerId, (key) -> new TwsTick(price, 0, 0));
-//            twsClient.executors.submit(() -> twsClient.onMarketDepth.accept(position));
-//        }
-
-        log.trace(">> {} {} {} {} {} {}", tickerId, position, operation, side, price, size);
-
-
-//        super.updateMktDepth(tickerId, position, operation, side, price, size);
-    }
-
-        @Override
-    public void tickPrice(int tickerId, int field, double price, TickAttr attrib) {
-
-        log.trace("New tick price: tickerId={}, field={}, price={}, attr={}", tickerId, field, price, attrib);
-
-//        if (twsClient.onMarketDepth != null) {
-//            ticks.computeIfAbsent(tickerId, (key) -> new TwsTick(price, 0, 0));
-//            TwsPosition position = new TwsPosition(account, contract, pos, avgCost);
-//            twsClient.executors.submit(() -> twsClient.onMarketDepth.accept(position));
-//        }
-    }
-//
-//    @Override
-//    public void tickSize(int tickerId, int field, int value) {
-//
-//        TwsTick tick = ticks.computeIfAbsent(tickerId, (key) -> new TwsTick());
-//        tick.setIntValue(field, value);
-//
-//        log.debug("tickSize: >>{}, {}, {}, {}", tickerId, field, value);
-//    }
-
-    @Override
     public void tickGeneric(int tickerId, int tickType, double value) {
         log.debug("tickGeneric: >>{}, {}, {}, {}", tickerId, tickType, value);
     }
