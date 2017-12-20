@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class EntriesRepository {
 
@@ -26,17 +27,24 @@ public class EntriesRepository {
     public EntriesRepository() {
     }
 
-    public void addOrder(TwsOrder order) {
+    public boolean addOrder(TwsOrder order) {
         final Set<TwsOrderStatus> set = statuses.remove(order.getOrderId());
         if (set != null) {
             order.addStatuses(set);
         }
-        orders.compute(order.getOrderId(), (value , unused)-> {
+        final AtomicReference<Boolean> result = new AtomicReference<>(false);
+        orders.compute(order.getOrderId(), (key, value)-> {
             if (value != null) {
                 log.debug("Order already has been added: {}", order);
+                result.set(false);
+                return value;
             }
+
+            result.set(true);
             return order;
         });
+
+        return result.get();
     }
 
     public boolean addNewStatus(@NotNull TwsOrderStatus status) {

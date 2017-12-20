@@ -86,8 +86,9 @@ class TwsWrapper extends Wrapper {
         log.info("openOrder: requestId={}, contract={}, order={}, orderState={}",
                  orderId, contract.symbol(), order.orderId(), state.status());
 
-        twsClient.repository.addOrder(twsOrder);
-        twsClient.requests.confirmAndRemove(RequestRepository.Event.REQ_ORDER_PLACE, orderId, twsOrder);
+        if (twsClient.repository.addOrder(twsOrder)) {
+            twsClient.requests.confirmAndRemove(RequestRepository.Event.REQ_ORDER_PLACE, orderId, twsOrder);
+        }
     }
 
     @Override

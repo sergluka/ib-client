@@ -26,21 +26,21 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(TwsClient.class);
     private static final int INVALID_ID = -1;
-    protected static RequestRepository requests;
-    final ExecutorService executors;
 
-    private EClientSocket socket;
+    protected static RequestRepository requests;
+
+    protected final ExecutorService executors;
     protected TwsReader reader;
     protected EntriesRepository repository;
     protected ConnectionMonitor connectionMonitor;
-
-    //    private AtomicInteger requestId = new AtomicInteger(0);
-    private AtomicInteger orderId;
 
     protected BiConsumer<Integer, TwsOrderStatus> onOrderStatus;
     protected Consumer<TwsPosition> onPosition;
     protected Consumer<TwsTick> onMarketData;
     protected Consumer<TwsTick> onMarketDepth;
+
+    private EClientSocket socket;
+    private AtomicInteger orderId;
     private Consumer<ConnectionMonitor.Status> onConnectionStatus;
 
     public TwsClient() {
