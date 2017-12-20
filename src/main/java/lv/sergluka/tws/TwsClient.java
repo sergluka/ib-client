@@ -194,7 +194,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
 
     public int nextOrderId() {
         if (orderId.get() == INVALID_ID) {
-            throw new IllegalStateException("Has no request ID from TWS");
+            throw new IllegalStateException("Has no request ID from TWS"); // TODO: Wait until we got one
         }
 
         return orderId.getAndIncrement();

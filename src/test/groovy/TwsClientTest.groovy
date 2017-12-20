@@ -245,23 +245,13 @@ class TwsClientTest extends Specification {
 
     def "Get contract snapshot"() {
         when:
-        def promise = client.reqMktDataSnapshot(createContractEUR(), null)
+        def promise = client.reqMktDataSnapshot(createContractEUR())
         def tick = promise.get(10, TimeUnit.SECONDS)
 
         then:
         tick.getBidSize() > 0
     }
 
-//    def "Listen for a ticks"() {
-//        when:
-//        def id = client.subscribeOnMarketDepth(createContract(), 1, null)
-//        sleep(100000)
-//        client.unsubscribeOnMarketDepth(id)
-//
-//        then:
-//        true
-//    }
-//
     private def createContract() {
         def contract = new Contract();
         contract.symbol("GC");
