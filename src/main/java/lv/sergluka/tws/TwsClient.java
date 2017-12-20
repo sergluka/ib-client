@@ -4,7 +4,7 @@ import com.ib.client.*;
 import lv.sergluka.tws.impl.ConnectionMonitor;
 import lv.sergluka.tws.impl.TwsReader;
 import lv.sergluka.tws.impl.promise.TwsPromise;
-import lv.sergluka.tws.impl.sender.OrderStatusesRepository;
+import lv.sergluka.tws.impl.sender.EntriesRepository;
 import lv.sergluka.tws.impl.sender.RequestRepository;
 import lv.sergluka.tws.impl.types.TwsOrder;
 import lv.sergluka.tws.impl.types.TwsOrderStatus;
@@ -31,7 +31,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
 
     private EClientSocket socket;
     protected TwsReader reader;
-    protected OrderStatusesRepository ordersRepository;
+    protected EntriesRepository repository;
     protected ConnectionMonitor connectionMonitor;
 
     //    private AtomicInteger requestId = new AtomicInteger(0);
@@ -80,7 +80,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         requests = new RequestRepository(this);
         setRequests(requests);
 
-        ordersRepository = new OrderStatusesRepository();
+        repository = new EntriesRepository();
 
         connectionMonitor = new ConnectionMonitor() {
 
@@ -158,11 +158,11 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         }
     }
 
-    public void reqMarketDataType(MarketDataType type) {
+    public synchronized void reqMarketDataType(MarketDataType type) {
         socket.reqMarketDataType(type.getValue());
     }
 
-    public TwsPromise<TwsTick> reqMktDataSnapshot(Contract contract, Consumer<TwsTick> callback) {
+    public synchronized TwsPromise<TwsTick> reqMktDataSnapshot(Contract contract) {
         shouldBeConnected();
 
         int tickerId = nextOrderId();
@@ -170,7 +170,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
                 tickerId, () -> socket.reqMktData(tickerId, contract, "", true, false, null), null);
     }
 
-    public int subscribeOnMarketDepth(Contract contract, int depth, Consumer<TwsTick> callback) {
+    public synchronized int subscribeOnMarketDepth(Contract contract, int depth, Consumer<TwsTick> callback) {
         shouldBeConnected();
         onMarketDepth = callback;
 
@@ -182,13 +182,13 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         return tickerId;
     }
 
-    public void unsubscribeOnMarketDepth(int tickerId) {
+    public synchronized void unsubscribeOnMarketDepth(int tickerId) {
         shouldBeConnected();
         socket.cancelMktDepth(tickerId);
         onMarketDepth = null;
     }
 
-    public void setOnConnectionStatus(Consumer<ConnectionMonitor.Status> callback) {
+    public synchronized void setOnConnectionStatus(Consumer<ConnectionMonitor.Status> callback) {
         onConnectionStatus = callback;
     }
 
@@ -201,7 +201,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     }
 
     @NotNull
-    public TwsPromise<Long> reqCurrentTime() {
+    public synchronized TwsPromise<Long> reqCurrentTime() {
         shouldBeConnected();
         return requests.postSingleRequest(RequestRepository.Event.REQ_CURRENT_TIME,
                                           null,
@@ -209,7 +209,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
                                           null);
     }
 
-    public void reqCurrentTime(Consumer<Integer> consumer) {
+    public synchronized void reqCurrentTime(Consumer<Integer> consumer) {
         shouldBeConnected();
         requests.postSingleRequest(RequestRepository.Event.REQ_CURRENT_TIME,
                                    null,
@@ -218,7 +218,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     }
 
     @NotNull
-    public TwsPromise<TwsOrder> placeOrder(@NotNull Contract contract, @NotNull Order order) {
+    public synchronized TwsPromise<TwsOrder> placeOrder(@NotNull Contract contract, @NotNull Order order) {
         shouldBeConnected();
 
         final Integer id = order.orderId();
@@ -226,32 +226,25 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
                                           () -> socket.placeOrder(id, contract, order), null);
     }
 
-    public void placeOrder(@NotNull Contract contract, @NotNull Order order, Consumer<OrderState> consumer) {
-        shouldBeConnected();
-
-        final Integer id = order.orderId();
-        requests.postSingleRequest(RequestRepository.Event.REQ_ORDER_PLACE, id,
-                                   () -> socket.placeOrder(id, contract, order), consumer);
-    }
-
-    public void cancelOrder(int orderId) {
+    public synchronized void cancelOrder(int orderId) {
         socket.cancelOrder(orderId);
     }
 
-    public void reqGlobalCancel(int orderId) {
+    public synchronized void reqGlobalCancel(int orderId) {
         socket.reqGlobalCancel();
     }
 
     @NotNull
-    public TwsPromise<List<TwsOrder>> reqAllOpenOrders() {
+    public synchronized TwsPromise<List<TwsOrder>> reqAllOpenOrders() {
         shouldBeConnected();
 
-        return requests.postListRequest(RequestRepository.Event.REQ_ORDER_LIST, null,
+        final Integer id = nextOrderId();
+        return requests.postSingleRequest(RequestRepository.Event.REQ_ORDER_LIST, null,
                                         () -> socket.reqAllOpenOrders(), null);
     }
 
     @NotNull
-    public TwsPromise<List<ContractDetails>> reqContractDetails(@NotNull Contract contract) {
+    public synchronized TwsPromise<List<ContractDetails>> reqContractDetails(@NotNull Contract contract) {
         shouldBeConnected();
 
         final Integer id = nextOrderId();
@@ -259,7 +252,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
                                         () -> socket.reqContractDetails(id, contract), null);
     }
 
-    public void reqContractDetails(@NotNull Contract contract, Consumer<List<ContractDetails>> consumer) {
+    public synchronized void reqContractDetails(@NotNull Contract contract, Consumer<List<ContractDetails>> consumer) {
         shouldBeConnected();
 
         final Integer id = nextOrderId();

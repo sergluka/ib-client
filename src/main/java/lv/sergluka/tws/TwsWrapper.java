@@ -1,10 +1,12 @@
 package lv.sergluka.tws;
 
 import com.ib.client.Contract;
-import com.ib.client.TickAttr;
+import com.ib.client.Order;
+import com.ib.client.OrderState;
 import lv.sergluka.tws.impl.ConnectionMonitor;
 import lv.sergluka.tws.impl.Wrapper;
 import lv.sergluka.tws.impl.sender.RequestRepository;
+import lv.sergluka.tws.impl.types.TwsOrder;
 import lv.sergluka.tws.impl.types.TwsOrderStatus;
 import lv.sergluka.tws.impl.types.TwsPosition;
 import lv.sergluka.tws.impl.types.TwsTick;
@@ -70,13 +72,27 @@ class TwsWrapper extends Wrapper {
 
         log.info("New order status: {}", twsStatus);
 
-        if (twsClient.ordersRepository.addNewStatus(twsStatus)) {
+        if (twsClient.repository.addNewStatus(twsStatus)) {
             if (twsClient.onOrderStatus != null) {
                 twsClient.executors.submit(() -> twsClient.onOrderStatus.accept(orderId, twsStatus));
             }
         }
+    }
 
-        TwsClient.requests.addToListWeak(RequestRepository.Event.REQ_ORDER_LIST, null, twsStatus);
+    @Override
+    public void openOrder(int orderId, Contract contract, Order order, OrderState state) {
+        TwsOrder twsOrder = new TwsOrder(orderId, contract, order, state);
+
+        log.info("openOrder: requestId={}, contract={}, order={}, orderState={}",
+                 orderId, contract.symbol(), order.orderId(), state.status());
+
+        twsClient.repository.addOrder(twsOrder);
+        twsClient.requests.confirmAndRemove(RequestRepository.Event.REQ_ORDER_PLACE, orderId, twsOrder);
+    }
+
+    @Override
+    public void openOrderEnd() {
+        twsClient.requests.confirmAndRemove(RequestRepository.Event.REQ_ORDER_LIST, null, twsClient.repository.getOrders());
     }
 
     @Override

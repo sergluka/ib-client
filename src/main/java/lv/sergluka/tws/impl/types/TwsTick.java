@@ -89,16 +89,16 @@ public class TwsTick {
                 map.put(type.value, type);
             }
         }
-        private int value;
+        private Integer value;
 
-        private Types(int value) {
+        private Types(Integer value) {
             this.value = value;
         }
 
-        public static Types valueOf(int type) {
+        public static Types valueOf(Integer type) {
             return map.get(type);
         }
-        public int getValue() {
+        public Integer getValue() {
             return value;
         }
 
@@ -168,20 +168,20 @@ public class TwsTick {
     private String lastExchange;
     private String lastRegulatoryTime;
 
-    private double optionHistoricalVolatility;
-    private double optionImpliedVolatility;
-    private double indexFuturePremium;
-    private double shortable;
-    private double halted;
-    private double tradeCount;
-    private double tradeRate;
-    private double volumeRate;
-    private double rtHistoricalVolatility;
+    private Double optionHistoricalVolatility;
+    private Double optionImpliedVolatility;
+    private Double indexFuturePremium;
+    private Double shortable;
+    private Double halted;
+    private Double tradeCount;
+    private Double tradeRate;
+    private Double volumeRate;
+    private Double rtHistoricalVolatility;
 
     public TwsTick() {
     }
 
-    public void setIntValue(int type, int value) {
+    public void setIntValue(Integer type, Integer value) {
 
         Types enumType = Types.valueOf(type);
         switch (enumType) {
@@ -251,7 +251,7 @@ public class TwsTick {
         log.debug("Set int value: {} = {}", enumType, value);
     }
 
-    public void setPriceValue(int type, double value) {
+    public void setPriceValue(Integer type, Double value) {
         Types enumType = Types.valueOf(type);
         switch (enumType) {
             case BID:
@@ -356,7 +356,7 @@ public class TwsTick {
         log.debug("Set price value: {} = {}", enumType, value);
     }
 
-    public void setStringValue(int type, String value) {
+    public void setStringValue(Integer type, String value) {
         Types enumType = Types.valueOf(type);
         switch (enumType) {
             case BID_EXCHANGE:
@@ -392,7 +392,7 @@ public class TwsTick {
         log.debug("Set string value: {} = {}", enumType, value);
     }
 
-    public void setGenericValue(int type, double value) {
+    public void setGenericValue(Integer type, Double value) {
         Types enumType = Types.valueOf(type);
         switch (enumType) {
             case OPTION_HISTORICAL_VOLATILITY:
@@ -428,211 +428,211 @@ public class TwsTick {
         log.debug("Set generic value: {} = {}", enumType, value);
     }
 
-    public int getBidSize() {
+    public Integer getBidSize() {
         return bidSize;
     }
 
-    public int getAskSize() {
+    public Integer getAskSize() {
         return askSize;
     }
 
-    public int getLastSize() {
+    public Integer getLastSize() {
         return lastSize;
     }
 
-    public int getVolume() {
+    public Integer getVolume() {
         return volume;
     }
 
-    public int getVolumeAverage() {
+    public Integer getVolumeAverage() {
         return volumeAverage;
     }
 
-    public int getOptionCallOpenInterest() {
+    public Integer getOptionCallOpenInterest() {
         return optionCallOpenInterest;
     }
 
-    public int getOptionPutOpenInterest() {
+    public Integer getOptionPutOpenInterest() {
         return optionPutOpenInterest;
     }
 
-    public int getOptionCallVolume() {
+    public Integer getOptionCallVolume() {
         return optionCallVolume;
     }
 
-    public int getOptionPutVolume() {
+    public Integer getOptionPutVolume() {
         return optionPutVolume;
     }
 
-    public int getActionVolume() {
+    public Integer getActionVolume() {
         return actionVolume;
     }
 
-    public int getActionImbalance() {
+    public Integer getActionImbalance() {
         return actionImbalance;
     }
 
-    public int getRegulatoryImbalance() {
+    public Integer getRegulatoryImbalance() {
         return regulatoryImbalance;
     }
 
-    public int getShortTermVolume3Min() {
+    public Integer getShortTermVolume3Min() {
         return shortTermVolume3Min;
     }
 
-    public int getShortTermVolume5Min() {
+    public Integer getShortTermVolume5Min() {
         return shortTermVolume5Min;
     }
 
-    public int getShortTermVolume10Min() {
+    public Integer getShortTermVolume10Min() {
         return shortTermVolume10Min;
     }
 
-    public int getDelayedBidSize() {
+    public Integer getDelayedBidSize() {
         return delayedBidSize;
     }
 
-    public int getDelayedAskSize() {
+    public Integer getDelayedAskSize() {
         return delayedAskSize;
     }
 
-    public int getDelayedLastSize() {
+    public Integer getDelayedLastSize() {
         return delayedLastSize;
     }
 
-    public int getDelayedVolume() {
+    public Integer getDelayedVolume() {
         return delayedVolume;
     }
 
-    public int getFuturesOpenInterest() {
+    public Integer getFuturesOpenInterest() {
         return futuresOpenInterest;
     }
 
-    public double getBid() {
+    public Double getBid() {
         return bid;
     }
 
-    public double getAsk() {
+    public Double getAsk() {
         return ask;
     }
 
-    public double getLastPrice() {
+    public Double getLastPrice() {
         return lastPrice;
     }
 
-    public double getHighPrice() {
+    public Double getHighPrice() {
         return highPrice;
     }
 
-    public double getLowPrice() {
+    public Double getLowPrice() {
         return lowPrice;
     }
 
-    public double getClosePrice() {
+    public Double getClosePrice() {
         return closePrice;
     }
 
-    public double getOpenTick() {
+    public Double getOpenTick() {
         return openTick;
     }
 
-    public double getLow13Weeks() {
+    public Double getLow13Weeks() {
         return low13Weeks;
     }
 
-    public double getHigh13Weeks() {
+    public Double getHigh13Weeks() {
         return high13Weeks;
     }
 
-    public double getLow26Weeks() {
+    public Double getLow26Weeks() {
         return low26Weeks;
     }
 
-    public double getHigh26Weeks() {
+    public Double getHigh26Weeks() {
         return high26Weeks;
     }
 
-    public double getLow52Weeks() {
+    public Double getLow52Weeks() {
         return low52Weeks;
     }
 
-    public double getHigh52Weeks() {
+    public Double getHigh52Weeks() {
         return high52Weeks;
     }
 
-    public double getAuctionPrice() {
+    public Double getAuctionPrice() {
         return auctionPrice;
     }
 
-    public double getMarkPrice() {
+    public Double getMarkPrice() {
         return markPrice;
     }
 
-    public double getBidYield() {
+    public Double getBidYield() {
         return bidYield;
     }
 
-    public double getAskYield() {
+    public Double getAskYield() {
         return askYield;
     }
 
-    public double getLastYield() {
+    public Double getLastYield() {
         return lastYield;
     }
 
-    public double getLastRthTrade() {
+    public Double getLastRthTrade() {
         return lastRthTrade;
     }
 
-    public double getDelayedBid() {
+    public Double getDelayedBid() {
         return delayedBid;
     }
 
-    public double getDelayedAsk() {
+    public Double getDelayedAsk() {
         return delayedAsk;
     }
 
-    public double getDelayedLast() {
+    public Double getDelayedLast() {
         return delayedLast;
     }
 
-    public double getDelayedHighPrice() {
+    public Double getDelayedHighPrice() {
         return delayedHighPrice;
     }
 
-    public double getDelayedLowPrice() {
+    public Double getDelayedLowPrice() {
         return delayedLowPrice;
     }
 
-    public double getDelayedClose() {
+    public Double getDelayedClose() {
         return delayedClose;
     }
 
-    public double getDelayedOpen() {
+    public Double getDelayedOpen() {
         return delayedOpen;
     }
 
-    public double getCreditmanMarkPrice() {
+    public Double getCreditmanMarkPrice() {
         return creditmanMarkPrice;
     }
 
-    public double getCreditmanSlowMarkPrice() {
+    public Double getCreditmanSlowMarkPrice() {
         return creditmanSlowMarkPrice;
     }
 
-    public double getDelayedBidOption() {
+    public Double getDelayedBidOption() {
         return delayedBidOption;
     }
 
-    public double getDelayedAskOption() {
+    public Double getDelayedAskOption() {
         return delayedAskOption;
     }
 
-    public double getDelayedLastOption() {
+    public Double getDelayedLastOption() {
         return delayedLastOption;
     }
 
-    public double getDelayedModelOption() {
+    public Double getDelayedModelOption() {
         return delayedModelOption;
     }
 
@@ -672,39 +672,39 @@ public class TwsTick {
         return lastRegulatoryTime;
     }
 
-    public double getOptionHistoricalVolatility() {
+    public Double getOptionHistoricalVolatility() {
         return optionHistoricalVolatility;
     }
 
-    public double getOptionImpliedVolatility() {
+    public Double getOptionImpliedVolatility() {
         return optionImpliedVolatility;
     }
 
-    public double getIndexFuturePremium() {
+    public Double getIndexFuturePremium() {
         return indexFuturePremium;
     }
 
-    public double getShortable() {
+    public Double getShortable() {
         return shortable;
     }
 
-    public double getHalted() {
+    public Double getHalted() {
         return halted;
     }
 
-    public double getTradeCount() {
+    public Double getTradeCount() {
         return tradeCount;
     }
 
-    public double getTradeRate() {
+    public Double getTradeRate() {
         return tradeRate;
     }
 
-    public double getVolumeRate() {
+    public Double getVolumeRate() {
         return volumeRate;
     }
 
-    public double getRtHistoricalVolatility() {
+    public Double getRtHistoricalVolatility() {
         return rtHistoricalVolatility;
     }
 

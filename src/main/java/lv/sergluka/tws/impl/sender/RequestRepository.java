@@ -86,6 +86,7 @@ public class RequestRepository {
         final TwsPromise promise = promises.get(key);
         if (promise == null) {
             log.error("Cannot set error for unknown promise with ID {}", requestId);
+            log.error("Received error is: {}", exception.getMessage(), exception);
             return;
         }
 
@@ -105,21 +106,10 @@ public class RequestRepository {
         promise.add(element);
     }
 
-    public <E> void addToListWeak(@NotNull Event event, Integer id, @NotNull E element) {
-        final EventKey key = new EventKey(event, id);
-        log.debug("=> {}:add", key);
-
-        final TwsListPromise promise = (TwsListPromise) promises.get(key);
-        if (promise == null) {
-            return;
-        }
-
-        promise.add(element);
-    }
-
     private void post(EventKey key, @NotNull TwsPromise promise, @NotNull Runnable runnable) {
         final TwsPromise old = promises.put(key, promise);
         if (old != null) {
+            log.error("Duplicated request: {}", key);
             throw new TwsExceptions.DuplicatedRequest(key);
         }
 

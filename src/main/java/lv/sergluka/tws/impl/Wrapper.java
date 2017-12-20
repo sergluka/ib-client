@@ -35,18 +35,10 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void openOrder(final int orderId, final Contract contract, final Order order, final OrderState state) {
-
-        TwsOrder twsOrder = new TwsOrder(orderId, contract, order, state);
-
-        log.info("openOrder: requestId={}, contract={}, order={}, orderState={}",
-                orderId, contract.symbol(), order.orderId(), state.status());
-        requests.confirmAndRemove(RequestRepository.Event.REQ_ORDER_PLACE, orderId, twsOrder);
     }
 
     @Override
     public void openOrderEnd() {
-        log.info(">>openOrderEnd");
-        requests.confirmAndRemove(RequestRepository.Event.REQ_ORDER_LIST, null, null);
     }
 
     @Override
@@ -94,7 +86,7 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void tickSnapshotEnd(final int reqId) {
-        log.info(">>tickSnapshotEnd: {}", reqId);
+        log.trace("tickSnapshotEnd({})", reqId);
         requests.confirmAndRemove(RequestRepository.Event.REQ_MAKET_DATA_SNAPSHOT, reqId, null);
     }
 

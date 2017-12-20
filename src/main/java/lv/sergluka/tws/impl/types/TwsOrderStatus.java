@@ -1,10 +1,12 @@
 package lv.sergluka.tws.impl.types;
 
+import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.Ordering;
 import com.ib.client.OrderStatus;
 
 import java.util.Objects;
 
-public class TwsOrderStatus {
+public class TwsOrderStatus implements Comparable<TwsOrderStatus> {
     private final int orderId;
     private final OrderStatus status;
     private final double filled;
@@ -130,5 +132,24 @@ public class TwsOrderStatus {
     public int hashCode() {
         return Objects.hash(orderId, status, filled, remaining, avgFillPrice, permId, parentId, lastFillPrice, clientId,
                             whyHeld, mktCapPrice);
+    }
+
+
+    @Override
+    public int compareTo(TwsOrderStatus rhs) {
+        return ComparisonChain.start()
+                              .compare(orderId, rhs.orderId)
+                              .compare(status, rhs.status, Ordering.natural().nullsFirst())
+                              .compare(filled, rhs.filled)
+                              .compare(remaining, rhs.remaining)
+                              .compare(avgFillPrice, rhs.avgFillPrice)
+                              .compare(permId, rhs.permId)
+                              .compare(parentId, rhs.parentId)
+                              .compare(lastFillPrice, rhs.lastFillPrice)
+                              .compare(clientId, rhs.clientId)
+                              .compare(whyHeld, rhs.whyHeld, Ordering.natural().nullsFirst())
+                              .compare(mktCapPrice, rhs.mktCapPrice)
+                              .result();
+
     }
 }

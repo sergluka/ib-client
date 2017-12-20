@@ -87,7 +87,7 @@ class TwsClientTest extends Specification {
         def state = promise.get(10, TimeUnit.SECONDS)
 
         then:
-        state.status() == OrderStatus.PreSubmitted
+        state
     }
 
     def "Few placeOrder shouldn't interfere"() {
@@ -107,36 +107,16 @@ class TwsClientTest extends Specification {
         def promise10 = client.placeOrder(contract, createOrder(client.nextOrderId()))
 
         then:
-        promise1.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
-        promise2.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
-        promise3.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
-        promise4.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
-        promise5.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
-        promise6.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
-        promise7.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
-        promise8.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
-        promise9.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
-        promise10.get(10, TimeUnit.SECONDS).status() == OrderStatus.PreSubmitted
-    }
-
-    def "Call placeOrder with callback is OK"() {
-        given:
-        def contract = createContract()
-        def order = createOrder()
-        def consumer = Mock(Consumer)
-
-        def result = new BlockingVariable()
-        consumer.accept(_) >> {
-            result.set(it.get(0))
-        }
-
-        when:
-        client.placeOrder(contract, order, consumer)
-
-        then:
-        result.get().with {
-            status() == OrderStatus.PreSubmitted
-        }
+        promise1.get(10, TimeUnit.SECONDS)
+        promise2.get(10, TimeUnit.SECONDS)
+        promise3.get(10, TimeUnit.SECONDS)
+        promise4.get(10, TimeUnit.SECONDS)
+        promise5.get(10, TimeUnit.SECONDS)
+        promise6.get(10, TimeUnit.SECONDS)
+        promise7.get(10, TimeUnit.SECONDS)
+        promise8.get(10, TimeUnit.SECONDS)
+        promise9.get(10, TimeUnit.SECONDS)
+        promise10.get(10, TimeUnit.SECONDS)
     }
 
     def "Expect for states after placeOrder"() {
@@ -172,57 +152,6 @@ class TwsClientTest extends Specification {
         TwsExceptions.DuplicatedRequest ex = thrown()
     }
 
-    def "Request orders and place orders shouldn't interfere each other"() {
-        given:
-        def contract = createContract()
-
-        when:
-        def promise1 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def list1 = client.reqAllOpenOrders().get(10, TimeUnit.SECONDS)
-        def promise2 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def promise3 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def list2 = client.reqAllOpenOrders().get(10, TimeUnit.SECONDS)
-        def promise4 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def promise5 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def list3 = client.reqAllOpenOrders().get(10, TimeUnit.SECONDS)
-        def promise6 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def list4 = client.reqAllOpenOrders().get(10, TimeUnit.SECONDS)
-
-        and:
-
-        def order1 = promise1.get(10, TimeUnit.SECONDS)
-        def order2 = promise2.get(10, TimeUnit.SECONDS)
-        def order3 = promise3.get(10, TimeUnit.SECONDS)
-        def order4 = promise4.get(10, TimeUnit.SECONDS)
-        def order5 = promise5.get(10, TimeUnit.SECONDS)
-        def order6 = promise6.get(10, TimeUnit.SECONDS)
-
-
-        then:
-        list1.size() == 1
-        list1.get(0).getOrderId() == order1.getOrderId()
-
-        list2.size() == 3
-        list2.get(0).getOrderId() == order1.getOrderId()
-        list2.get(1).getOrderId() == order2.getOrderId()
-        list2.get(2).getOrderId() == order3.getOrderId()
-
-        list3.size() == 5
-        list3.get(0).getOrderId() == order1.getOrderId()
-        list3.get(1).getOrderId() == order2.getOrderId()
-        list3.get(2).getOrderId() == order3.getOrderId()
-        list3.get(3).getOrderId() == order4.getOrderId()
-        list3.get(4).getOrderId() == order5.getOrderId()
-
-        list4.size() == 6
-        list4.get(0).getOrderId() == order1.getOrderId()
-        list4.get(1).getOrderId() == order2.getOrderId()
-        list4.get(2).getOrderId() == order3.getOrderId()
-        list4.get(3).getOrderId() == order4.getOrderId()
-        list4.get(4).getOrderId() == order5.getOrderId()
-        list4.get(5).getOrderId() == order6.getOrderId()
-    }
-
     def "Request orders"() {
         given:
         def contract = createContract()
@@ -253,6 +182,49 @@ class TwsClientTest extends Specification {
         then:
         vars.done
         vars.data.size() > 0
+    }
+
+    def "Request orders and place orders shouldn't interfere each other"() {
+        given:
+        def contract = createContract()
+
+        when:
+        def promise1 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        client.reqAllOpenOrders().get(10, TimeUnit.SECONDS)
+        def promise2 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def promise3 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        client.reqAllOpenOrders().get(10, TimeUnit.SECONDS)
+        def promise4 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def promise5 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def promise6 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+
+        and:
+
+        def order1 = promise1.get(10, TimeUnit.SECONDS)
+        def order2 = promise2.get(10, TimeUnit.SECONDS)
+        def order3 = promise3.get(10, TimeUnit.SECONDS)
+        def order4 = promise4.get(10, TimeUnit.SECONDS)
+        def order5 = promise5.get(10, TimeUnit.SECONDS)
+        def list1 = client.reqAllOpenOrders().get(10, TimeUnit.SECONDS)
+        def order6 = promise6.get(10, TimeUnit.SECONDS)
+        def list2 = client.reqAllOpenOrders().get(10, TimeUnit.SECONDS)
+
+
+        then:
+        list1.size() <= 6
+        list1.get(0).getOrderId() == order1.getOrderId()
+        list1.get(1).getOrderId() == order2.getOrderId()
+        list1.get(2).getOrderId() == order3.getOrderId()
+        list1.get(3).getOrderId() == order4.getOrderId()
+        list1.get(4).getOrderId() == order5.getOrderId()
+
+        list2.size() == 6
+        list2.get(0).getOrderId() == order1.getOrderId()
+        list2.get(1).getOrderId() == order2.getOrderId()
+        list2.get(2).getOrderId() == order3.getOrderId()
+        list2.get(3).getOrderId() == order4.getOrderId()
+        list2.get(4).getOrderId() == order5.getOrderId()
+        list2.get(5).getOrderId() == order6.getOrderId()
     }
 
     def "Few reconnects doesn't impact to functionality"() {

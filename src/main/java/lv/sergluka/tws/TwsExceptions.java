@@ -10,7 +10,7 @@ public class TwsExceptions {
         private final int errorCode;
 
         public TerminalError(String errorMsg, int errorCode) {
-            super(errorMsg);
+            super(String.format("[%d]: %s", errorCode, errorMsg));
             this.errorMsg = errorMsg;
             this.errorCode = errorCode;
         }

@@ -21,17 +21,14 @@ targetCompatibility = 1.8
 
 repositories {
     mavenCentral()
-
-    flatDir {
-        dirs 'libs'
-    }
 }
 
 dependencies {
-    compile name: "TwsApi_debug"
+    compile files('libs/TwsApi_debug.jar')
     compile "org.slf4j:slf4j-api:1.7.+"
     compile "ch.qos.logback:logback-classic:1.2.+"
     compile "org.jetbrains:annotations-java5:15.0"
+    compile 'com.google.guava:guava:23.5-jre'
 
     compile "org.codehaus.groovy:groovy-all:2.4.12"
     testCompile "org.spockframework:spock-core:1.1+"
