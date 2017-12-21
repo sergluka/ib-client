@@ -54,4 +54,16 @@ public class TwsOrder {
     public OrderState getState() {
         return state;
     }
+
+    @Override
+    public String toString() {
+        final StringBuilder buffer = new StringBuilder("{");
+        buffer.append("orderId=").append(orderId);
+        buffer.append(", contract=").append(contract);
+        buffer.append(", order=").append(order);
+        buffer.append(", state=").append(state);
+        buffer.append(", statuses=").append(statuses);
+        buffer.append('}');
+        return buffer.toString();
+    }
 }

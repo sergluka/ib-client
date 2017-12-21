@@ -4,7 +4,7 @@ import com.ib.client.*;
 import lv.sergluka.tws.impl.ConnectionMonitor;
 import lv.sergluka.tws.impl.TwsReader;
 import lv.sergluka.tws.impl.promise.TwsPromise;
-import lv.sergluka.tws.impl.sender.EntriesRepository;
+import lv.sergluka.tws.impl.sender.CacheRepository;
 import lv.sergluka.tws.impl.sender.RequestRepository;
 import lv.sergluka.tws.impl.types.TwsOrder;
 import lv.sergluka.tws.impl.types.TwsOrderStatus;
@@ -31,7 +31,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
 
     protected final ExecutorService executors;
     protected TwsReader reader;
-    protected EntriesRepository repository;
+    protected CacheRepository cache;
     protected ConnectionMonitor connectionMonitor;
 
     protected BiConsumer<Integer, TwsOrderStatus> onOrderStatus;
@@ -80,7 +80,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         requests = new RequestRepository(this);
         setRequests(requests);
 
-        repository = new EntriesRepository();
+        cache = new CacheRepository();
 
         connectionMonitor = new ConnectionMonitor() {
 

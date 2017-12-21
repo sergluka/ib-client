@@ -11,9 +11,9 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class EntriesRepository {
+public class CacheRepository {
 
-    private static final Logger log = LoggerFactory.getLogger(EntriesRepository.class);
+    private static final Logger log = LoggerFactory.getLogger(CacheRepository.class);
 
     public List<TwsOrder> getOrders() {
         return ImmutableList.copyOf(orders.values());
@@ -24,7 +24,7 @@ public class EntriesRepository {
     // AFter order placing, some statuses goes first, before `openOrder` callback, so storing then separately
     private final LinkedHashMap<Integer, Set<TwsOrderStatus>> statuses = new LinkedHashMap<>();
 
-    public EntriesRepository() {
+    public CacheRepository() {
     }
 
     public boolean addOrder(TwsOrder order) {
@@ -35,7 +35,7 @@ public class EntriesRepository {
         final AtomicReference<Boolean> result = new AtomicReference<>(false);
         orders.compute(order.getOrderId(), (key, value)-> {
             if (value != null) {
-                log.debug("Order already has been added: {}", order);
+                log.debug("Order {} already has been added", order.getOrderId());
                 result.set(false);
                 return value;
             }
@@ -61,7 +61,6 @@ public class EntriesRepository {
             return false;
         }
 
-        order.addStatus(status);
-        return true;
+        return order.addStatus(status);
     }
 }

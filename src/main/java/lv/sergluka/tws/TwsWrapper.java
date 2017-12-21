@@ -67,12 +67,24 @@ class TwsWrapper extends Wrapper {
                             int permId, int parentId, double lastFillPrice, int clientId, String whyHeld,
                             double mktCapPrice) {
 
-        final TwsOrderStatus twsStatus = new TwsOrderStatus(orderId, status, filled, remaining, avgFillPrice,
-                permId, parentId, lastFillPrice, clientId, whyHeld, mktCapPrice);
+        final TwsOrderStatus twsStatus = new TwsOrderStatus(orderId,
+                                                            status,
+                                                            filled,
+                                                            remaining,
+                                                            avgFillPrice,
+                                                            permId,
+                                                            parentId,
+                                                            lastFillPrice,
+                                                            clientId,
+                                                            whyHeld,
+                                                            mktCapPrice);
 
-        log.info("New order status: {}", twsStatus);
+        log.debug("orderStatus: {}", twsStatus);
 
-        if (twsClient.repository.addNewStatus(twsStatus)) {
+        if (twsClient.cache.addNewStatus(twsStatus)) {
+
+            log.info("New order status: {}", twsStatus);
+
             if (twsClient.onOrderStatus != null) {
                 twsClient.executors.submit(() -> twsClient.onOrderStatus.accept(orderId, twsStatus));
             }
@@ -83,17 +95,19 @@ class TwsWrapper extends Wrapper {
     public void openOrder(int orderId, Contract contract, Order order, OrderState state) {
         TwsOrder twsOrder = new TwsOrder(orderId, contract, order, state);
 
-        log.info("openOrder: requestId={}, contract={}, order={}, orderState={}",
-                 orderId, contract.symbol(), order.orderId(), state.status());
+        log.debug("openOrder: requestId={}, contract={}, order={}, orderState={}",
+                  orderId, contract.symbol(), order.orderId(), state.status());
 
-        if (twsClient.repository.addOrder(twsOrder)) {
-            twsClient.requests.confirmAndRemove(RequestRepository.Event.REQ_ORDER_PLACE, orderId, twsOrder);
+        if (twsClient.cache.addOrder(twsOrder)) {
+            log.info("New order: requestId={}, contract={}, order={}, orderState={}",
+                     orderId, contract.symbol(), order.orderId(), state.status());
+            TwsClient.requests.confirmAndRemove(RequestRepository.Event.REQ_ORDER_PLACE, orderId, twsOrder);
         }
     }
 
     @Override
     public void openOrderEnd() {
-        twsClient.requests.confirmAndRemove(RequestRepository.Event.REQ_ORDER_LIST, null, twsClient.repository.getOrders());
+        twsClient.requests.confirmAndRemove(RequestRepository.Event.REQ_ORDER_LIST, null, twsClient.cache.getOrders());
     }
 
     @Override
@@ -130,7 +144,7 @@ class TwsWrapper extends Wrapper {
             final ConnectionMonitor.Status connectionStatus = twsClient.connectionMonitor.status();
 
             if (connectionStatus == ConnectionMonitor.Status.DISCONNECTING ||
-                connectionStatus == ConnectionMonitor.Status.DISCONNECTED) {
+                    connectionStatus == ConnectionMonitor.Status.DISCONNECTED) {
 
                 log.debug("Socket has been closed at shutdown");
                 return;
