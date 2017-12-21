@@ -6,16 +6,14 @@ import com.ib.client.OrderState;
 import lv.sergluka.tws.impl.ConnectionMonitor;
 import lv.sergluka.tws.impl.Wrapper;
 import lv.sergluka.tws.impl.sender.RequestRepository;
-import lv.sergluka.tws.impl.types.TwsOrder;
-import lv.sergluka.tws.impl.types.TwsOrderStatus;
-import lv.sergluka.tws.impl.types.TwsPosition;
-import lv.sergluka.tws.impl.types.TwsTick;
+import lv.sergluka.tws.impl.types.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.SocketException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 class TwsWrapper extends Wrapper {
 
@@ -29,6 +27,7 @@ class TwsWrapper extends Wrapper {
 
             @Override
             void onError() {
+                // TODO: Don't reconnect, if error was at disconnecting
                 twsClient.connectionMonitor.reconnect();
             }
 
@@ -112,7 +111,7 @@ class TwsWrapper extends Wrapper {
 
     @Override
     public void position(String account, Contract contract, double pos, double avgCost) {
-        log.info("Position change: {}/{}/{}", account, contract.localSymbol(), pos);
+        log.info("Position change: {}/{},{}/{}", account, contract.conid(), contract.localSymbol(), pos);
 
         if (twsClient.onPosition != null) {
             TwsPosition position = new TwsPosition(account, contract, pos, avgCost);
@@ -135,6 +134,38 @@ class TwsWrapper extends Wrapper {
     @Override
     public void tickString(int tickerId, int tickType, String value) {
         log.debug("tickString: >>{}, {}, {}, {}", tickerId, tickType, value);
+    }
+
+    @Override
+    public void pnlSingle(int reqId, int pos, double dailyPnL, double unrealizedPnL, double realizedPnL, double value) {
+        log.debug("pnlSingle: reqId={}, pos={}, dailyPnL={}, unrealizedPnL={}, realizedPnL={}, value={}",
+                  reqId, pos, dailyPnL, unrealizedPnL, realizedPnL, value);
+
+        TwsPnl pnl = new TwsPnl(pos, dailyPnL, unrealizedPnL, realizedPnL, value);
+        twsClient.executors.submit(() -> {
+            final Consumer<TwsPnl> consumer = twsClient.onPnlPerContractMap.get(reqId);
+            if (consumer == null) {
+                log.error("Got 'pnlSingle' with unknown id %d", reqId);
+                return;
+            }
+            consumer.accept(pnl);
+        });
+    }
+
+    @Override
+    public void pnl(int reqId, double dailyPnL, double unrealizedPnL, double realizedPnL) {
+        log.trace("pnl: reqId={}, dailyPnL={}, unrealizedPnL={}, realizedPnL={}, value={}",
+                  reqId, dailyPnL, unrealizedPnL, realizedPnL);
+
+        TwsPnl pnl = new TwsPnl(null, dailyPnL, unrealizedPnL, realizedPnL, null);
+        twsClient.executors.submit(() -> {
+            final Consumer<TwsPnl> consumer = twsClient.onPnlPerAccountMap.get(reqId);
+            if (consumer == null) {
+                log.error("Got 'pnl' with unknown id %d", reqId);
+                return;
+            }
+            consumer.accept(pnl);
+        });
     }
 
     @Override

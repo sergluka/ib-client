@@ -17,7 +17,7 @@ class TwsClientTest extends Specification {
 
     void setup() {
         client.connect("127.0.0.1", 7497, 2)
-        client.waitForConnect()
+        client.waitForConnect(10, TimeUnit.SECONDS)
     }
 
     void cleanup() {
@@ -182,6 +182,44 @@ class TwsClientTest extends Specification {
         then:
         vars.done
         vars.data.size() > 0
+    }
+
+    def "Request PnL per contract"() {
+        given:
+        def var = new BlockingVariable(5)
+
+        when:
+        def id = client.subscribeOnContractPnl(12087792, "DU22993") { pnl ->
+            var.set(pnl)
+        }
+
+        then:
+        def pnl = var.get()
+        pnl.positionId > 0
+
+        cleanup:
+        if (id != null) {
+            client.unsubscribeOnContractPnl(id)
+        }
+    }
+
+    def "Request PnL per account"() {
+        given:
+        def var = new BlockingVariable(5)
+
+        when:
+        def id = client.subscribeOnAccountPnl("") { pnl ->
+            var.set(pnl)
+        }
+
+        then:
+        def pnl = var.get()
+        pnl.positionId > 0
+
+        cleanup:
+        if (id != null) {
+            client.unsubscribeOnAccountPnl(id)
+        }
     }
 
     def "Request orders and place orders shouldn't interfere each other"() {

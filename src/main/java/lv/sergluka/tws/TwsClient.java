@@ -6,17 +6,17 @@ import lv.sergluka.tws.impl.TwsReader;
 import lv.sergluka.tws.impl.promise.TwsPromise;
 import lv.sergluka.tws.impl.sender.CacheRepository;
 import lv.sergluka.tws.impl.sender.RequestRepository;
-import lv.sergluka.tws.impl.types.TwsOrder;
-import lv.sergluka.tws.impl.types.TwsOrderStatus;
-import lv.sergluka.tws.impl.types.TwsPosition;
-import lv.sergluka.tws.impl.types.TwsTick;
+import lv.sergluka.tws.impl.types.*;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -38,6 +38,8 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     protected Consumer<TwsPosition> onPosition;
     protected Consumer<TwsTick> onMarketData;
     protected Consumer<TwsTick> onMarketDepth;
+    protected Map<Integer, Consumer<TwsPnl>> onPnlPerContractMap = new LinkedHashMap<>();
+    protected Map<Integer, Consumer<TwsPnl>> onPnlPerAccountMap = new LinkedHashMap<>();
 
     private EClientSocket socket;
     private AtomicInteger orderId;
@@ -65,8 +67,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        connectionMonitor.disconnect();
-        connectionMonitor.close();
+        disconnect();
     }
 
     public void connect(final @NotNull String ip, final int port, final int connId) {
@@ -109,13 +110,14 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         connectionMonitor.connect();
     }
 
-    public void waitForConnect() {
-        connectionMonitor.waitForStatus(ConnectionMonitor.Status.CONNECTED);
+    public void waitForConnect(long time, TimeUnit unit) {
+        connectionMonitor.waitForStatus(ConnectionMonitor.Status.CONNECTED, time, unit);
     }
 
     public void disconnect() {
         log.debug("Disconnecting...");
         connectionMonitor.disconnect();
+        connectionMonitor.close();
         log.info("Disconnected");
     }
 
@@ -186,6 +188,34 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         shouldBeConnected();
         socket.cancelMktDepth(tickerId);
         onMarketDepth = null;
+    }
+
+    public synchronized int subscribeOnContractPnl(int contractId, String account, Consumer<TwsPnl> callback) {
+        shouldBeConnected();
+        int id = nextOrderId();
+        onPnlPerContractMap.put(id, callback);
+        socket.reqPnLSingle(id, account, "", contractId);
+        return id; // TODO: Make closable object?
+    }
+
+    public synchronized void unsubscribeOnContractPnl(int requestId) {
+        shouldBeConnected();
+        socket.cancelPnLSingle(requestId);
+        onPnlPerContractMap.remove(requestId);
+    }
+
+    public synchronized int subscribeOnAccountPnl(String account, Consumer<TwsPnl> callback) {
+        shouldBeConnected();
+        int id = nextOrderId();
+        onPnlPerAccountMap.put(id, callback);
+        socket.reqPnL(id, account, "");
+        return id;
+    }
+
+    public synchronized void unsubscribeOnAccountPnl(int requestId) {
+        shouldBeConnected();
+        socket.cancelPnL(requestId);
+        onPnlPerAccountMap.remove(requestId);
     }
 
     public synchronized void setOnConnectionStatus(Consumer<ConnectionMonitor.Status> callback) {

@@ -22,7 +22,6 @@ public class RequestRepository {
     private static final Logger log = LoggerFactory.getLogger(RequestRepository.class);
 
     public enum Event {
-//        REQ_CONNECT,
         REQ_CONTRACT_DETAIL,
         REQ_CURRENT_TIME,
         REQ_ORDER_PLACE,
@@ -72,6 +71,10 @@ public class RequestRepository {
 
     public void confirmAndRemove(@NotNull Event event, @Nullable Integer id, @Nullable Object result) {
         confirm(event, id, result);
+    }
+
+    public void confirmAndRemoveWeak(@NotNull Event event, @Nullable Integer id, @Nullable Object result) {
+        confirmWeak(event, id, result);
     }
 
     public void removeRequest(@NotNull Event event, @NotNull Integer id) {
@@ -129,6 +132,18 @@ public class RequestRepository {
         final TwsPromise promise = promises.remove(key);
         if (promise == null) {
             log.error("Got event {} for unknown or expired request", key);
+            return;
+        }
+
+        promise.setDone(result);
+    }
+
+    private void confirmWeak(@NotNull Event event, Integer id, Object result) {
+        final EventKey key = new EventKey(event, id);
+        log.debug("=> {}: {}", key, result);
+
+        final TwsPromise promise = promises.remove(key);
+        if (promise == null) {
             return;
         }
 

@@ -11,6 +11,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
+// TODO: some entries can remain forever. We have to cleanup expired entries.
 public class CacheRepository {
 
     private static final Logger log = LoggerFactory.getLogger(CacheRepository.class);

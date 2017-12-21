@@ -42,6 +42,14 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
+    public void pnl(int reqId, double dailyPnL, double unrealizedPnL, double realizedPnL) {
+    }
+
+    @Override
+    public void pnlSingle(int reqId, int pos, double dailyPnL, double unrealizedPnL, double realizedPnL, double value) {
+    }
+
+    @Override
     public void contractDetails(final int reqId, final ContractDetails contractDetails) {
         requests.addToList(RequestRepository.Event.REQ_CONTRACT_DETAIL, reqId, contractDetails);
     }
@@ -221,7 +229,7 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void managedAccounts(final String accountsList) {
-        log.debug("managedAccounts: NOT IMPLEMENTED");
+        log.debug("managedAccounts: {}", accountsList);
     }
 
     @Override
@@ -467,16 +475,6 @@ public class Wrapper implements EWrapper {
     @Override
     public void marketRule(int marketRuleId, PriceIncrement[] priceIncrements) {
         log.debug("marketRule: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void pnl(int reqId, double dailyPnL, double unrealizedPnL, double realizedPnL) {
-        log.debug("pnl: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void pnlSingle(int reqId, int pos, double dailyPnL, double unrealizedPnL, double realizedPnL, double value) {
-        log.debug("pnlSingle: NOT IMPLEMENTED");
     }
 
     @Override

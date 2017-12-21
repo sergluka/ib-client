@@ -3,7 +3,11 @@ package lv.sergluka.tws.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public abstract class ConnectionMonitor implements AutoCloseable {
 
@@ -31,8 +35,13 @@ public abstract class ConnectionMonitor implements AutoCloseable {
     private AtomicReference<Status> status;
     private AtomicReference<Command> command;
 
+    private final Lock statusLock = new ReentrantLock();
+    private final Condition statusCondition = statusLock.newCondition();
+
     protected abstract void connectRequest();
+
     protected abstract void disconnectRequest();
+
     protected abstract void onStatusChange(Status status);
 
     public void start() {
@@ -43,12 +52,12 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         thread.setName("Connection monitor");
         thread.start();
 
-        waitForStatus(Status.DISCONNECTED);
+        waitForStatus(Status.DISCONNECTED, 1, TimeUnit.MINUTES);
     }
 
     @Override
-    public void close() throws Exception {
-        if (status.get() != Status.DISCONNECTED ) {
+    public void close() {
+        if (status.get() != Status.DISCONNECTED) {
             disconnect();
         }
 
@@ -64,21 +73,22 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         return status.get();
     }
 
-    // TODO: REFACTOR, make condition
-    // TODO: add timeout
-    public void waitForStatus(Status status) {
-        while (this.status.get() != status) {
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                log.error("", e);
+    public void waitForStatus(Status status, long time, TimeUnit unit) {
+        try {
+            statusLock.lock();
+            while (this.status.get() != status) {
+                statusCondition.await(time, unit);
             }
+        } catch (InterruptedException e) {
+            log.error("waitForStatus has been interrupted", e);
+        } finally {
+            statusLock.unlock();
         }
     }
 
     public void connect() {
         setCommand(Command.CONNECT);
-        waitForStatus(Status.CONNECTED);
+        waitForStatus(Status.CONNECTED, 1, TimeUnit.MINUTES);
     }
 
     public void confirmConnection() {
@@ -95,7 +105,6 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         }
 
         setCommand(Command.DISCONNECT);
-        waitForStatus(Status.DISCONNECTED);
     }
 
     private void run() {
@@ -149,5 +158,12 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         }
 
         onStatusChange(newStatus);
+
+        statusLock.lock();
+        try {
+            statusCondition.signal();
+        } finally {
+            statusLock.unlock();
+        }
     }
 }
