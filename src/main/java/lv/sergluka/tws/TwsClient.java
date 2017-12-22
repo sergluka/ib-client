@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -40,6 +41,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     protected Consumer<TwsTick> onMarketDepth;
     protected Map<Integer, Consumer<TwsPnl>> onPnlPerContractMap = new LinkedHashMap<>();
     protected Map<Integer, Consumer<TwsPnl>> onPnlPerAccountMap = new LinkedHashMap<>();
+    protected Set<String> managedAccounts;
 
     private EClientSocket socket;
     private AtomicInteger orderId;
@@ -141,6 +143,10 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         shouldBeConnected();
         socket.cancelPositions();
         onPosition = null;
+    }
+
+    public Set<String> getManagedAccounts() {
+        return managedAccounts;
     }
 
     public enum MarketDataType {
@@ -257,10 +263,11 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     }
 
     public synchronized void cancelOrder(int orderId) {
+        log.info("Canceling order {}", orderId);
         socket.cancelOrder(orderId);
     }
 
-    public synchronized void reqGlobalCancel(int orderId) {
+    public synchronized void reqGlobalCancel() {
         socket.reqGlobalCancel();
     }
 

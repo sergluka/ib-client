@@ -25,10 +25,10 @@ abstract class TerminalErrorHandler {
             case 2104:
             case 2106:
             case 2108:
+            case 202: // Order canceled
                 severity = ErrorType.INFO;
                 break;
             case 201: // Order rejected
-            case 202: // Order canceled
             case 399: // Order message error
                 severity = ErrorType.WARN;
                 break;
@@ -56,7 +56,7 @@ abstract class TerminalErrorHandler {
         }
 
         switch (severity) {
-            case REQUEST://TODO
+            case REQUEST:
                 TwsClient.requests.setError(id, new TwsExceptions.TerminalError(message, code));
                 break;
             case INFO:

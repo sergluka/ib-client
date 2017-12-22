@@ -1,5 +1,6 @@
 package lv.sergluka.tws;
 
+import com.google.common.base.Splitter;
 import com.ib.client.Contract;
 import com.ib.client.Order;
 import com.ib.client.OrderState;
@@ -12,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import java.net.SocketException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -127,13 +129,8 @@ class TwsWrapper extends Wrapper {
     private Map<Integer, TwsTick> ticks = new HashMap<>();
 
     @Override
-    public void tickGeneric(int tickerId, int tickType, double value) {
-        log.debug("tickGeneric: >>{}, {}, {}, {}", tickerId, tickType, value);
-    }
-
-    @Override
-    public void tickString(int tickerId, int tickType, String value) {
-        log.debug("tickString: >>{}, {}, {}, {}", tickerId, tickType, value);
+    public void managedAccounts(String accountsList) {
+        twsClient.managedAccounts = new HashSet<>(Splitter.on(",").splitToList(accountsList));
     }
 
     @Override
@@ -145,7 +142,7 @@ class TwsWrapper extends Wrapper {
         twsClient.executors.submit(() -> {
             final Consumer<TwsPnl> consumer = twsClient.onPnlPerContractMap.get(reqId);
             if (consumer == null) {
-                log.error("Got 'pnlSingle' with unknown id %d", reqId);
+                log.error("Got 'pnlSingle' with unknown request id {}", reqId);
                 return;
             }
             consumer.accept(pnl);

@@ -229,7 +229,6 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void managedAccounts(final String accountsList) {
-        log.debug("managedAccounts: {}", accountsList);
     }
 
     @Override
