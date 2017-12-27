@@ -30,6 +30,7 @@ abstract class TerminalErrorHandler {
                 break;
             case 201: // Order rejected
             case 399: // Order message error
+            case 10148: // OrderId ... that needs to be cancelled can not be cancelled
                 severity = ErrorType.WARN;
                 break;
 

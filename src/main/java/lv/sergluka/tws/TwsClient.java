@@ -4,7 +4,7 @@ import com.ib.client.*;
 import lv.sergluka.tws.impl.ConnectionMonitor;
 import lv.sergluka.tws.impl.TwsReader;
 import lv.sergluka.tws.impl.promise.TwsPromise;
-import lv.sergluka.tws.impl.sender.CacheRepository;
+import lv.sergluka.tws.impl.cache.CacheRepository;
 import lv.sergluka.tws.impl.sender.RequestRepository;
 import lv.sergluka.tws.impl.types.*;
 import org.jetbrains.annotations.NotNull;
@@ -63,12 +63,17 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         return socket;
     }
 
+    public CacheRepository getCache() {
+        return cache;
+    }
+
     AtomicInteger getOrderId() {
         return orderId;
     }
 
     @Override
     public void close() throws Exception {
+        executors.shutdownNow().forEach(runnable -> log.info("Thread still works at shutdown: {}", runnable));
         disconnect();
     }
 
@@ -129,17 +134,19 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
                 connectionMonitor.status() == ConnectionMonitor.Status.CONNECTED;
     }
 
-    public void subscribeOnOrderStatus(BiConsumer<Integer, TwsOrderStatus> callback) {
+    public void subscribeOnOrderNewStatus(BiConsumer<Integer, TwsOrderStatus> callback) {
         onOrderStatus = callback;
     }
 
-    public void subscribeOnPosition(Consumer<TwsPosition> callback) {
+    public synchronized TwsPromise subscribeOnPositionChange(Consumer<TwsPosition> callback) {
         shouldBeConnected();
         onPosition = callback;
-        socket.reqPositions();
+        return requests.postSingleRequest(RequestRepository.Event.REQ_POSITIONS,
+                                          null, () -> socket.reqPositions(), null);
+
     }
 
-    public void unsubscribeOnPosition() {
+    public synchronized void unsubscribeOnPositionChange() {
         shouldBeConnected();
         socket.cancelPositions();
         onPosition = null;

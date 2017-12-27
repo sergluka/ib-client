@@ -17,6 +17,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.function.Consumer;
 
+// TODO: unsubscribe for all at close
+
 class TwsWrapper extends Wrapper {
 
     private static final Logger log = LoggerFactory.getLogger(TwsWrapper.class);
@@ -115,6 +117,7 @@ class TwsWrapper extends Wrapper {
     public void position(String account, Contract contract, double pos, double avgCost) {
         log.info("Position change: {}/{},{}/{}", account, contract.conid(), contract.localSymbol(), pos);
 
+        twsClient.cache.updatePosition(account, contract, pos, avgCost);
         if (twsClient.onPosition != null) {
             TwsPosition position = new TwsPosition(account, contract, pos, avgCost);
             twsClient.executors.submit(() -> twsClient.onPosition.accept(position));
@@ -124,6 +127,7 @@ class TwsWrapper extends Wrapper {
     @Override
     public void positionEnd() {
         twsClient.executors.submit(() -> twsClient.onPosition.accept(null));
+        twsClient.requests.confirmAndRemove(RequestRepository.Event.REQ_POSITIONS, null, null);
     }
 
     private Map<Integer, TwsTick> ticks = new HashMap<>();

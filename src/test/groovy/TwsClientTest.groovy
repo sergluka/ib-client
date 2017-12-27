@@ -127,7 +127,7 @@ class TwsClientTest extends Specification {
         def vars = new BlockingVariables(60)
         def calls = 1
 
-        client.subscribeOnOrderStatus { id, status ->
+        client.subscribeOnOrderNewStatus { id, status ->
             assert id == order.orderId()
             vars.setProperty("call${calls++}", status)
         }
@@ -171,7 +171,7 @@ class TwsClientTest extends Specification {
         vars.data = []
 
         when:
-        client.subscribeOnPosition { position ->
+        client.subscribeOnPositionChange { position ->
             if (position != null) {
                 vars.data.add(position)
             } else {

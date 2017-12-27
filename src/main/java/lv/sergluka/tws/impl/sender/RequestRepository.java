@@ -28,6 +28,7 @@ public class RequestRepository {
         REQ_ORDER_LIST,
         REQ_MAKET_DATA_SNAPSHOT,
         REQ_MAKET_DEPTH,
+        REQ_POSITIONS,
     }
 
     private final ConcurrentHashMap<EventKey, TwsPromise> promises = new ConcurrentHashMap<>();
@@ -88,7 +89,7 @@ public class RequestRepository {
         final EventKey key = new EventKey(null, requestId);
         final TwsPromise promise = promises.get(key);
         if (promise == null) {
-            log.error("Cannot set error for unknown promise with ID {}", requestId);
+            log.warn("Cannot set error for unknown promise with ID {}", requestId);
             log.error("Received error is: {}", exception.getMessage(), exception);
             return;
         }
