@@ -78,7 +78,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     }
 
     public void connect(final @NotNull String ip, final int port, final int connId) {
-        log.debug("Connecting...");
+        log.debug("Connecting to {}:{}, id={} ...", ip, port, connId);
 
         if (isConnected()) {
             log.warn("Already is connected");

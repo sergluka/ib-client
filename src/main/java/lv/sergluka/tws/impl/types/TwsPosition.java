@@ -1,6 +1,9 @@
 package lv.sergluka.tws.impl.types;
 
 import com.ib.client.Contract;
+import org.apache.commons.math3.util.Precision;
+
+import static org.apache.commons.math3.util.Precision.*;
 
 import java.util.Objects;
 
@@ -54,8 +57,8 @@ public class TwsPosition {
         }
 
         TwsPosition that = (TwsPosition) obj;
-        return Double.compare(that.pos, pos) == 0 &&
-                Double.compare(that.avgCost, avgCost) == 0 &&
+        return Precision.equals(that.pos, pos, EPSILON) &&
+                Precision.equals(that.avgCost, avgCost, EPSILON) &&
                 Objects.equals(account, that.account) &&
                 Objects.equals(contract, that.contract);
     }

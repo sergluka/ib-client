@@ -3,8 +3,11 @@ package lv.sergluka.tws.impl.types;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Ordering;
 import com.ib.client.OrderStatus;
+import org.apache.commons.math3.util.Precision;
 
 import java.util.Objects;
+
+import static org.apache.commons.math3.util.Precision.EPSILON;
 
 public class TwsOrderStatus implements Comparable<TwsOrderStatus> {
     private final int orderId;
@@ -116,14 +119,14 @@ public class TwsOrderStatus implements Comparable<TwsOrderStatus> {
 
         TwsOrderStatus that = (TwsOrderStatus) obj;
         return orderId == that.orderId &&
-                Double.compare(that.filled, filled) == 0 &&
-                Double.compare(that.remaining, remaining) == 0 &&
-                Double.compare(that.avgFillPrice, avgFillPrice) == 0 &&
+                Precision.equals(that.filled, filled, EPSILON) &&
+                Precision.equals(that.remaining, remaining, EPSILON) &&
+                Precision.equals(that.avgFillPrice, avgFillPrice, EPSILON) &&
                 permId == that.permId &&
                 parentId == that.parentId &&
-                Double.compare(that.lastFillPrice, lastFillPrice) == 0 &&
+                Precision.equals(that.lastFillPrice, lastFillPrice, EPSILON) &&
                 clientId == that.clientId &&
-                Double.compare(that.mktCapPrice, mktCapPrice) == 0 &&
+                Precision.equals(that.mktCapPrice, mktCapPrice, EPSILON) &&
                 Objects.equals(status, that.status) &&
                 Objects.equals(whyHeld, that.whyHeld);
     }
