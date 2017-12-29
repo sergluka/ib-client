@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -37,6 +38,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
 
     private final Lock statusLock = new ReentrantLock();
     private final Condition statusCondition = statusLock.newCondition();
+    private Status expectedStatus = null;
 
     protected abstract void connectRequest();
 
@@ -52,7 +54,11 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         thread.setName("Connection monitor");
         thread.start();
 
-        waitForStatus(Status.DISCONNECTED, 1, TimeUnit.MINUTES);
+        try {
+            waitForStatus(Status.DISCONNECTED, 1, TimeUnit.MINUTES);
+        } catch (TimeoutException e) {
+            log.error("Too long expectation for DISCONNECT status");
+        }
     }
 
     @Override
@@ -73,11 +79,16 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         return status.get();
     }
 
-    public void waitForStatus(Status status, long time, TimeUnit unit) {
+    public void waitForStatus(Status status, long time, TimeUnit unit) throws TimeoutException {
         try {
             statusLock.lock();
-            while (this.status.get() != status) {
-                statusCondition.await(time, unit);
+            expectedStatus = status;
+
+            while (this.status.get() != expectedStatus) {
+                if (!statusCondition.await(time, unit)) {
+                    throw new TimeoutException(String.format(
+                            "Timeout of '%s' status. Actual status is '%s'", expectedStatus, this.status));
+                }
             }
         } catch (InterruptedException e) {
             log.error("waitForStatus has been interrupted", e);
@@ -86,9 +97,27 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         }
     }
 
+    public void waitForStatus(Status status) throws TimeoutException {
+        try {
+            statusLock.lock();
+            expectedStatus = status;
+            while (this.status.get() != expectedStatus) {
+                statusCondition.await();
+            }
+        } catch (InterruptedException e) {
+            log.warn("waitForStatus has been interrupted", e);
+        } finally {
+            statusLock.unlock();
+        }
+    }
+
     public void connect() {
         setCommand(Command.CONNECT);
-        waitForStatus(Status.CONNECTED, 1, TimeUnit.MINUTES);
+    }
+
+    public void connect(int timeout, TimeUnit unit) throws TimeoutException {
+        setCommand(Command.CONNECT);
+        waitForStatus(Status.CONNECTED, timeout, unit);
     }
 
     public void confirmConnection() {
@@ -127,7 +156,13 @@ public abstract class ConnectionMonitor implements AutoCloseable {
                         connectRequest();
                         break;
                     case CONFIRM_CONNECT:
-                        setStatus(Status.CONNECTED);
+                        /* Right after connect, an error 507 (Bad Message Length) can occurs, so we re-read command
+                           to be sure valid connection stil persist */
+                        Thread.sleep(1000);
+                        commandLocal = command.getAndSet(Command.NONE);
+                        if (commandLocal == Command.NONE) {
+                            setStatus(Status.CONNECTED);
+                        }
                         break;
                     case DISCONNECT:
                         setStatus(Status.DISCONNECTING);
@@ -161,7 +196,9 @@ public abstract class ConnectionMonitor implements AutoCloseable {
 
         statusLock.lock();
         try {
-            statusCondition.signal();
+            if (expectedStatus == newStatus) {
+                statusCondition.signal();
+            }
         } finally {
             statusLock.unlock();
         }

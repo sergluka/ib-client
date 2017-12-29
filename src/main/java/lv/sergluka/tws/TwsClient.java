@@ -18,6 +18,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -117,7 +118,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         connectionMonitor.connect();
     }
 
-    public void waitForConnect(long time, TimeUnit unit) {
+    public void waitForConnect(long time, TimeUnit unit) throws TimeoutException {
         connectionMonitor.waitForStatus(ConnectionMonitor.Status.CONNECTED, time, unit);
     }
 
