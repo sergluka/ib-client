@@ -72,9 +72,9 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void tickPrice(int tickerId, int field, double value, TickAttr attrib) {
-        requests.modify(RequestRepository.Event.REQ_MAKET_DATA, tickerId, TwsTick.class, (tick) -> {
-            tick.setPriceValue(field, value);
-        });
+//        requests.modify(RequestRepository.Event.REQ_MAKET_DATA, tickerId, TwsTick.class, (tick) -> {
+//            tick.setPriceValue(field, value);
+//        });
     }
 
     @Override

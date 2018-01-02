@@ -141,6 +141,23 @@ class TwsWrapper extends Wrapper {
         log.debug("pnlSingle: reqId={}, pos={}, dailyPnL={}, unrealizedPnL={}, realizedPnL={}, value={}",
                   reqId, pos, dailyPnL, unrealizedPnL, realizedPnL, value);
 
+        if (dailyPnL == Double.MAX_VALUE) {
+            log.warn("Missing value for 'dailyPnL'");
+            return;
+        }
+        if (unrealizedPnL == Double.MAX_VALUE) {
+            log.warn("Missing value for 'unrealizedPnL'");
+            return;
+        }
+        if (realizedPnL == Double.MAX_VALUE) {
+            log.warn("Missing value for 'realizedPnL'");
+            return;
+        }
+        if (value == Double.MAX_VALUE) {
+            log.warn("Missing value for 'value'");
+            return;
+        }
+
         TwsPnl pnl = new TwsPnl(pos, dailyPnL, unrealizedPnL, realizedPnL, value);
         twsClient.executors.submit(() -> {
             final Consumer<TwsPnl> consumer = twsClient.onPnlPerContractMap.get(reqId);
@@ -173,10 +190,7 @@ class TwsWrapper extends Wrapper {
         TwsTick result = twsClient.cache.updateTick(tickerId, (tick) -> {
             tick.setIntValue(field, value);
         });
-        Consumer<TwsTick> consumer = twsClient.onMarketDataMap.get(tickerId);
-        if (consumer != null) {
-            consumer.accept(result);
-        }
+        publishNewTick(tickerId, result);
     }
 
     @Override
@@ -184,10 +198,7 @@ class TwsWrapper extends Wrapper {
         TwsTick result = twsClient.cache.updateTick(tickerId, (tick) -> {
             tick.setPriceValue(field, value);
         });
-        Consumer<TwsTick> consumer = twsClient.onMarketDataMap.get(tickerId);
-        if (consumer != null) {
-            consumer.accept(result);
-        }
+        publishNewTick(tickerId, result);
     }
 
     @Override
@@ -195,10 +206,7 @@ class TwsWrapper extends Wrapper {
         TwsTick result = twsClient.cache.updateTick(tickerId, (tick) -> {
             tick.setStringValue(field, value);
         });
-        Consumer<TwsTick> consumer = twsClient.onMarketDataMap.get(tickerId);
-        if (consumer != null) {
-            consumer.accept(result);
-        }
+        publishNewTick(tickerId, result);
     }
 
     @Override
@@ -206,10 +214,7 @@ class TwsWrapper extends Wrapper {
         TwsTick result = twsClient.cache.updateTick(tickerId, (tick) -> {
             tick.setGenericValue(field, value);
         });
-        Consumer<TwsTick> consumer = twsClient.onMarketDataMap.get(tickerId);
-        if (consumer != null) {
-            consumer.accept(result);
-        }
+        publishNewTick(tickerId, result);
     }
 
     @Override
@@ -251,4 +256,13 @@ class TwsWrapper extends Wrapper {
         twsClient.getOrderId().set(id);
     }
 
+    private void publishNewTick(int tickerId, TwsTick result) {
+        twsClient.executors.submit(() -> {
+            final Consumer<TwsTick> consumer = twsClient.onMarketDataMap.get(tickerId);
+            if (consumer == null) {
+                return;
+            }
+            consumer.accept(result);
+        });
+    }
 }

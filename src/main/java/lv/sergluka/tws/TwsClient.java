@@ -191,6 +191,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         int tickerId = nextOrderId();
         onMarketDataMap.put(tickerId, callback);
         socket.reqMktData(tickerId, contract, "", false, false, null);
+        log.info("Subscribed to market data, ticker id = {}", tickerId);
         return tickerId;
     }
 
