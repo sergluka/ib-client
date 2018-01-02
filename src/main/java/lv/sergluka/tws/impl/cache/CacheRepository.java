@@ -6,6 +6,7 @@ import com.ib.client.Contract;
 import lv.sergluka.tws.impl.types.TwsOrder;
 import lv.sergluka.tws.impl.types.TwsOrderStatus;
 import lv.sergluka.tws.impl.types.TwsPosition;
+import lv.sergluka.tws.impl.types.TwsTick;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 // TODO: some entries can remain forever. We have to cleanup expired entries.
 public class CacheRepository {
@@ -21,6 +23,7 @@ public class CacheRepository {
 
     private final ConcurrentHashMap<Integer, TwsOrder> orders = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<PositionKey, TwsPosition> positions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, TwsTick> ticks = new ConcurrentHashMap<>();
 
     // AFter order placing, some statuses goes first, before `openOrder` callback, so storing then separately
     private final LinkedHashMap<Integer, Set<TwsOrderStatus>> statuses = new LinkedHashMap<>();
@@ -71,6 +74,16 @@ public class CacheRepository {
 
     public void updatePosition(String account, Contract contract, double position, double avgCost) {
         positions.put(new PositionKey(account, contract.conid()), new TwsPosition(account, contract, position, avgCost));
+    }
+
+    public TwsTick updateTick(int tickerId, Consumer<TwsTick> consumer) {
+        TwsTick tick = ticks.computeIfAbsent(tickerId, (key) -> new TwsTick()) ;
+        consumer.accept(tick);
+        return tick;
+    }
+
+    public TwsTick getTick(int tickerId) {
+        return ticks.get(tickerId);
     }
 
     public ImmutableMap<PositionKey, TwsPosition> getPositions() {

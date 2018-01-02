@@ -222,6 +222,25 @@ class TwsClientTest extends Specification {
         }
     }
 
+    def "Get market data"() {
+        given:
+        def var = new BlockingVariable(5)
+
+        when:
+        def id = client.subscribeOnMarketData(createContractEUR()) { tick ->
+            var.set(tick)
+        }
+
+        then:
+        def tick = var.get()
+        tick.bid > 0
+
+        cleanup:
+        if (id != null) {
+            client.unsubscribeOnMarketData(id)
+        }
+    }
+
     def "Request orders and place orders shouldn't interfere each other"() {
         given:
         def contract = createContract()

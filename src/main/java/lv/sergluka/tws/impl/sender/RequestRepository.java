@@ -26,7 +26,7 @@ public class RequestRepository {
         REQ_CURRENT_TIME,
         REQ_ORDER_PLACE,
         REQ_ORDER_LIST,
-        REQ_MAKET_DATA_SNAPSHOT,
+        REQ_MAKET_DATA,
         REQ_MAKET_DEPTH,
         REQ_POSITIONS,
     }

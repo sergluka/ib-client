@@ -38,9 +38,9 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
 
     protected BiConsumer<Integer, TwsOrderStatus> onOrderStatus;
     protected Consumer<TwsPosition> onPosition;
-    protected Consumer<TwsTick> onMarketData;
-    protected Consumer<TwsTick> onMarketDepth;
     protected Map<Integer, Consumer<TwsPnl>> onPnlPerContractMap = new LinkedHashMap<>();
+    protected Map<Integer, Consumer<TwsTick>> onMarketDataMap = new LinkedHashMap<>();
+    protected Map<Integer, Consumer<TwsTick>> onMarketDepthMap = new LinkedHashMap<>();
     protected Map<Integer, Consumer<TwsPnl>> onPnlPerAccountMap = new LinkedHashMap<>();
     protected Set<String> managedAccounts;
 
@@ -182,15 +182,29 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         shouldBeConnected();
 
         int tickerId = nextOrderId();
-        return requests.postSingleRequest(RequestRepository.Event.REQ_MAKET_DATA_SNAPSHOT,
+        return requests.postSingleRequest(RequestRepository.Event.REQ_MAKET_DATA,
                 tickerId, () -> socket.reqMktData(tickerId, contract, "", true, false, null), null);
+    }
+
+    public synchronized int subscribeOnMarketData(Contract contract, Consumer<TwsTick> callback) {
+        shouldBeConnected();
+        int tickerId = nextOrderId();
+        onMarketDataMap.put(tickerId, callback);
+        socket.reqMktData(tickerId, contract, "", false, false, null);
+        return tickerId;
+    }
+
+    public synchronized void unsubscribeOnMarketData(int tickerId) {
+        shouldBeConnected();
+        socket.cancelMktData(tickerId);
+        onMarketDataMap.remove(tickerId);
     }
 
     public synchronized int subscribeOnMarketDepth(Contract contract, int depth, Consumer<TwsTick> callback) {
         shouldBeConnected();
-        onMarketDepth = callback;
 
         int tickerId = nextOrderId();
+        onMarketDepthMap.put(tickerId, callback);
         final TwsPromise<Object> promise = requests.postSingleRequest(
                 RequestRepository.Event.REQ_MAKET_DEPTH,
                 tickerId, () -> socket.reqMktDepth(tickerId, contract, depth, null), null);
@@ -201,7 +215,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     public synchronized void unsubscribeOnMarketDepth(int tickerId) {
         shouldBeConnected();
         socket.cancelMktDepth(tickerId);
-        onMarketDepth = null;
+        onMarketDepthMap.remove(tickerId);
     }
 
     public synchronized int subscribeOnContractPnl(int contractId, String account, Consumer<TwsPnl> callback) {
@@ -218,6 +232,8 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         onPnlPerContractMap.remove(requestId);
     }
 
+    // TODO: Error on re-subscribe. Do it for all managed subscriptions
+    // TODO: unsubscribe on disconnect
     public synchronized int subscribeOnAccountPnl(String account, Consumer<TwsPnl> callback) {
         shouldBeConnected();
         int id = nextOrderId();

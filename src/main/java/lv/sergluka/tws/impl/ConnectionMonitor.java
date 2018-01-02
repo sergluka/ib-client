@@ -142,34 +142,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
 
             while (!Thread.interrupted()) {
                 Command commandLocal = command.getAndSet(Command.NONE);
-                switch (commandLocal) {
-                    case CONNECT:
-                        setStatus(Status.CONNECTING);
-                        connectRequest();
-                        break;
-                    case RECONNECT:
-                        setStatus(Status.DISCONNECTING);
-                        disconnectRequest();
-                        setStatus(Status.DISCONNECTED);
-                        Thread.sleep(RECONNECT_DELAY);
-                        setStatus(Status.CONNECTING);
-                        connectRequest();
-                        break;
-                    case CONFIRM_CONNECT:
-                        /* Right after connect, an error 507 (Bad Message Length) can occurs, so we re-read command
-                           to be sure valid connection stil persist */
-                        Thread.sleep(1000);
-                        commandLocal = command.getAndSet(Command.NONE);
-                        if (commandLocal == Command.NONE) {
-                            setStatus(Status.CONNECTED);
-                        }
-                        break;
-                    case DISCONNECT:
-                        setStatus(Status.DISCONNECTING);
-                        disconnectRequest();
-                        setStatus(Status.DISCONNECTED);
-                        break;
-                }
+                commandLocal = handleCommand(commandLocal);
 
                 if (commandLocal == Command.NONE) {
                     Thread.sleep(100);
@@ -179,6 +152,40 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         } catch (Exception e) {
             log.error("Exception in Connection Monitor", e);
         }
+    }
+
+    private Command handleCommand(Command command) throws InterruptedException {
+        switch (command) {
+            case CONNECT:
+                setStatus(Status.CONNECTING);
+                connectRequest();
+                break;
+            case RECONNECT:
+                setStatus(Status.DISCONNECTING);
+                disconnectRequest();
+                setStatus(Status.DISCONNECTED);
+                Thread.sleep(RECONNECT_DELAY);
+                setStatus(Status.CONNECTING);
+                connectRequest();
+                break;
+            case CONFIRM_CONNECT:
+                /* Right after connect, an error 507 (Bad Message Length) can occur, so we re-read command
+                   to be sure valid connection still persist */
+                Thread.sleep(1000);
+                command = this.command.getAndSet(Command.NONE);
+                if (command == Command.NONE) {
+                    setStatus(Status.CONNECTED);
+                } else {
+                    handleCommand(command);
+                }
+                break;
+            case DISCONNECT:
+                setStatus(Status.DISCONNECTING);
+                disconnectRequest();
+                setStatus(Status.DISCONNECTED);
+                break;
+        }
+        return command;
     }
 
     private void setCommand(Command newCommand) {

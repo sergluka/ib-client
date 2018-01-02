@@ -4,6 +4,7 @@ import com.google.common.base.Splitter;
 import com.ib.client.Contract;
 import com.ib.client.Order;
 import com.ib.client.OrderState;
+import com.ib.client.TickAttr;
 import lv.sergluka.tws.impl.ConnectionMonitor;
 import lv.sergluka.tws.impl.Wrapper;
 import lv.sergluka.tws.impl.sender.RequestRepository;
@@ -130,8 +131,6 @@ class TwsWrapper extends Wrapper {
         twsClient.requests.confirmAndRemove(RequestRepository.Event.REQ_POSITIONS, null, null);
     }
 
-    private Map<Integer, TwsTick> ticks = new HashMap<>();
-
     @Override
     public void managedAccounts(String accountsList) {
         twsClient.managedAccounts = new HashSet<>(Splitter.on(",").splitToList(accountsList));
@@ -167,6 +166,58 @@ class TwsWrapper extends Wrapper {
             }
             consumer.accept(pnl);
         });
+    }
+
+    @Override
+    public void tickSize(int tickerId, int field, int value) {
+        TwsTick result = twsClient.cache.updateTick(tickerId, (tick) -> {
+            tick.setIntValue(field, value);
+        });
+        Consumer<TwsTick> consumer = twsClient.onMarketDataMap.get(tickerId);
+        if (consumer != null) {
+            consumer.accept(result);
+        }
+    }
+
+    @Override
+    public void tickPrice(int tickerId, int field, double value, TickAttr attrib) {
+        TwsTick result = twsClient.cache.updateTick(tickerId, (tick) -> {
+            tick.setPriceValue(field, value);
+        });
+        Consumer<TwsTick> consumer = twsClient.onMarketDataMap.get(tickerId);
+        if (consumer != null) {
+            consumer.accept(result);
+        }
+    }
+
+    @Override
+    public void tickString(int tickerId, int field, String value) {
+        TwsTick result = twsClient.cache.updateTick(tickerId, (tick) -> {
+            tick.setStringValue(field, value);
+        });
+        Consumer<TwsTick> consumer = twsClient.onMarketDataMap.get(tickerId);
+        if (consumer != null) {
+            consumer.accept(result);
+        }
+    }
+
+    @Override
+    public void tickGeneric(int tickerId, int field, double value) {
+        TwsTick result = twsClient.cache.updateTick(tickerId, (tick) -> {
+            tick.setGenericValue(field, value);
+        });
+        Consumer<TwsTick> consumer = twsClient.onMarketDataMap.get(tickerId);
+        if (consumer != null) {
+            consumer.accept(result);
+        }
+    }
+
+    @Override
+    public void tickSnapshotEnd(final int tickerId) {
+        log.trace("tickSnapshotEnd({})", tickerId);
+
+        TwsTick tick = twsClient.cache.getTick(tickerId);
+        twsClient.requests.confirmAndRemove(RequestRepository.Event.REQ_MAKET_DATA, tickerId, tick);
     }
 
     @Override

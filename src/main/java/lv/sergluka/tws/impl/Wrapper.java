@@ -2,7 +2,6 @@ package lv.sergluka.tws.impl;
 
 import com.ib.client.*;
 import lv.sergluka.tws.impl.sender.RequestRepository;
-import lv.sergluka.tws.impl.types.TwsOrder;
 import lv.sergluka.tws.impl.types.TwsTick;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,36 +65,36 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void tickSize(final int tickerId, final int field, final int value) {
-        requests.modify(RequestRepository.Event.REQ_MAKET_DATA_SNAPSHOT, tickerId, TwsTick.class, (tick) -> {
-            tick.setIntValue(field, value);
-        });
+//        requests.modify(RequestRepository.Event.REQ_MAKET_DATA, tickerId, TwsTick.class, (tick) -> {
+//            tick.setIntValue(field, value);
+//        });
     }
 
     @Override
     public void tickPrice(int tickerId, int field, double value, TickAttr attrib) {
-        requests.modify(RequestRepository.Event.REQ_MAKET_DATA_SNAPSHOT, tickerId, TwsTick.class, (tick) -> {
+        requests.modify(RequestRepository.Event.REQ_MAKET_DATA, tickerId, TwsTick.class, (tick) -> {
             tick.setPriceValue(field, value);
         });
     }
 
     @Override
     public void tickString(final int tickerId, final int field, final String value) {
-        requests.modify(RequestRepository.Event.REQ_MAKET_DATA_SNAPSHOT, tickerId, TwsTick.class, (tick) -> {
-            tick.setStringValue(field, value);
-        });
+//        requests.modify(RequestRepository.Event.REQ_MAKET_DATA, tickerId, TwsTick.class, (tick) -> {
+//            tick.setStringValue(field, value);
+//        });
     }
 
     @Override
     public void tickGeneric(final int tickerId, final int field, final double value) {
-        requests.modify(RequestRepository.Event.REQ_MAKET_DATA_SNAPSHOT, tickerId, TwsTick.class, (tick) -> {
-            tick.setGenericValue(field, value);
-        });
+//        requests.modify(RequestRepository.Event.REQ_MAKET_DATA, tickerId, TwsTick.class, (tick) -> {
+//            tick.setGenericValue(field, value);
+//        });
     }
 
     @Override
-    public void tickSnapshotEnd(final int reqId) {
-        log.trace("tickSnapshotEnd({})", reqId);
-        requests.confirmAndRemove(RequestRepository.Event.REQ_MAKET_DATA_SNAPSHOT, reqId, null);
+    public void tickSnapshotEnd(final int tickerId) {
+//        log.trace("tickSnapshotEnd({})", tickerId);
+//        requests.confirmAndRemove(RequestRepository.Event.REQ_MAKET_DATA, tickerId, );
     }
 
     @Override
