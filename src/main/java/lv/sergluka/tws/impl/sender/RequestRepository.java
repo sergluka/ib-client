@@ -2,9 +2,7 @@ package lv.sergluka.tws.impl.sender;
 
 import lv.sergluka.tws.TwsClient;
 import lv.sergluka.tws.TwsExceptions;
-import lv.sergluka.tws.impl.concurent.ScopedLock;
 import lv.sergluka.tws.impl.promise.TwsListPromise;
-import lv.sergluka.tws.impl.promise.TwsOrderPromise;
 import lv.sergluka.tws.impl.promise.TwsPromise;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -14,7 +12,6 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 @SuppressWarnings("unchecked")
 public class RequestRepository {
@@ -32,7 +29,6 @@ public class RequestRepository {
     }
 
     private final ConcurrentHashMap<EventKey, TwsPromise> promises = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Integer, TwsOrderPromise> orders = new ConcurrentHashMap<>();
 
     private final TwsClient client;
 
@@ -47,7 +43,7 @@ public class RequestRepository {
         }
 
         final EventKey key = new EventKey(event, requestId);
-        final TwsPromise promise = new TwsPromise<>(consumer, () -> promises.remove(key));
+        final TwsPromise promise = new TwsPromise<>(key, consumer, () -> promises.remove(key));
         post(key, promise, runnable);
         return promise;
     }
@@ -59,14 +55,14 @@ public class RequestRepository {
         }
 
         final EventKey key = new EventKey(event, requestId);
-        final TwsPromise promise = new TwsListPromise<>(consumer, () -> promises.remove(key));
+        final TwsPromise promise = new TwsListPromise<>(key, consumer, () -> promises.remove(key));
         post(key, promise, runnable);
         return promise;
     }
 
     public <T> void postUncheckedRequest(@NotNull Event event, @NotNull Runnable runnable) {
         final EventKey key = new EventKey(event, null);
-        final TwsPromise promise = new TwsPromise<T>(null, () -> promises.remove(key));
+        final TwsPromise promise = new TwsPromise<T>(key, null, () -> promises.remove(key));
         post(key, promise, runnable);
     }
 

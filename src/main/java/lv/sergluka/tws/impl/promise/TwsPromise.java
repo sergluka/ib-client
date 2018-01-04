@@ -1,7 +1,7 @@
 package lv.sergluka.tws.impl.promise;
 
 import lv.sergluka.tws.TwsExceptions;
-import org.jetbrains.annotations.NotNull;
+import lv.sergluka.tws.impl.sender.EventKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,17 +17,19 @@ public class TwsPromise<T> {
     private static final Logger log = LoggerFactory.getLogger(TwsPromise.class);
 
     protected T value;
-    protected AtomicBoolean done = new AtomicBoolean(false);
 
     private final Runnable onTimeout;
+    private final EventKey event;
     private final Consumer<T> consumer;
 
+    private AtomicBoolean done = new AtomicBoolean(false);
     private final Condition condition;
     private final Lock lock;
 
     private RuntimeException exception;
 
-    public TwsPromise(Consumer<T> consumer, Runnable onTimeout) {
+    public TwsPromise(EventKey event, Consumer<T> consumer, Runnable onTimeout) {
+        this.event = event;
         this.consumer = consumer;
         this.onTimeout = onTimeout;
 
@@ -60,7 +62,8 @@ public class TwsPromise<T> {
             while (!done.get()) {
                 if (!condition.await(timeout, unit)) {
                     onTimeout.run();
-                    throw new TwsExceptions.ResponseTimeout("Request timeout");
+                    throw new TwsExceptions.ResponseTimeout(
+                            String.format("Request timeout (%ds): %s", unit.toSeconds(timeout), event));
                 }
             }
         } catch (InterruptedException e) {

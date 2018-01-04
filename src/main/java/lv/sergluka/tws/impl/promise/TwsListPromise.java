@@ -1,5 +1,6 @@
 package lv.sergluka.tws.impl.promise;
 
+import lv.sergluka.tws.impl.sender.EventKey;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.LinkedList;
@@ -8,8 +9,8 @@ import java.util.function.Consumer;
 
 public class TwsListPromise<T> extends TwsPromise<List<T>> {
 
-    public TwsListPromise(Consumer<List<T>> consumer, @NotNull final Runnable onTimeout) {
-        super(consumer, onTimeout);
+    public TwsListPromise(EventKey event, Consumer<List<T>> consumer, @NotNull final Runnable onTimeout) {
+        super(event, consumer, onTimeout);
         value = new LinkedList<>();
     }
 
