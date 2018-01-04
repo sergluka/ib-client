@@ -248,7 +248,7 @@ public class TwsTick {
             default:
                 log.warn("Unknown int type for tick, type={}, value={}", type, value);
         }
-        log.debug("Set value: {} = {}", enumType, value);
+        log.trace("Set value: {} = {}", enumType, value);
     }
 
     public void setPriceValue(Integer type, Double value) {
@@ -353,7 +353,7 @@ public class TwsTick {
             default:
                 log.warn("Unknown price type for tick, type={}, value={}", type, value);
         }
-        log.debug("Set value: {} = {}", enumType, value);
+        log.trace("Set value: {} = {}", enumType, value);
     }
 
     public void setStringValue(Integer type, String value) {
@@ -389,7 +389,7 @@ public class TwsTick {
             default:
                 log.warn("Unknown string type for tick, type={}, value={}", type, value);
         }
-        log.debug("Set value: {} = {}", enumType, value);
+        log.trace("Set value: {} = {}", enumType, value);
     }
 
     public void setGenericValue(Integer type, Double value) {
@@ -425,7 +425,7 @@ public class TwsTick {
             default:
                 log.warn("Unknown generic type for tick, type={}, value={}", type, value);
         }
-        log.debug("Set value: {} = {}", enumType, value);
+        log.trace("Set value: {} = {}", enumType, value);
     }
 
     public Integer getBidSize() {
