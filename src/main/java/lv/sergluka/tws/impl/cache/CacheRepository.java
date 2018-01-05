@@ -8,6 +8,7 @@ import lv.sergluka.tws.impl.types.TwsOrderStatus;
 import lv.sergluka.tws.impl.types.TwsPosition;
 import lv.sergluka.tws.impl.types.TwsTick;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,6 +91,7 @@ public class CacheRepository {
         return ImmutableMap.copyOf(positions);
     }
 
+    @Nullable
     public TwsPosition getPosition(String account, Contract contract) {
         Objects.requireNonNull(account);
         Objects.requireNonNull(contract);
