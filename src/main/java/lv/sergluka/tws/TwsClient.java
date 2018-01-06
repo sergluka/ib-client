@@ -124,9 +124,12 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
 
     public void disconnect() {
         log.debug("Disconnecting...");
-        connectionMonitor.disconnect();
-        connectionMonitor.close();
-        log.info("Disconnected");
+        try {
+            connectionMonitor.close();
+            log.info("Disconnected");
+        } catch (TimeoutException e) {
+            log.error("Disconnect timeout", e);
+        }
     }
 
     public boolean isConnected() {

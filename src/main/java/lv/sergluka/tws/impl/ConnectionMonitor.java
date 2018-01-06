@@ -62,10 +62,11 @@ public abstract class ConnectionMonitor implements AutoCloseable {
     }
 
     @Override
-    public void close() {
+    public void close() throws TimeoutException {
         if (status.get() != Status.DISCONNECTED) {
             disconnect();
         }
+        waitForStatus(Status.DISCONNECTED);
 
         thread.interrupt();
         try {
