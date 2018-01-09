@@ -141,24 +141,33 @@ class TwsWrapper extends Wrapper {
         log.debug("pnlSingle: reqId={}, pos={}, dailyPnL={}, unrealizedPnL={}, realizedPnL={}, value={}",
                   reqId, pos, dailyPnL, unrealizedPnL, realizedPnL, value);
 
+        Double dailyPnLObj;
+        Double unrealizedPnLObj;
+        Double realizedPnLObj;
+        Double valueObj;
+
+        dailyPnLObj = dailyPnL;
         if (dailyPnL == Double.MAX_VALUE) {
-            log.warn("Missing value for 'dailyPnL'");
-            return;
+            log.debug("Missing value for 'dailyPnL'");
+            dailyPnLObj = null;
         }
+        unrealizedPnLObj = unrealizedPnL;
         if (unrealizedPnL == Double.MAX_VALUE) {
-            log.warn("Missing value for 'unrealizedPnL'");
-            return;
+            log.debug("Missing value for 'unrealizedPnL'");
+            unrealizedPnLObj = null;
         }
+        realizedPnLObj = realizedPnL;
         if (realizedPnL == Double.MAX_VALUE) {
-            log.warn("Missing value for 'realizedPnL'");
-            return;
+            log.debug("Missing value for 'realizedPnL'");
+            realizedPnLObj = null;
         }
+        valueObj = value;
         if (value == Double.MAX_VALUE) {
-            log.warn("Missing value for 'value'");
-            return;
+            log.debug("Missing value for 'value'");
+            valueObj = null;
         }
 
-        TwsPnl pnl = new TwsPnl(pos, dailyPnL, unrealizedPnL, realizedPnL, value);
+        TwsPnl pnl = new TwsPnl(pos, dailyPnLObj, unrealizedPnLObj, realizedPnLObj, valueObj);
         twsClient.executors.submit(() -> {
             final Consumer<TwsPnl> consumer = twsClient.onPnlPerContractMap.get(reqId);
             if (consumer == null) {

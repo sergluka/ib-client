@@ -1,13 +1,16 @@
 package lv.sergluka.tws.impl.types;
 
+/**
+ * PnL structure. Any of Double members can be null, if TWS sends MAX_DBL value.
+ */
 public class TwsPnl {
     private final Integer positionId;
-    private final double dailyPnL;
-    private final double unrealizedPnL;
-    private final double realizedPnL;
+    private final Double dailyPnL;
+    private final Double unrealizedPnL;
+    private final Double realizedPnL;
     private final Double value;
 
-    public TwsPnl(Integer positionId, double dailyPnL, double unrealizedPnL, double realizedPnL, Double value) {
+    public TwsPnl(Integer positionId, Double dailyPnL, Double unrealizedPnL, Double realizedPnL, Double value) {
         this.positionId = positionId;
         this.dailyPnL = dailyPnL;
         this.unrealizedPnL = unrealizedPnL;
@@ -19,19 +22,19 @@ public class TwsPnl {
         return positionId;
     }
 
-    public double getDailyPnL() {
+    public Double getDailyPnL() {
         return dailyPnL;
     }
 
-    public double getUnrealizedPnL() {
+    public Double getUnrealizedPnL() {
         return unrealizedPnL;
     }
 
-    public double getRealizedPnL() {
+    public Double getRealizedPnL() {
         return realizedPnL;
     }
 
-    public double getValue() {
+    public Double getValue() {
         return value;
     }
 
