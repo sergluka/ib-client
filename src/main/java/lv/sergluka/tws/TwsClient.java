@@ -11,10 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -238,7 +235,14 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
 
     // TODO: Error on re-subscribe. Do it for all managed subscriptions
     // TODO: unsubscribe on disconnect
-    public synchronized int subscribeOnAccountPnl(String account, Consumer<TwsPnl> callback) {
+    public synchronized int subscribeOnAccountPnl(@NotNull String account, Consumer<TwsPnl> callback) {
+        Objects.requireNonNull(account, "'account' parameter is null");
+        Objects.requireNonNull(callback, "'callback' parameter is null");
+
+        if (account.isEmpty()) {
+            throw new IllegalArgumentException("'account' parameter is empty");
+        }
+
         shouldBeConnected();
         int id = nextOrderId();
         onPnlPerAccountMap.put(id, callback);

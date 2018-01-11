@@ -17,7 +17,8 @@ class TwsClientTest extends Specification {
 
     void setup() {
         client.connect("127.0.0.1", 7497, 2)
-        client.waitForConnect(10, TimeUnit.SECONDS)
+        client.waitForConnect(30, TimeUnit.SECONDS)
+        client.reqGlobalCancel()
     }
 
     void cleanup() {
@@ -124,7 +125,7 @@ class TwsClientTest extends Specification {
         def contract = createContract()
         def order = createOrder()
 
-        def vars = new BlockingVariables(60)
+        def vars = new BlockingVariables(10)
         def calls = 1
 
         client.subscribeOnOrderNewStatus { id, status ->
@@ -133,7 +134,7 @@ class TwsClientTest extends Specification {
         }
 
         when:
-        client.placeOrder(contract, order).get(10, TimeUnit.SECONDS)
+        client.placeOrder(contract, order).get(30, TimeUnit.SECONDS)
 
         then:
         vars.call1.status == OrderStatus.PreSubmitted
@@ -208,13 +209,15 @@ class TwsClientTest extends Specification {
         def var = new BlockingVariable(5)
 
         when:
-        def id = client.subscribeOnAccountPnl("") { pnl ->
+        false
+        def id = client.subscribeOnAccountPnl("DU22993") { pnl ->
             var.set(pnl)
         }
 
         then:
         def pnl = var.get()
-        pnl.positionId > 0
+        pnl.dailyPnL > 0
+        pnl.unrealizedPnL > 0
 
         cleanup:
         if (id != null) {
@@ -316,7 +319,7 @@ class TwsClientTest extends Specification {
         contract.exchange("NYMEX");
         contract.secType(Types.SecType.FUT)
         contract.multiplier("100")
-        contract.lastTradeDateOrContractMonth("201712");
+        contract.lastTradeDateOrContractMonth("201812");
         return contract
     }
 

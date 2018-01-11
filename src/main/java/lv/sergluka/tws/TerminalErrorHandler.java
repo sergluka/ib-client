@@ -33,6 +33,7 @@ abstract class TerminalErrorHandler {
             case 2109: // Order Event Warning: Attribute "Outside Regular Trading Hours" is ignored based on the order type and destination. PlaceOrder is now processed.
             case 10147: // OrderId ... that needs to be cancelled is not found
             case 10148: // OrderId ... that needs to be cancelled can not be cancelled
+            case 10185: // Failed to cancel PNL (not subscribed)
                 severity = ErrorType.WARN;
                 break;
 
