@@ -29,7 +29,17 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
-    public void orderStatus(int orderId, String status, double filled, double remaining, double avgFillPrice, int permId, int parentId, double lastFillPrice, int clientId, String whyHeld, double mktCapPrice) {
+    public void orderStatus(int orderId,
+                            String status,
+                            double filled,
+                            double remaining,
+                            double avgFillPrice,
+                            int permId,
+                            int parentId,
+                            double lastFillPrice,
+                            int clientId,
+                            String whyHeld,
+                            double mktCapPrice) {
     }
 
     @Override
@@ -157,7 +167,7 @@ public class Wrapper implements EWrapper {
                                    final String value,
                                    final String currency,
                                    final String accountName) {
-        log.debug("updateAccountValue: NOT IMPLEMENTED");
+        log.trace("updateAccountValue: NOT IMPLEMENTED");
     }
 
     @Override
@@ -169,17 +179,15 @@ public class Wrapper implements EWrapper {
                                 final double unrealizedPNL,
                                 final double realizedPNL,
                                 final String accountName) {
-        log.debug("updatePortfolio: NOT IMPLEMENTED");
     }
 
     @Override
     public void updateAccountTime(final String timeStamp) {
-        log.debug("updateAccountTime: NOT IMPLEMENTED");
+        log.debug("updateAccountTime: {}", timeStamp);
     }
 
     @Override
     public void accountDownloadEnd(final String accountName) {
-        log.debug("accountDownloadEnd: NOT IMPLEMENTED");
     }
 
     @Override
@@ -361,7 +369,11 @@ public class Wrapper implements EWrapper {
                                    final String key,
                                    final String value,
                                    final String currency) {
-        log.debug("accountUpdateMulti: NOT IMPLEMENTED");
+
+
+        log.debug("accountUpdateMulti (NOT IMPLEMENTED): " +
+                          "reqId={}, account={}, modelCode={}, key={}, value={}, currency={}",
+                  reqId, account, modelCode, key, value, currency);
     }
 
     @Override
@@ -411,7 +423,12 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
-    public void tickNews(int tickerId, long timeStamp, String providerCode, String articleId, String headline, String extraData) {
+    public void tickNews(int tickerId,
+                         long timeStamp,
+                         String providerCode,
+                         String articleId,
+                         String headline,
+                         String extraData) {
         log.debug("tickNews: NOT IMPLEMENTED");
     }
 

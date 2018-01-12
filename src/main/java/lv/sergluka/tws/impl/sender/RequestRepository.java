@@ -26,6 +26,7 @@ public class RequestRepository {
         REQ_MAKET_DATA,
         REQ_MAKET_DEPTH,
         REQ_POSITIONS,
+        REQ_PORTFOLIO
     }
 
     private final ConcurrentHashMap<EventKey, TwsPromise> promises = new ConcurrentHashMap<>();
@@ -124,7 +125,7 @@ public class RequestRepository {
 
     private void confirm(@NotNull Event event, Integer id, Object result) {
         final EventKey key = new EventKey(event, id);
-        log.debug("=> {}: {}", key, result.toString().replaceAll("\n", "; "));
+        log.debug("=> {}: {}", key, result != null ? result.toString().replaceAll("\n", "; ") : "null");
 
         final TwsPromise promise = promises.remove(key);
         if (promise == null) {

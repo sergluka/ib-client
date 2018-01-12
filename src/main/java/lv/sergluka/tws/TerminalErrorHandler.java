@@ -1,6 +1,5 @@
 package lv.sergluka.tws;
 
-import lv.sergluka.tws.impl.sender.RequestRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,19 +63,17 @@ abstract class TerminalErrorHandler {
                 TwsClient.requests.setError(id, new TwsExceptions.TerminalError(message, code));
                 break;
             case INFO:
-                log.debug("Server message - {}", message);
+                log.info("TWS message: {}", message);
                 break;
             case WARN:
-                log.warn("Server message - {}", message);
-                // TODO: should be threat as error, to notify a caller?
-//                TwsClient.requests.removeRequest(RequestRepository.Event.REQ_ORDER_PLACE, id);
+                log.warn("TWS message - {}", message);
                 break;
             case ERROR:
-                log.error("Terminal error: code={}, msg={}.", code, message);
+                log.error("TWS error: code={}, msg={}.", code, message);
                 onError();
                 break;
             case CRITICAL:
-                log.error("Terminal critical error: code={}, msg={}. Disconnecting.", code, message);
+                log.error("TWS critical error: code={}, msg={}. Disconnecting.", code, message);
                 onFatalError();
                 break;
         }

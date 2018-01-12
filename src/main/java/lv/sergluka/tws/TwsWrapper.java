@@ -13,12 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.SocketException;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.function.Consumer;
-
-// TODO: unsubscribe for all at close
 
 class TwsWrapper extends Wrapper {
 
@@ -118,9 +114,9 @@ class TwsWrapper extends Wrapper {
     public void position(String account, Contract contract, double pos, double avgCost) {
         log.info("Position change: {}/{},{}/{}", account, contract.conid(), contract.localSymbol(), pos);
 
-        twsClient.cache.updatePosition(account, contract, pos, avgCost);
+        TwsPosition position = new TwsPosition(account, contract, pos, avgCost);
+        twsClient.cache.updatePosition(position);
         if (twsClient.onPosition != null) {
-            TwsPosition position = new TwsPosition(account, contract, pos, avgCost);
             twsClient.executors.submit(() -> twsClient.onPosition.accept(position));
         }
     }
@@ -128,7 +124,8 @@ class TwsWrapper extends Wrapper {
     @Override
     public void positionEnd() {
         twsClient.executors.submit(() -> twsClient.onPosition.accept(null));
-        twsClient.requests.confirmAndRemove(RequestRepository.Event.REQ_POSITIONS, null, null);
+        twsClient.requests.confirmAndRemove(RequestRepository.Event.REQ_POSITIONS,
+                                            null, twsClient.cache.getPositions());
     }
 
     @Override
@@ -141,31 +138,10 @@ class TwsWrapper extends Wrapper {
         log.debug("pnlSingle: reqId={}, pos={}, dailyPnL={}, unrealizedPnL={}, realizedPnL={}, value={}",
                   reqId, pos, dailyPnL, unrealizedPnL, realizedPnL, value);
 
-        Double dailyPnLObj;
-        Double unrealizedPnLObj;
-        Double realizedPnLObj;
-        Double valueObj;
-
-        dailyPnLObj = dailyPnL;
-        if (dailyPnL == Double.MAX_VALUE) {
-            log.debug("Missing value for 'dailyPnL'");
-            dailyPnLObj = null;
-        }
-        unrealizedPnLObj = unrealizedPnL;
-        if (unrealizedPnL == Double.MAX_VALUE) {
-            log.debug("Missing value for 'unrealizedPnL'");
-            unrealizedPnLObj = null;
-        }
-        realizedPnLObj = realizedPnL;
-        if (realizedPnL == Double.MAX_VALUE) {
-            log.debug("Missing value for 'realizedPnL'");
-            realizedPnLObj = null;
-        }
-        valueObj = value;
-        if (value == Double.MAX_VALUE) {
-            log.debug("Missing value for 'value'");
-            valueObj = null;
-        }
+        Double dailyPnLObj = doubleToDouble("dailyPnL", dailyPnL);
+        Double unrealizedPnLObj = doubleToDouble("unrealizedPnL", unrealizedPnL);
+        Double realizedPnLObj = doubleToDouble("realizedPnL", realizedPnL);
+        Double valueObj = doubleToDouble("value", value);
 
         TwsPnl pnl = new TwsPnl(pos, dailyPnLObj, unrealizedPnLObj, realizedPnLObj, valueObj);
         twsClient.executors.submit(() -> {
@@ -180,14 +156,14 @@ class TwsWrapper extends Wrapper {
 
     @Override
     public void pnl(int reqId, double dailyPnL, double unrealizedPnL, double realizedPnL) {
-        log.trace("pnl: reqId={}, dailyPnL={}, unrealizedPnL={}, realizedPnL={}, value={}",
+        log.trace("pnl: reqId={}, dailyPnL={}, unrealizedPnL={}, realizedPnL={}",
                   reqId, dailyPnL, unrealizedPnL, realizedPnL);
 
         TwsPnl pnl = new TwsPnl(null, dailyPnL, unrealizedPnL, realizedPnL, null);
         twsClient.executors.submit(() -> {
             final Consumer<TwsPnl> consumer = twsClient.onPnlPerAccountMap.get(reqId);
             if (consumer == null) {
-                log.error("Got 'pnl' with unknown id %d", reqId);
+                log.error("Got 'pnl' with unknown id {}", reqId);
                 return;
             }
             consumer.accept(pnl);
@@ -235,6 +211,48 @@ class TwsWrapper extends Wrapper {
     }
 
     @Override
+    public void updatePortfolio(Contract contract,
+                                double position,
+                                double marketPrice,
+                                double marketValue,
+                                double averageCost,
+                                double unrealizedPNL,
+                                double realizedPNL,
+                                String accountName) {
+
+        Double positionObj = doubleToDouble("position", position);
+        Double marketPriceObj = doubleToDouble("marketPrice", marketPrice);
+        Double marketValueObj = doubleToDouble("marketValue", marketValue);
+        Double averageCostObj = doubleToDouble("averageCost", averageCost);
+        Double unrealizedPNLObj = doubleToDouble("unrealizedPNL", unrealizedPNL);
+        Double realizedPNLObj = doubleToDouble("realizedPNL", realizedPNL);
+
+        log.debug("updatePortfolio: contract={}, position={}, marketPrice={}, marketValue={}, averageCost={}, " +
+                          "unrealizedPNL={}, realizedPNL={}, accountName={}",
+                  contract, position, marketPrice, marketValue, averageCost, unrealizedPNL, realizedPNL, accountName);
+
+        TwsPortfolio portfolio = new TwsPortfolio(contract, positionObj, marketPriceObj, marketValueObj, averageCostObj,
+                                                  unrealizedPNLObj, realizedPNLObj, accountName);
+
+        twsClient.cache.updatePortfolio(portfolio);
+        twsClient.executors.submit(() -> {
+            final Consumer<TwsPortfolio> consumer = twsClient.onUpdatePerAccount;
+            if (consumer == null) {
+                log.error("Got 'updatePortfolio' without subscription");
+                return;
+            }
+            consumer.accept(portfolio);
+        });
+    }
+
+    @Override
+    public void accountDownloadEnd(String accountName) {
+        twsClient.executors.submit(() -> twsClient.onUpdatePerAccount.accept(null));
+        twsClient.requests.confirmAndRemove(RequestRepository.Event.REQ_PORTFOLIO,
+                                            null, twsClient.cache.getPortfolio());
+    }
+
+    @Override
     public void error(final Exception e) {
         if (e instanceof SocketException) {
 
@@ -273,5 +291,17 @@ class TwsWrapper extends Wrapper {
             }
             consumer.accept(result);
         });
+    }
+
+    /**
+     * TWS API describes that double equals Double.MAX_VALUE should be threaded as unset
+     */
+    private Double doubleToDouble(String name, double value) {
+        if (value == Double.MAX_VALUE) {
+            log.debug("Missing value for '{}'", name);
+            return null;
+        }
+
+        return value;
     }
 }
