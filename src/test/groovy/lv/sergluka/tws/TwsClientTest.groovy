@@ -226,6 +226,26 @@ class TwsClientTest extends Specification {
         }
     }
 
+    def "Request for Portfolio change for account"() {
+        given:
+        def var = new BlockingVariable(4 * 60) // Account updates once per 3 min
+
+        when:
+        false
+        def id = client.subscribeOnAccountPortfolio("DU22993") { portfolio ->
+            var.set(portfolio)
+        }
+
+        then:
+        def portfolio = var.get()
+        portfolio.position > 0.0
+
+        cleanup:
+        if (id != null) {
+            client.unsubscribeOnAccountPortfolio("DU22993")
+        }
+    }
+
     def "Get market data"() {
         given:
         def var = new BlockingVariable(5)

@@ -1,12 +1,9 @@
 package lv.sergluka.tws.impl.cache;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.ib.client.Contract;
-import lv.sergluka.tws.impl.types.TwsOrder;
-import lv.sergluka.tws.impl.types.TwsOrderStatus;
-import lv.sergluka.tws.impl.types.TwsPosition;
-import lv.sergluka.tws.impl.types.TwsTick;
+import lv.sergluka.tws.impl.types.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -25,6 +22,7 @@ public class CacheRepository {
     private final ConcurrentHashMap<Integer, TwsOrder> orders = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<PositionKey, TwsPosition> positions = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, TwsTick> ticks = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, TwsPortfolio> portfolioContracts = new ConcurrentHashMap<>();
 
     // AFter order placing, some statuses goes first, before `openOrder` callback, so storing then separately
     private final LinkedHashMap<Integer, Set<TwsOrderStatus>> statuses = new LinkedHashMap<>();
@@ -73,8 +71,12 @@ public class CacheRepository {
         return order.addStatus(status);
     }
 
-    public void updatePosition(String account, Contract contract, double position, double avgCost) {
-        positions.put(new PositionKey(account, contract.conid()), new TwsPosition(account, contract, position, avgCost));
+    public void updatePosition(TwsPosition position) {
+        positions.put(new PositionKey(position.getAccount(), position.getContract().conid()), position);
+    }
+
+    public void updatePortfolio(TwsPortfolio portfolio) {
+        portfolioContracts.put(portfolio.getContract().conid(), portfolio);
     }
 
     public TwsTick updateTick(int tickerId, Consumer<TwsTick> consumer) {
@@ -87,8 +89,12 @@ public class CacheRepository {
         return ticks.get(tickerId);
     }
 
-    public ImmutableMap<PositionKey, TwsPosition> getPositions() {
-        return ImmutableMap.copyOf(positions);
+    public ImmutableSet<TwsPosition> getPositions() {
+        return ImmutableSet.copyOf(positions.values());
+    }
+
+    public ImmutableSet<TwsPortfolio> getPortfolio() {
+        return ImmutableSet.copyOf(portfolioContracts.values());
     }
 
     @Nullable
@@ -99,5 +105,14 @@ public class CacheRepository {
             throw new IllegalArgumentException("Contract has a id 0");
         }
         return positions.get(new PositionKey(account, contract.conid()));
+    }
+
+    @Nullable
+    public TwsPortfolio getPortfolio(Contract contract) {
+        Objects.requireNonNull(contract);
+        if (contract.conid() == 0) {
+            throw new IllegalArgumentException("Contract has a id 0");
+        }
+        return portfolioContracts.get(contract.conid());
     }
 }

@@ -26,6 +26,7 @@ public class RequestRepository {
         REQ_MAKET_DATA,
         REQ_MAKET_DEPTH,
         REQ_POSITIONS,
+        REQ_PORTFOLIO
     }
 
     private final ConcurrentHashMap<EventKey, TwsPromise> promises = new ConcurrentHashMap<>();

@@ -1,10 +1,12 @@
 package lv.sergluka.tws;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSet;
 import com.ib.client.*;
 import lv.sergluka.tws.impl.ConnectionMonitor;
 import lv.sergluka.tws.impl.TwsReader;
-import lv.sergluka.tws.impl.promise.TwsPromise;
 import lv.sergluka.tws.impl.cache.CacheRepository;
+import lv.sergluka.tws.impl.promise.TwsPromise;
 import lv.sergluka.tws.impl.sender.RequestRepository;
 import lv.sergluka.tws.impl.types.*;
 import org.jetbrains.annotations.NotNull;
@@ -39,6 +41,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     protected Map<Integer, Consumer<TwsTick>> onMarketDataMap = new LinkedHashMap<>();
     protected Map<Integer, Consumer<TwsTick>> onMarketDepthMap = new LinkedHashMap<>();
     protected Map<Integer, Consumer<TwsPnl>> onPnlPerAccountMap = new LinkedHashMap<>();
+    protected Consumer<TwsPortfolio> onUpdatePerAccount;
     protected Set<String> managedAccounts;
 
     private EClientSocket socket;
@@ -143,7 +146,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         onOrderStatus = null;
     }
 
-    public synchronized TwsPromise subscribeOnPositionChange(Consumer<TwsPosition> callback) {
+    public synchronized TwsPromise<ImmutableSet<TwsPosition>> subscribeOnPositionChange(Consumer<TwsPosition> callback) {
         shouldBeConnected();
         onPosition = callback;
         return requests.postSingleRequest(RequestRepository.Event.REQ_POSITIONS,
@@ -187,7 +190,9 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
 
         int tickerId = nextOrderId();
         return requests.postSingleRequest(RequestRepository.Event.REQ_MAKET_DATA,
-                tickerId, () -> socket.reqMktData(tickerId, contract, "", true, false, null), null);
+                                          tickerId,
+                                          () -> socket.reqMktData(tickerId, contract, "", true, false, null),
+                                          null);
     }
 
     public synchronized int subscribeOnMarketData(Contract contract, Consumer<TwsTick> callback) {
@@ -260,6 +265,35 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         onPnlPerAccountMap.remove(requestId);
     }
 
+    public synchronized TwsPromise<ImmutableSet<TwsPortfolio>> subscribeOnAccountPortfolio(
+            @NotNull String account,
+            @NotNull Consumer<TwsPortfolio> callback) {
+
+        Objects.requireNonNull(account, "'account' parameter is null");
+        Objects.requireNonNull(callback, "'callback' parameter is null");
+
+        if (account.isEmpty()) {
+            throw new IllegalArgumentException("'account' parameter is empty");
+        }
+
+        shouldBeConnected();
+
+        if (onUpdatePerAccount != null) {
+            throw new IllegalStateException("Only one account can be subscribed at a time");
+        }
+        onUpdatePerAccount = callback;
+
+
+        return requests.postSingleRequest(RequestRepository.Event.REQ_PORTFOLIO,
+                                          null, () -> socket.reqAccountUpdates(true, account), null);
+    }
+
+    public synchronized void unsubscribeOnAccountPortfolio(@NotNull String account) {
+        shouldBeConnected();
+        socket.reqAccountUpdates(false, account);
+        onUpdatePerAccount = null;
+    }
+
     public synchronized void setOnConnectionStatus(Consumer<ConnectionMonitor.Status> callback) {
         onConnectionStatus = callback;
     }
@@ -313,7 +347,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
 
         final Integer id = nextOrderId();
         return requests.postSingleRequest(RequestRepository.Event.REQ_ORDER_LIST, null,
-                                        () -> socket.reqAllOpenOrders(), null);
+                                          () -> socket.reqAllOpenOrders(), null);
     }
 
     @NotNull
