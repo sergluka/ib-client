@@ -3,7 +3,6 @@ package lv.sergluka.tws
 import com.ib.client.Contract
 import com.ib.client.Order
 import com.ib.client.OrderStatus
-import com.ib.client.OrderType
 import com.ib.client.Types
 import spock.lang.Specification
 import spock.util.concurrent.BlockingVariable
@@ -81,8 +80,8 @@ class TwsClientTest extends Specification {
 
     def "Call placeOrder is OK"() {
         given:
-        def contract = createContract()
-        def order = createOrder()
+        def contract = createContractEUR()
+        def order = createOrderEUR()
 
         when:
         def promise = client.placeOrder(contract, order)
@@ -94,19 +93,19 @@ class TwsClientTest extends Specification {
 
     def "Few placeOrder shouldn't interfere"() {
         given:
-        def contract = createContract()
+        def contract = createContractEUR()
 
         when:
-        def promise1 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def promise2 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def promise3 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def promise4 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def promise5 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def promise6 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def promise7 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def promise8 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def promise9 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def promise10 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def promise1 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def promise2 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def promise3 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def promise4 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def promise5 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def promise6 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def promise7 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def promise8 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def promise9 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def promise10 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
 
         then:
         promise1.get(10, TimeUnit.SECONDS)
@@ -156,10 +155,10 @@ class TwsClientTest extends Specification {
 
     def "Request orders"() {
         given:
-        def contract = createContract()
+        def contract = createContractEUR()
 
         when:
-        client.placeOrder(contract, createOrder(client.nextOrderId())).get(3, TimeUnit.SECONDS)
+        client.placeOrder(contract, createOrderEUR(client.nextOrderId())).get(3, TimeUnit.SECONDS)
         def list = client.reqAllOpenOrders().get(2, TimeUnit.SECONDS)
 
         then:
@@ -238,7 +237,7 @@ class TwsClientTest extends Specification {
 
         then:
         def portfolio = var.get()
-        portfolio.position > 0.0
+        portfolio.position != 0.0
 
         cleanup:
         if (id != null) {
@@ -267,17 +266,17 @@ class TwsClientTest extends Specification {
 
     def "Request orders and place orders shouldn't interfere each other"() {
         given:
-        def contract = createContract()
+        def contract = createContractEUR()
 
         when:
-        def promise1 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def promise1 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
         client.reqAllOpenOrders().get(10, TimeUnit.SECONDS)
-        def promise2 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def promise3 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def promise2 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def promise3 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
         client.reqAllOpenOrders().get(10, TimeUnit.SECONDS)
-        def promise4 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def promise5 = client.placeOrder(contract, createOrder(client.nextOrderId()))
-        def promise6 = client.placeOrder(contract, createOrder(client.nextOrderId()))
+        def promise4 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def promise5 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def promise6 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
 
         and:
 
