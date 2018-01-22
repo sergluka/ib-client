@@ -1,9 +1,10 @@
+package lv.sergluka.tws
+
 import com.ib.client.Contract
 import com.ib.client.Order
 import com.ib.client.OrderStatus
+import com.ib.client.OrderType
 import com.ib.client.Types
-import lv.sergluka.tws.TwsClient
-import lv.sergluka.tws.TwsExceptions
 import spock.lang.Specification
 import spock.util.concurrent.BlockingVariable
 import spock.util.concurrent.BlockingVariables
@@ -122,8 +123,8 @@ class TwsClientTest extends Specification {
 
     def "Expect for states after placeOrder"() {
         given:
-        def contract = createContract()
-        def order = createOrder()
+        def contract = createContractEUR()
+        def order = createOrderEUR()
 
         def vars = new BlockingVariables(10)
         def calls = 1
@@ -216,7 +217,7 @@ class TwsClientTest extends Specification {
 
         then:
         def pnl = var.get()
-        pnl.dailyPnL > 0
+        pnl.dailyPnL != 0
         pnl.unrealizedPnL > 0
 
         cleanup:
@@ -287,11 +288,12 @@ class TwsClientTest extends Specification {
         list2.get(5).getOrderId() == order6.getOrderId()
     }
 
-    def "Few reconnects doesn't impact to functionality"() {
+    def "Few reconnects shouldn't impact to functionality"() {
         expect:
 
         (0..10).each {
             client.connect("127.0.0.1", 7497, 1)
+            client.waitForConnect(10, TimeUnit.SECONDS)
             assert client.isConnected()
             client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
             client.disconnect()
@@ -336,16 +338,31 @@ class TwsClientTest extends Specification {
         return createOrder(client.nextOrderId())
     }
 
+    private def createOrderEUR() {
+        return createOrderEUR(client.nextOrderId())
+    }
+
     private def createOrder(int id) {
         def order = new Order()
         order.orderId(id)
         order.action("BUY");
         order.orderType("STP");
-        order.auxPrice(1.1);
-        order.triggerPrice(0.23)
+        order.auxPrice(1.1f)
+        order.triggerPrice(0.23f)
         order.tif("GTC");
-        order.totalQuantity(1.0)
+        order.totalQuantity(1.0f)
         order.outsideRth(true)
+        return order
+    }
+
+    private def createOrderEUR(int id) {
+        def order = new Order()
+        order.orderId(id)
+        order.action("BUY")
+        order.orderType("STP");
+        order.auxPrice(1.0f)
+        order.tif("GTC")
+        order.totalQuantity(20000.0f)
         return order;
     }
 }

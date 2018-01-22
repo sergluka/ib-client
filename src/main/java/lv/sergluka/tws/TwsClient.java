@@ -139,6 +139,10 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         onOrderStatus = callback;
     }
 
+    public void unsubscribeOnOrderNewStatus() {
+        onOrderStatus = null;
+    }
+
     public synchronized TwsPromise subscribeOnPositionChange(Consumer<TwsPosition> callback) {
         shouldBeConnected();
         onPosition = callback;
