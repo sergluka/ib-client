@@ -134,7 +134,15 @@ public class SubscriptionsRepository implements AutoCloseable {
 
         // TODO: Add queue explicitly and monitor its size
         // TODO: Log posting, execution and finalization of a task
-        executors.submit(() -> subscription.call(data));
+        executors.submit(() -> {
+            Thread thread = Thread.currentThread();
+            thread.setName(String.format("subscription-%s", subscription.toString()));
+            try {
+                subscription.call(data);
+            } catch (Exception e) {
+                log.error("Error at handling event={} of subscription={}: {}", data, subscription, e.getMessage(), e);
+            }
+        });
     }
 
     public void resubscribe() {
@@ -168,6 +176,7 @@ public class SubscriptionsRepository implements AutoCloseable {
         if (!done) {
             log.warn("Still have threads running after shutdown");
         }
+        log.debug("SubscriptionsRepository is closed");
     }
 
     private void addSubscription(Key key, SubscriptionImpl subscription) {

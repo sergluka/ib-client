@@ -53,7 +53,7 @@ public class SubscriptionImpl<Param, RegResult> implements TwsSubscription {
             if (unregistrationFn != null) {
                 unregistrationFn.accept(key.id);
             }
-            log.info("Subscribed from {}", this);
+            log.info("Has been unsubscribed from {}", this);
         } catch (Exception e) {
             log.error("Error unsubscribe for subscription: {}", this);
         }
@@ -62,7 +62,7 @@ public class SubscriptionImpl<Param, RegResult> implements TwsSubscription {
     @Override
     public String toString() {
         final StringBuffer buffer = new StringBuffer("{");
-        buffer.append("{id=").append(key.id);
+        buffer.append("id=").append(key.id);
         buffer.append(", type=").append(key.type);
         buffer.append('}');
         return buffer.toString();

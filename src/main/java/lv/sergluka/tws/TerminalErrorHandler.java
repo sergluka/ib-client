@@ -25,6 +25,7 @@ abstract class TerminalErrorHandler {
             case 2106:
             case 2108:
             case 202: // Order canceled
+            case 2100: // API client has been unsubscribed from account data..
                 severity = ErrorType.INFO;
                 break;
             case 201: // Order rejected
@@ -64,17 +65,17 @@ abstract class TerminalErrorHandler {
                 TwsClient.requests.setError(id, new TwsExceptions.TerminalError(message, code));
                 break;
             case INFO:
-                log.info("TWS message: {}", message);
+                log.info("TWS message: [#{}] {}", code, message);
                 break;
             case WARN:
-                log.warn("TWS message - {}", message);
+                log.warn("TWS message - [#{}] {}", code, message);
                 break;
             case ERROR:
-                log.error("TWS error: code={}, msg={}.", code, message);
+                log.error("TWS error - [#{}] {}", code, message);
                 onError();
                 break;
             case CRITICAL:
-                log.error("TWS critical error: code={}, msg={}. Disconnecting.", code, message);
+                log.error("TWS critical error - [#{}] {}. Disconnecting.", code, message);
                 onFatalError();
                 break;
         }
