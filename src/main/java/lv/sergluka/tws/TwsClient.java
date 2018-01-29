@@ -8,6 +8,9 @@ import lv.sergluka.tws.impl.TwsReader;
 import lv.sergluka.tws.impl.cache.CacheRepository;
 import lv.sergluka.tws.impl.promise.TwsPromise;
 import lv.sergluka.tws.impl.sender.RequestRepository;
+import lv.sergluka.tws.impl.subscription.SubscriptionsRepository;
+import lv.sergluka.tws.impl.subscription.TwsSubscription;
+import lv.sergluka.tws.impl.subscription.TwsSubscriptionPromise;
 import lv.sergluka.tws.impl.types.*;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -18,43 +21,35 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 @SuppressWarnings("unused")
 public class TwsClient extends TwsWrapper implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(TwsClient.class);
-    private static final int INVALID_ID = -1;
 
     protected static RequestRepository requests;
 
-    protected final ExecutorService executors;
     protected TwsReader reader;
     protected CacheRepository cache;
     protected ConnectionMonitor connectionMonitor;
 
-    protected BiConsumer<Integer, TwsOrderStatus> onOrderStatus;
-    protected Consumer<TwsPosition> onPosition;
-    protected Map<Integer, Consumer<TwsPnl>> onPnlPerContractMap = new LinkedHashMap<>();
-    protected Map<Integer, Consumer<TwsTick>> onMarketDataMap = new LinkedHashMap<>();
-    protected Map<Integer, Consumer<TwsTick>> onMarketDepthMap = new LinkedHashMap<>();
-    protected Map<Integer, Consumer<TwsPnl>> onPnlPerAccountMap = new LinkedHashMap<>();
-    protected Consumer<TwsPortfolio> onUpdatePerAccount;
     protected Set<String> managedAccounts;
 
     private EClientSocket socket;
-    private AtomicInteger orderId;
-    private Consumer<ConnectionMonitor.Status> onConnectionStatus;
+    protected IdGenerator idGenerator;
+
+    protected SubscriptionsRepository subscriptions;
 
     public TwsClient() {
         this(Executors.newCachedThreadPool());
     }
 
-    public TwsClient(ExecutorService executors) {
+    public TwsClient(ExecutorService subscriptionsExecutor) {
         super();
-        this.executors = executors;
+        idGenerator = new IdGenerator();
+        subscriptions = new SubscriptionsRepository(subscriptionsExecutor, idGenerator);
+
         setClient(this);
     }
 
@@ -68,13 +63,9 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         return cache;
     }
 
-    AtomicInteger getOrderId() {
-        return orderId;
-    }
-
     @Override
-    public void close() throws Exception {
-        executors.shutdownNow().forEach(runnable -> log.info("Thread still works at shutdown: {}", runnable));
+    public void close() {
+        subscriptions.close();
         disconnect();
     }
 
@@ -94,7 +85,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
         connectionMonitor = new ConnectionMonitor() {
 
             @Override
-            protected void connectRequest() {
+            protected void connectRequest(boolean reconnect) {
                 init();
                 socket.setAsyncEConnect(false);
                 socket.eConnect(ip, port, connId);
@@ -102,16 +93,22 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
             }
 
             @Override
-            protected void disconnectRequest() {
+            protected void disconnectRequest(boolean reconnect) {
+                if (!reconnect) {
+                    subscriptions.close();
+                }
                 socket.eDisconnect();
                 reader.close();
             }
 
             @Override
+            protected void afterConnect() {
+                subscriptions.resubscribe();
+            }
+
+            @Override
             protected void onStatusChange(Status status) {
-                if (onConnectionStatus != null) {
-                    executors.submit(() -> onConnectionStatus.accept(status));
-                }
+                subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_CONNECTION_STATUS, status, false);
             }
         };
         connectionMonitor.start();
@@ -124,12 +121,8 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
 
     public void disconnect() {
         log.debug("Disconnecting...");
-        try {
-            connectionMonitor.close();
-            log.info("Disconnected");
-        } catch (TimeoutException e) {
-            log.error("Disconnect timeout", e);
-        }
+        connectionMonitor.close();
+        log.info("Disconnected");
     }
 
     public boolean isConnected() {
@@ -138,26 +131,23 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
                 connectionMonitor.status() == ConnectionMonitor.Status.CONNECTED;
     }
 
-    public void subscribeOnOrderNewStatus(BiConsumer<Integer, TwsOrderStatus> callback) {
-        onOrderStatus = callback;
+    @NotNull
+    public TwsSubscription subscribeOnOrderNewStatus(Consumer<TwsOrderStatus> callback) {
+        return subscriptions.addUnique(SubscriptionsRepository.EventType.EVENT_ORDER_STATUS, callback, null, null);
     }
 
-    public void unsubscribeOnOrderNewStatus() {
-        onOrderStatus = null;
-    }
-
-    public synchronized TwsPromise<ImmutableSet<TwsPosition>> subscribeOnPositionChange(Consumer<TwsPosition> callback) {
-        shouldBeConnected();
-        onPosition = callback;
-        return requests.postSingleRequest(RequestRepository.Event.REQ_POSITIONS,
-                                          null, () -> socket.reqPositions(), null);
-
-    }
-
-    public synchronized void unsubscribeOnPositionChange() {
-        shouldBeConnected();
-        socket.cancelPositions();
-        onPosition = null;
+    public synchronized
+    TwsSubscriptionPromise<ImmutableSet<TwsPosition>> subscribeOnPositionChange(Consumer<TwsPosition> callback) {
+        return subscriptions.addPromiseUnique(SubscriptionsRepository.EventType.EVENT_POSITION, callback,
+                                              (unused) -> {
+                                            shouldBeConnected();
+                                            return requests.postSingleRequest(RequestRepository.Event.REQ_POSITIONS,
+                                                                              null, () -> socket.reqPositions(), null);
+                                        },
+                                              (unused) -> {
+                                            shouldBeConnected();
+                                            socket.cancelPositions();
+                                        });
     }
 
     public Set<String> getManagedAccounts() {
@@ -172,7 +162,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
 
         private int value;
 
-        private MarketDataType(int value) {
+        MarketDataType(int value) {
             this.value = value;
         }
 
@@ -188,63 +178,42 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     public synchronized TwsPromise<TwsTick> reqMktDataSnapshot(Contract contract) {
         shouldBeConnected();
 
-        int tickerId = nextOrderId();
+        int tickerId = idGenerator.nextRequestId();
         return requests.postSingleRequest(RequestRepository.Event.REQ_MAKET_DATA,
                                           tickerId,
                                           () -> socket.reqMktData(tickerId, contract, "", true, false, null),
                                           null);
     }
 
-    public synchronized int subscribeOnMarketData(Contract contract, Consumer<TwsTick> callback) {
-        shouldBeConnected();
-        int tickerId = nextOrderId();
-        onMarketDataMap.put(tickerId, callback);
-        socket.reqMktData(tickerId, contract, "", false, false, null);
-        log.info("Subscribed to market data, ticker id = {}", tickerId);
-        return tickerId;
+    public synchronized TwsSubscription subscribeOnMarketData(Contract contract, Consumer<TwsTick> callback) {
+        return subscriptions.add(SubscriptionsRepository.EventType.EVENT_MARKET_DATA, callback,
+                                 (id) -> {
+                                            shouldBeConnected();
+                                            socket.reqMktData(id, contract, "", false, false, null);
+                                            return null;
+                                        },
+                                 (id) -> {
+                                            shouldBeConnected();
+                                            socket.cancelMktData(id);
+                                        });
     }
 
-    public synchronized void unsubscribeOnMarketData(int tickerId) {
-        shouldBeConnected();
-        socket.cancelMktData(tickerId);
-        onMarketDataMap.remove(tickerId);
+    public synchronized TwsSubscription subscribeOnContractPnl(int contractId,
+                                                               String account,
+                                                               Consumer<TwsPnl> callback) {
+        return subscriptions.add(SubscriptionsRepository.EventType.EVENT_CONTRACT_PNL, callback,
+                                 (id) -> {
+                                     shouldBeConnected();
+                                     socket.reqPnLSingle(id, account, "", contractId);
+                                     return null;
+                                 },
+                                 (id) -> {
+                                     shouldBeConnected();
+                                     socket.cancelPnLSingle(id);
+                                 });
     }
 
-    public synchronized int subscribeOnMarketDepth(Contract contract, int depth, Consumer<TwsTick> callback) {
-        shouldBeConnected();
-
-        int tickerId = nextOrderId();
-        onMarketDepthMap.put(tickerId, callback);
-        final TwsPromise<Object> promise = requests.postSingleRequest(
-                RequestRepository.Event.REQ_MAKET_DEPTH,
-                tickerId, () -> socket.reqMktDepth(tickerId, contract, depth, null), null);
-        promise.get();
-        return tickerId;
-    }
-
-    public synchronized void unsubscribeOnMarketDepth(int tickerId) {
-        shouldBeConnected();
-        socket.cancelMktDepth(tickerId);
-        onMarketDepthMap.remove(tickerId);
-    }
-
-    public synchronized int subscribeOnContractPnl(int contractId, String account, Consumer<TwsPnl> callback) {
-        shouldBeConnected();
-        int id = nextOrderId();
-        onPnlPerContractMap.put(id, callback);
-        socket.reqPnLSingle(id, account, "", contractId);
-        return id; // TODO: Make closable object?
-    }
-
-    public synchronized void unsubscribeOnContractPnl(int requestId) {
-        shouldBeConnected();
-        socket.cancelPnLSingle(requestId);
-        onPnlPerContractMap.remove(requestId);
-    }
-
-    // TODO: Error on re-subscribe. Do it for all managed subscriptions
-    // TODO: unsubscribe on disconnect
-    public synchronized int subscribeOnAccountPnl(@NotNull String account, Consumer<TwsPnl> callback) {
+    public synchronized TwsSubscription subscribeOnAccountPnl(@NotNull String account, Consumer<TwsPnl> callback) {
         Objects.requireNonNull(account, "'account' parameter is null");
         Objects.requireNonNull(callback, "'callback' parameter is null");
 
@@ -252,20 +221,19 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
             throw new IllegalArgumentException("'account' parameter is empty");
         }
 
-        shouldBeConnected();
-        int id = nextOrderId();
-        onPnlPerAccountMap.put(id, callback);
-        socket.reqPnL(id, account, "");
-        return id;
+        return subscriptions.add(SubscriptionsRepository.EventType.EVENT_ACCOUNT_PNL, callback,
+                                 (id) -> {
+                                     shouldBeConnected();
+                                     socket.reqPnL(id, account, "");
+                                     return null;
+                                 },
+                                 (id) -> {
+                                     shouldBeConnected();
+                                     socket.cancelPnL(id);
+                                 });
     }
 
-    public synchronized void unsubscribeOnAccountPnl(int requestId) {
-        shouldBeConnected();
-        socket.cancelPnL(requestId);
-        onPnlPerAccountMap.remove(requestId);
-    }
-
-    public synchronized TwsPromise<ImmutableSet<TwsPortfolio>> subscribeOnAccountPortfolio(
+    public synchronized TwsSubscriptionPromise<ImmutableSet<TwsPortfolio>> subscribeOnAccountPortfolio(
             @NotNull String account,
             @NotNull Consumer<TwsPortfolio> callback) {
 
@@ -276,34 +244,24 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
             throw new IllegalArgumentException("'account' parameter is empty");
         }
 
-        shouldBeConnected();
-
-        if (onUpdatePerAccount != null) {
-            throw new IllegalStateException("Only one account can be subscribed at a time");
-        }
-        onUpdatePerAccount = callback;
-
-
-        return requests.postSingleRequest(RequestRepository.Event.REQ_PORTFOLIO,
-                                          null, () -> socket.reqAccountUpdates(true, account), null);
+        return subscriptions.addPromiseUnique(SubscriptionsRepository.EventType.EVENT_PORTFOLIO, callback,
+                                              (unused) -> {
+                                     shouldBeConnected();
+                                     return requests.postSingleRequest(RequestRepository.Event.REQ_PORTFOLIO,
+                                                                null, () -> socket.reqAccountUpdates(true, account), null);
+                                 },
+                                              (unused) -> {
+                                     shouldBeConnected();
+                                     socket.reqAccountUpdates(false, account);
+                                 });
     }
 
-    public synchronized void unsubscribeOnAccountPortfolio(@NotNull String account) {
-        shouldBeConnected();
-        socket.reqAccountUpdates(false, account);
-        onUpdatePerAccount = null;
-    }
-
-    public synchronized void setOnConnectionStatus(Consumer<ConnectionMonitor.Status> callback) {
-        onConnectionStatus = callback;
+    public synchronized TwsSubscriptionPromise setOnConnectionStatus(Consumer<ConnectionMonitor.Status> callback) {
+        return subscriptions.addPromiseUnique(SubscriptionsRepository.EventType.EVENT_CONNECTION_STATUS, callback, null, null);
     }
 
     public int nextOrderId() {
-        if (orderId.get() == INVALID_ID) {
-            throw new IllegalStateException("Has no request ID from TWS"); // TODO: Wait until we got one
-        }
-
-        return orderId.getAndIncrement();
+        return idGenerator.nextOrderId();
     }
 
     @NotNull
@@ -345,7 +303,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     public synchronized TwsPromise<List<TwsOrder>> reqAllOpenOrders() {
         shouldBeConnected();
 
-        final Integer id = nextOrderId();
+        final Integer id = idGenerator.nextRequestId();
         return requests.postSingleRequest(RequestRepository.Event.REQ_ORDER_LIST, null,
                                           () -> socket.reqAllOpenOrders(), null);
     }
@@ -354,7 +312,7 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     public synchronized TwsPromise<List<ContractDetails>> reqContractDetails(@NotNull Contract contract) {
         shouldBeConnected();
 
-        final Integer id = nextOrderId();
+        final Integer id = idGenerator.nextRequestId();
         return requests.postListRequest(RequestRepository.Event.REQ_CONTRACT_DETAIL, id,
                                         () -> socket.reqContractDetails(id, contract), null);
     }
@@ -362,24 +320,17 @@ public class TwsClient extends TwsWrapper implements AutoCloseable {
     public synchronized void reqContractDetails(@NotNull Contract contract, Consumer<List<ContractDetails>> consumer) {
         shouldBeConnected();
 
-        final Integer id = nextOrderId();
+        final Integer id = idGenerator.nextRequestId();
         requests.postListRequest(RequestRepository.Event.REQ_CONTRACT_DETAIL, id,
                                  () -> socket.reqContractDetails(id, contract), consumer);
     }
 
     private void init() {
-        orderId = new AtomicInteger(INVALID_ID);
-
         EJavaSignal signal = new EJavaSignal();
 
-//        final Wrapper wrapper = new TwsWrapper(this, requests);
         socket = new EClientSocket(this, signal);
         reader = new TwsReader(socket, signal);
     }
-
-//    private int nextRequestId() {
-//        return requestId.getAndIncrement();
-//    }
 
     private void shouldBeConnected() {
         if (!isConnected()) {

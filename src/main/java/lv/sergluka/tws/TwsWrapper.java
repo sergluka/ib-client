@@ -8,13 +8,13 @@ import com.ib.client.TickAttr;
 import lv.sergluka.tws.impl.ConnectionMonitor;
 import lv.sergluka.tws.impl.Wrapper;
 import lv.sergluka.tws.impl.sender.RequestRepository;
+import lv.sergluka.tws.impl.subscription.SubscriptionsRepository;
 import lv.sergluka.tws.impl.types.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.SocketException;
 import java.util.HashSet;
-import java.util.function.Consumer;
 
 class TwsWrapper extends Wrapper {
 
@@ -47,12 +47,11 @@ class TwsWrapper extends Wrapper {
     public void connectAck() {
         try {
             log.info("Connection is opened. version: {}", twsClient.getSocket().serverVersion());
-            twsClient.reader.start(); // TODO: maybe move it into Conn Manager thread
-
+            twsClient.reader.start();
             twsClient.connectionMonitor.confirmConnection();
             super.connectAck();
         } catch (Exception e) {
-            log.error("Exception at `connectAck`", e);
+            log.error("Exception at `connectAck`: {}", e.getMessage(), e);
         }
     }
 
@@ -84,10 +83,7 @@ class TwsWrapper extends Wrapper {
         if (twsClient.cache.addNewStatus(twsStatus)) {
 
             log.info("New order status: {}", twsStatus);
-
-            if (twsClient.onOrderStatus != null) {
-                twsClient.executors.submit(() -> twsClient.onOrderStatus.accept(orderId, twsStatus));
-            }
+            twsClient.subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_ORDER_STATUS, twsStatus, false);
         }
     }
 
@@ -116,16 +112,14 @@ class TwsWrapper extends Wrapper {
 
         TwsPosition position = new TwsPosition(account, contract, pos, avgCost);
         twsClient.cache.updatePosition(position);
-        if (twsClient.onPosition != null) {
-            twsClient.executors.submit(() -> twsClient.onPosition.accept(position));
-        }
+        twsClient.subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_POSITION, position, true);
     }
 
     @Override
     public void positionEnd() {
-        twsClient.executors.submit(() -> twsClient.onPosition.accept(null));
-        twsClient.requests.confirmAndRemove(RequestRepository.Event.REQ_POSITIONS,
-                                            null, twsClient.cache.getPositions());
+        twsClient.subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_POSITION, null, true);
+        twsClient.requests.confirmAndRemove(RequestRepository.Event.REQ_POSITIONS, null,
+                                            twsClient.cache.getPositions());
     }
 
     @Override
@@ -144,14 +138,7 @@ class TwsWrapper extends Wrapper {
         Double valueObj = doubleToDouble("value", value);
 
         TwsPnl pnl = new TwsPnl(pos, dailyPnLObj, unrealizedPnLObj, realizedPnLObj, valueObj);
-        twsClient.executors.submit(() -> {
-            final Consumer<TwsPnl> consumer = twsClient.onPnlPerContractMap.get(reqId);
-            if (consumer == null) {
-                log.error("Got 'pnlSingle' with unknown request id {}", reqId);
-                return;
-            }
-            consumer.accept(pnl);
-        });
+        twsClient.subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_CONTRACT_PNL, reqId, pnl, true);
     }
 
     @Override
@@ -160,45 +147,30 @@ class TwsWrapper extends Wrapper {
                   reqId, dailyPnL, unrealizedPnL, realizedPnL);
 
         TwsPnl pnl = new TwsPnl(null, dailyPnL, unrealizedPnL, realizedPnL, null);
-        twsClient.executors.submit(() -> {
-            final Consumer<TwsPnl> consumer = twsClient.onPnlPerAccountMap.get(reqId);
-            if (consumer == null) {
-                log.error("Got 'pnl' with unknown id {}", reqId);
-                return;
-            }
-            consumer.accept(pnl);
-        });
+        twsClient.subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_ACCOUNT_PNL, reqId, pnl, true);
     }
 
     @Override
     public void tickSize(int tickerId, int field, int value) {
-        TwsTick result = twsClient.cache.updateTick(tickerId, (tick) -> {
-            tick.setIntValue(field, value);
-        });
+        TwsTick result = twsClient.cache.updateTick(tickerId, (tick) -> tick.setIntValue(field, value));
         publishNewTick(tickerId, result);
     }
 
     @Override
     public void tickPrice(int tickerId, int field, double value, TickAttr attrib) {
-        TwsTick result = twsClient.cache.updateTick(tickerId, (tick) -> {
-            tick.setPriceValue(field, value);
-        });
+        TwsTick result = twsClient.cache.updateTick(tickerId, (tick) -> tick.setPriceValue(field, value));
         publishNewTick(tickerId, result);
     }
 
     @Override
     public void tickString(int tickerId, int field, String value) {
-        TwsTick result = twsClient.cache.updateTick(tickerId, (tick) -> {
-            tick.setStringValue(field, value);
-        });
+        TwsTick result = twsClient.cache.updateTick(tickerId, (tick) -> tick.setStringValue(field, value));
         publishNewTick(tickerId, result);
     }
 
     @Override
     public void tickGeneric(int tickerId, int field, double value) {
-        TwsTick result = twsClient.cache.updateTick(tickerId, (tick) -> {
-            tick.setGenericValue(field, value);
-        });
+        TwsTick result = twsClient.cache.updateTick(tickerId, (tick) -> tick.setGenericValue(field, value));
         publishNewTick(tickerId, result);
     }
 
@@ -235,21 +207,14 @@ class TwsWrapper extends Wrapper {
                                                   unrealizedPNLObj, realizedPNLObj, accountName);
 
         twsClient.cache.updatePortfolio(portfolio);
-        twsClient.executors.submit(() -> {
-            final Consumer<TwsPortfolio> consumer = twsClient.onUpdatePerAccount;
-            if (consumer == null) {
-                log.error("Got 'updatePortfolio' without subscription");
-                return;
-            }
-            consumer.accept(portfolio);
-        });
+        twsClient.subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_PORTFOLIO, portfolio, true);
     }
 
     @Override
     public void accountDownloadEnd(String accountName) {
-        twsClient.executors.submit(() -> twsClient.onUpdatePerAccount.accept(null));
-        twsClient.requests.confirmAndRemove(RequestRepository.Event.REQ_PORTFOLIO,
-                                            null, twsClient.cache.getPortfolio());
+        twsClient.subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_PORTFOLIO, null, true);
+        twsClient.requests.confirmAndRemove(RequestRepository.Event.REQ_PORTFOLIO, null,
+                                            twsClient.cache.getPortfolio());
     }
 
     @Override
@@ -280,17 +245,11 @@ class TwsWrapper extends Wrapper {
     @Override
     public void nextValidId(int id) {
         log.debug("New request ID: {}", id);
-        twsClient.getOrderId().set(id);
+        twsClient.idGenerator.setOrderId(id);
     }
 
     private void publishNewTick(int tickerId, TwsTick result) {
-        twsClient.executors.submit(() -> {
-            final Consumer<TwsTick> consumer = twsClient.onMarketDataMap.get(tickerId);
-            if (consumer == null) {
-                return;
-            }
-            consumer.accept(result);
-        });
+        twsClient.subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_MARKET_DATA, tickerId, result, false);
     }
 
     /**

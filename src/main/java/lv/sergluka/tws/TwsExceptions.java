@@ -24,7 +24,11 @@ public class TwsExceptions {
         }
     }
 
-    public static class NotConnected extends RuntimeException {}
+    public static class NotConnected extends RuntimeException {
+        public NotConnected() {
+            super("Not connected");
+        }
+    }
 
     public static class ResponseTimeout extends RuntimeException {
         public ResponseTimeout(String message) {

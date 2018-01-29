@@ -3,6 +3,7 @@ package lv.sergluka.tws
 import com.ib.client.Contract
 import com.ib.client.Order
 import com.ib.client.OrderStatus
+import com.ib.client.OrderType
 import com.ib.client.Types
 import spock.lang.Specification
 import spock.util.concurrent.BlockingVariable
@@ -16,14 +17,17 @@ class TwsClientTest extends Specification {
     TwsClient client = new TwsClient()
 
     void setup() {
+        client = new TwsClient()
         client.connect("127.0.0.1", 7497, 2)
         client.waitForConnect(30, TimeUnit.SECONDS)
         client.reqGlobalCancel()
+        // Wait until all respective callbacks will be called
+        sleep(2_000)
     }
 
     void cleanup() {
         if (client) {
-            client.disconnect()
+            client.close()
         }
     }
 
@@ -128,17 +132,17 @@ class TwsClientTest extends Specification {
         def vars = new BlockingVariables(10)
         def calls = 1
 
-        client.subscribeOnOrderNewStatus { id, status ->
-            assert id == order.orderId()
-            vars.setProperty("call${calls++}", status)
+        client.subscribeOnOrderNewStatus {
+            assert it.orderId == it.orderId
+            vars.setProperty("status${calls++}", it.status)
         }
 
         when:
         client.placeOrder(contract, order).get(30, TimeUnit.SECONDS)
 
         then:
-        vars.call1.status == OrderStatus.PreSubmitted
-        vars.call2.status == OrderStatus.Filled
+        vars.status1 == OrderStatus.PreSubmitted
+        vars.status2 == OrderStatus.Submitted
     }
 
 
@@ -190,7 +194,7 @@ class TwsClientTest extends Specification {
         def var = new BlockingVariable(5)
 
         when:
-        def id = client.subscribeOnContractPnl(12087792, "DU22993") { pnl ->
+        def subscription = client.subscribeOnContractPnl(12087792, "DU22993") { pnl ->
             var.set(pnl)
         }
 
@@ -199,8 +203,8 @@ class TwsClientTest extends Specification {
         pnl.positionId > 0
 
         cleanup:
-        if (id != null) {
-            client.unsubscribeOnContractPnl(id)
+        if (subscription != null) {
+            subscription.close()
         }
     }
 
@@ -210,18 +214,17 @@ class TwsClientTest extends Specification {
 
         when:
         false
-        def id = client.subscribeOnAccountPnl("DU22993") { pnl ->
+        def subscription = client.subscribeOnAccountPnl("DU22993") { pnl ->
             var.set(pnl)
         }
 
         then:
         def pnl = var.get()
-        pnl.dailyPnL != 0
         pnl.unrealizedPnL > 0
 
         cleanup:
-        if (id != null) {
-            client.unsubscribeOnAccountPnl(id)
+        if (subscription != null) {
+            subscription.close()
         }
     }
 
@@ -230,19 +233,13 @@ class TwsClientTest extends Specification {
         def var = new BlockingVariable(4 * 60) // Account updates once per 3 min
 
         when:
-        false
-        def id = client.subscribeOnAccountPortfolio("DU22993") { portfolio ->
+        client.subscribeOnAccountPortfolio("DU22993") { portfolio ->
             var.set(portfolio)
         }
 
         then:
         def portfolio = var.get()
         portfolio.position != 0.0
-
-        cleanup:
-        if (id != null) {
-            client.unsubscribeOnAccountPortfolio("DU22993")
-        }
     }
 
     def "Get market data"() {
@@ -250,17 +247,17 @@ class TwsClientTest extends Specification {
         def var = new BlockingVariable(5)
 
         when:
-        def id = client.subscribeOnMarketData(createContractEUR()) { tick ->
+        def subscription = client.subscribeOnMarketData(createContractEUR()) { tick ->
             var.set(tick)
         }
 
         then:
         def tick = var.get()
-        tick.bid > 0
+        tick.closePrice > 0
 
         cleanup:
-        if (id != null) {
-            client.unsubscribeOnMarketData(id)
+        if (subscription != null) {
+            subscription.close()
         }
     }
 
@@ -365,9 +362,8 @@ class TwsClientTest extends Specification {
         def order = new Order()
         order.orderId(id)
         order.action("BUY");
-        order.orderType("STP");
-        order.auxPrice(1.1f)
-        order.triggerPrice(0.23f)
+        order.orderType(OrderType.LMT);
+        order.lmtPrice(1.0f);
         order.tif("GTC");
         order.totalQuantity(1.0f)
         order.outsideRth(true)

@@ -7,7 +7,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.function.Consumer;
 
-public class TwsListPromise<T> extends TwsPromise<List<T>> {
+// TODO: Hide implementtion, and expose interface only
+public class TwsListPromise<T> extends TwsPromiseImpl<List<T>> {
 
     public TwsListPromise(EventKey event, Consumer<List<T>> consumer, @NotNull final Runnable onTimeout) {
         super(event, consumer, onTimeout);

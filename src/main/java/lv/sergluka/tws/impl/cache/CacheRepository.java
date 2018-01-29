@@ -24,11 +24,8 @@ public class CacheRepository {
     private final ConcurrentHashMap<Integer, TwsTick> ticks = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, TwsPortfolio> portfolioContracts = new ConcurrentHashMap<>();
 
-    // AFter order placing, some statuses goes first, before `openOrder` callback, so storing then separately
+    // After order placing, some statuses goes first, before `openOrder` callback, so storing then separately
     private final LinkedHashMap<Integer, Set<TwsOrderStatus>> statuses = new LinkedHashMap<>();
-
-    public CacheRepository() {
-    }
 
     public boolean addOrder(TwsOrder order) {
         final Set<TwsOrderStatus> set = statuses.remove(order.getOrderId());

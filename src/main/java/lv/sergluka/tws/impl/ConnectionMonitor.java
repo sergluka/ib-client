@@ -40,10 +40,9 @@ public abstract class ConnectionMonitor implements AutoCloseable {
     private final Condition statusCondition = statusLock.newCondition();
     private Status expectedStatus = null;
 
-    protected abstract void connectRequest();
-
-    protected abstract void disconnectRequest();
-
+    protected abstract void connectRequest(boolean reconnect);
+    protected abstract void disconnectRequest(boolean reconnect);
+    protected abstract void afterConnect();
     protected abstract void onStatusChange(Status status);
 
     public void start() {
@@ -62,7 +61,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
     }
 
     @Override
-    public void close() throws TimeoutException {
+    public void close() {
         if (status.get() != Status.DISCONNECTED) {
             disconnect();
         }
@@ -72,7 +71,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         try {
             thread.join(10_000);
         } catch (InterruptedException e) {
-            log.error("Current thread '{}' has been interrupted at shutdown");
+            log.error("Current thread '{}' has been interrupted at shutdown", this);
         }
     }
 
@@ -98,7 +97,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         }
     }
 
-    public void waitForStatus(Status status) throws TimeoutException {
+    private void waitForStatus(Status status) {
         try {
             statusLock.lock();
             expectedStatus = status;
@@ -151,7 +150,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
             }
         } catch (InterruptedException ignored) {
         } catch (Exception e) {
-            log.error("Exception in Connection Monitor", e);
+            log.error("Exception in Connection Monitor: {}", e.getMessage(), e);
         }
     }
 
@@ -159,15 +158,15 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         switch (command) {
             case CONNECT:
                 setStatus(Status.CONNECTING);
-                connectRequest();
+                connectRequest(false);
                 break;
             case RECONNECT:
                 setStatus(Status.DISCONNECTING);
-                disconnectRequest();
+                disconnectRequest(true);
                 setStatus(Status.DISCONNECTED);
                 Thread.sleep(RECONNECT_DELAY);
                 setStatus(Status.CONNECTING);
-                connectRequest();
+                connectRequest(true);
                 break;
             case CONFIRM_CONNECT:
                 /* Right after connect, an error 507 (Bad Message Length) can occur, so we re-read command
@@ -176,13 +175,14 @@ public abstract class ConnectionMonitor implements AutoCloseable {
                 command = this.command.getAndSet(Command.NONE);
                 if (command == Command.NONE) {
                     setStatus(Status.CONNECTED);
+                    afterConnect();
                 } else {
                     handleCommand(command);
                 }
                 break;
             case DISCONNECT:
                 setStatus(Status.DISCONNECTING);
-                disconnectRequest();
+                disconnectRequest(false);
                 setStatus(Status.DISCONNECTED);
                 break;
         }

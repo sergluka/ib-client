@@ -33,6 +33,7 @@ abstract class TerminalErrorHandler {
             case 10147: // OrderId ... that needs to be cancelled is not found
             case 10148: // OrderId ... that needs to be cancelled can not be cancelled
             case 10185: // Failed to cancel PNL (not subscribed)
+            case 10186: // Failed to cancel PNL single (not subscribed)
                 severity = ErrorType.WARN;
                 break;
 
