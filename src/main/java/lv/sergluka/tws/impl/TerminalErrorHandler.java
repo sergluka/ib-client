@@ -1,5 +1,7 @@
-package lv.sergluka.tws;
+package lv.sergluka.tws.impl;
 
+import lv.sergluka.tws.TwsExceptions;
+import lv.sergluka.tws.impl.sender.RequestRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -7,12 +9,18 @@ abstract class TerminalErrorHandler {
 
     private static final Logger log = LoggerFactory.getLogger(TerminalErrorHandler.class);
 
+    private final RequestRepository requests;
+
     private enum ErrorType {
         INFO,
         WARN,
         ERROR,
         REQUEST,
         CRITICAL
+    }
+
+    public TerminalErrorHandler(RequestRepository requests) {
+        this.requests = requests;
     }
 
     abstract void onError();
@@ -62,7 +70,7 @@ abstract class TerminalErrorHandler {
 
         switch (severity) {
             case REQUEST:
-                TwsClient.requests.setError(id, new TwsExceptions.TerminalError(message, code));
+                requests.setError(id, new TwsExceptions.TerminalError(message, code));
                 break;
             case INFO:
                 log.info("TWS message: [#{}] {}", code, message);

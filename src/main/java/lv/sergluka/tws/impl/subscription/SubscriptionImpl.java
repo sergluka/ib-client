@@ -45,7 +45,7 @@ public class SubscriptionImpl<Param, RegResult> implements TwsSubscription {
     }
 
     @Override
-    public void close() {
+    public void unsubscribe() {
         try {
             if (subscriptions.remove(key) == null) {
                 log.error("Cannot locate subscription to unsubscribe: {}", this);

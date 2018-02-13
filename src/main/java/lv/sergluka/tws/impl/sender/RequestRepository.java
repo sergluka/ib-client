@@ -3,16 +3,14 @@ package lv.sergluka.tws.impl.sender;
 import lv.sergluka.tws.TwsClient;
 import lv.sergluka.tws.TwsExceptions;
 import lv.sergluka.tws.impl.promise.TwsListPromise;
-import lv.sergluka.tws.impl.promise.TwsPromise;
 import lv.sergluka.tws.impl.promise.TwsPromiseImpl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 
 @SuppressWarnings("unchecked")
 public class RequestRepository {
@@ -24,12 +22,12 @@ public class RequestRepository {
         REQ_CURRENT_TIME,
         REQ_ORDER_PLACE,
         REQ_ORDER_LIST,
-        REQ_MAKET_DATA,
+        REQ_MARKET_DATA,
         REQ_POSITIONS,
         REQ_PORTFOLIO
     }
 
-    private final ConcurrentHashMap<EventKey, TwsPromiseImpl> promises = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<EventKey, CompletableFuture> promises = new ConcurrentHashMap<>();
 
     private final TwsClient client;
 
@@ -37,26 +35,27 @@ public class RequestRepository {
         this.client = client;
     }
 
-    public <T> TwsPromise<T> postSingleRequest(@NotNull Event event, Integer requestId,
-                                               @NotNull Runnable runnable, Consumer<T> consumer) {
+    public <T> TwsPromiseImpl<T> postSingleRequest(@NotNull Event event, Integer requestId,
+                                               @NotNull Runnable runnable) {
         if (!client.isConnected()) {
             throw new TwsExceptions.NotConnected();
         }
 
         final EventKey key = new EventKey(event, requestId);
-        final TwsPromiseImpl promise = new TwsPromiseImpl<>(key, consumer, () -> promises.remove(key));
+        final TwsPromiseImpl promise = new TwsPromiseImpl<T>(key);
         post(key, promise, runnable);
         return promise;
     }
 
-    public <T> TwsPromise<T> postListRequest(@NotNull Event event, Integer requestId,
-                                             @NotNull Runnable runnable, Consumer<List<T>> consumer) {
+    public <T> CompletableFuture<T> postListRequest(@NotNull Event event,
+                                                    Integer requestId,
+                                                    @NotNull Runnable runnable) {
         if (!client.isConnected()) {
             throw new TwsExceptions.NotConnected();
         }
 
         final EventKey key = new EventKey(event, requestId);
-        final TwsPromiseImpl promise = new TwsListPromise<>(key, consumer, () -> promises.remove(key));
+        final TwsPromiseImpl promise = new TwsListPromise<T>(key);
         post(key, promise, runnable);
         return promise;
     }
@@ -67,14 +66,14 @@ public class RequestRepository {
 
     public void setError(int requestId, RuntimeException exception) {
         final EventKey key = new EventKey(null, requestId);
-        final TwsPromiseImpl promise = promises.get(key);
+        final CompletableFuture promise = promises.get(key);
         if (promise == null) {
             log.warn("Cannot set error for unknown promise with ID {}", requestId);
             log.error("Received error is: {}", exception.getMessage(), exception);
             return;
         }
 
-        promise.setException(exception);
+        promise.completeExceptionally(exception);
     }
 
     public <E> void addToList(@NotNull Event event, Integer id, @NotNull E element) {
@@ -91,7 +90,11 @@ public class RequestRepository {
     }
 
     private void post(EventKey key, @NotNull TwsPromiseImpl promise, @NotNull Runnable runnable) {
-        final TwsPromise old = promises.put(key, promise);
+
+        // Make sure future removes itself from a repository
+        CompletableFuture futureWithCleanup = promise.thenRun(() -> promises.remove(key));
+
+        final CompletableFuture old = promises.put(key, futureWithCleanup);
         if (old != null) {
             log.error("Duplicated request: {}", key);
             throw new TwsExceptions.DuplicatedRequest(key);
@@ -110,12 +113,25 @@ public class RequestRepository {
         final EventKey key = new EventKey(event, id);
         log.debug("=> {}: {}", key, result != null ? result.toString().replaceAll("\n", "; ") : "null");
 
-        final TwsPromiseImpl promise = promises.remove(key);
+        final TwsPromiseImpl promise = (TwsPromiseImpl) promises.remove(key);
         if (promise == null) {
             log.error("Got event {} for unknown or expired request", key);
             return;
         }
 
-        promise.setDone(result);
+        promise.complete(result);
+    }
+
+    public void confirmListAndRemove(@NotNull Event event, Integer id) {
+        final EventKey key = new EventKey(event, id);
+        log.debug("=> {}", key);
+
+        final TwsListPromise promise = (TwsListPromise) promises.remove(key);
+        if (promise == null) {
+            log.error("Got event {} for unknown or expired request", key);
+            return;
+        }
+
+        promise.complete();
     }
 }

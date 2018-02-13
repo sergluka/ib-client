@@ -1,6 +1,7 @@
 package lv.sergluka.tws.impl.subscription;
 
-import lv.sergluka.tws.impl.promise.TwsPromise;
+import java.util.concurrent.Future;
 
-public interface TwsSubscriptionPromise<T> extends TwsSubscription, TwsPromise<T> {
+public interface TwsSubscriptionPromise<T> extends TwsSubscription, Future<T>
+{
 }

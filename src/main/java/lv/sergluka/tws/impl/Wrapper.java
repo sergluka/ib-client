@@ -1,10 +1,18 @@
 package lv.sergluka.tws.impl;
 
+import com.google.common.base.Splitter;
 import com.ib.client.*;
+import lv.sergluka.tws.IdGenerator;
+import lv.sergluka.tws.TwsClient;
+import lv.sergluka.tws.impl.cache.CacheRepository;
 import lv.sergluka.tws.impl.sender.RequestRepository;
+import lv.sergluka.tws.impl.subscription.SubscriptionsRepository;
+import lv.sergluka.tws.impl.types.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.SocketException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -14,46 +22,257 @@ public class Wrapper implements EWrapper {
     private static final Logger log = LoggerFactory.getLogger(Wrapper.class);
 
     private RequestRepository requests;
+    private Set<String> managedAccounts;
 
-    public Wrapper() {
+    private final TerminalErrorHandler errorHandler;
+
+    private final ConnectionMonitor connectionMonitor;
+    private final EClientSocket socket;
+    private final TwsReader reader;
+    private final CacheRepository cache;
+    private final SubscriptionsRepository subscriptions;
+    private final IdGenerator idGenerator;
+
+    private TwsClient twsClient;
+
+    public Wrapper(ConnectionMonitor connectionMonitor,
+                   EClientSocket socket,
+                   TwsReader reader,
+                   CacheRepository cache,
+                   SubscriptionsRepository subscriptions,
+                   IdGenerator idGenerator) {
+
+        errorHandler = new TerminalErrorHandler(requests) {
+
+            @Override
+            void onError() {
+                // TODO: Don't reconnect, if error was at disconnecting
+                connectionMonitor.reconnect();
+            }
+
+            @Override
+            void onFatalError() {
+                connectionMonitor.disconnect();
+            }
+        };
+        this.connectionMonitor = connectionMonitor;
+        this.socket = socket;
+        this.reader = reader;
+        this.cache = cache;
+        this.subscriptions = subscriptions;
+        this.idGenerator = idGenerator;
     }
 
-    protected void setRequests(final RequestRepository requests) {
-        this.requests = requests;
+    void setClient(TwsClient twsClient) {
+        this.twsClient = twsClient;
     }
 
     @Override
     public void connectAck() {
+        try {
+            log.info("Connection is opened. version: {}", socket.serverVersion());
+            reader.start();
+            connectionMonitor.confirmConnection();
+        } catch (Exception e) {
+            log.error("Exception at `connectAck`: {}", e.getMessage(), e);
+        }
     }
 
     @Override
-    public void orderStatus(int orderId,
-                            String status,
-                            double filled,
-                            double remaining,
-                            double avgFillPrice,
-                            int permId,
-                            int parentId,
-                            double lastFillPrice,
-                            int clientId,
-                            String whyHeld,
+    public void connectionClosed() {
+        log.error("TWS closes the connection");
+        connectionMonitor.reconnect();
+    }
+
+    @Override
+    public void orderStatus(int orderId, String status, double filled, double remaining, double avgFillPrice,
+                            int permId, int parentId, double lastFillPrice, int clientId, String whyHeld,
                             double mktCapPrice) {
+
+        final TwsOrderStatus twsStatus = new TwsOrderStatus(orderId,
+                                                            status,
+                                                            filled,
+                                                            remaining,
+                                                            avgFillPrice,
+                                                            permId,
+                                                            parentId,
+                                                            lastFillPrice,
+                                                            clientId,
+                                                            whyHeld,
+                                                            mktCapPrice);
+
+        log.debug("orderStatus: {}", twsStatus);
+
+        if (cache.addNewStatus(twsStatus)) {
+
+            log.info("New order status: {}", twsStatus);
+            subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_ORDER_STATUS, twsStatus, false);
+        }
     }
 
     @Override
-    public void openOrder(final int orderId, final Contract contract, final Order order, final OrderState state) {
+    public void openOrder(int orderId, Contract contract, Order order, OrderState state) {
+        TwsOrder twsOrder = new TwsOrder(orderId, contract, order, state);
+
+        log.debug("openOrder: requestId={}, contract={}, order={}, orderState={}",
+                  orderId, contract.symbol(), order.orderId(), state.status());
+
+        if (cache.addOrder(twsOrder)) {
+            log.info("New order: requestId={}, contract={}, order={}, orderState={}",
+                     orderId, contract.symbol(), order.orderId(), state.status());
+            requests.confirmAndRemove(RequestRepository.Event.REQ_ORDER_PLACE, orderId, twsOrder);
+        }
     }
 
     @Override
     public void openOrderEnd() {
+        requests.confirmAndRemove(RequestRepository.Event.REQ_ORDER_LIST, null, cache.getOrders());
     }
 
     @Override
-    public void pnl(int reqId, double dailyPnL, double unrealizedPnL, double realizedPnL) {
+    public void position(String account, Contract contract, double pos, double avgCost) {
+        log.info("Position change: {}/{},{}/{}", account, contract.conid(), contract.localSymbol(), pos);
+
+        TwsPosition position = new TwsPosition(account, contract, pos, avgCost);
+        cache.updatePosition(position);
+        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_POSITION, position, true);
+    }
+
+    @Override
+    public void positionEnd() {
+        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_POSITION, null, true);
+        requests.confirmAndRemove(RequestRepository.Event.REQ_POSITIONS, null,
+                                  cache.getPositions());
+    }
+
+    @Override
+    public void managedAccounts(String accountsList) {
+        this.managedAccounts = new HashSet<>(Splitter.on(",").splitToList(accountsList));
     }
 
     @Override
     public void pnlSingle(int reqId, int pos, double dailyPnL, double unrealizedPnL, double realizedPnL, double value) {
+        log.debug("pnlSingle: reqId={}, pos={}, dailyPnL={}, unrealizedPnL={}, realizedPnL={}, value={}",
+                  reqId, pos, dailyPnL, unrealizedPnL, realizedPnL, value);
+
+        Double dailyPnLObj = doubleToDouble("dailyPnL", dailyPnL);
+        Double unrealizedPnLObj = doubleToDouble("unrealizedPnL", unrealizedPnL);
+        Double realizedPnLObj = doubleToDouble("realizedPnL", realizedPnL);
+        Double valueObj = doubleToDouble("value", value);
+
+        TwsPnl pnl = new TwsPnl(pos, dailyPnLObj, unrealizedPnLObj, realizedPnLObj, valueObj);
+        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_CONTRACT_PNL, reqId, pnl, true);
+    }
+
+    @Override
+    public void pnl(int reqId, double dailyPnL, double unrealizedPnL, double realizedPnL) {
+        log.trace("pnl: reqId={}, dailyPnL={}, unrealizedPnL={}, realizedPnL={}",
+                  reqId, dailyPnL, unrealizedPnL, realizedPnL);
+
+        TwsPnl pnl = new TwsPnl(null, dailyPnL, unrealizedPnL, realizedPnL, null);
+        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_ACCOUNT_PNL, reqId, pnl, true);
+    }
+
+    @Override
+    public void tickSize(int tickerId, int field, int value) {
+        TwsTick result = cache.updateTick(tickerId, (tick) -> tick.setIntValue(field, value));
+        publishNewTick(tickerId, result);
+    }
+
+    @Override
+    public void tickPrice(int tickerId, int field, double value, TickAttr attrib) {
+        TwsTick result = cache.updateTick(tickerId, (tick) -> tick.setPriceValue(field, value));
+        publishNewTick(tickerId, result);
+    }
+
+    @Override
+    public void tickString(int tickerId, int field, String value) {
+        TwsTick result = cache.updateTick(tickerId, (tick) -> tick.setStringValue(field, value));
+        publishNewTick(tickerId, result);
+    }
+
+    @Override
+    public void tickGeneric(int tickerId, int field, double value) {
+        TwsTick result = cache.updateTick(tickerId, (tick) -> tick.setGenericValue(field, value));
+        publishNewTick(tickerId, result);
+    }
+
+    @Override
+    public void tickSnapshotEnd(final int tickerId) {
+        log.trace("tickSnapshotEnd({})", tickerId);
+
+        TwsTick tick = cache.getTick(tickerId);
+        requests.confirmAndRemove(RequestRepository.Event.REQ_MARKET_DATA, tickerId, tick);
+    }
+
+    @Override
+    public void updatePortfolio(Contract contract,
+                                double position,
+                                double marketPrice,
+                                double marketValue,
+                                double averageCost,
+                                double unrealizedPNL,
+                                double realizedPNL,
+                                String accountName) {
+
+        Double positionObj = doubleToDouble("position", position);
+        Double marketPriceObj = doubleToDouble("marketPrice", marketPrice);
+        Double marketValueObj = doubleToDouble("marketValue", marketValue);
+        Double averageCostObj = doubleToDouble("averageCost", averageCost);
+        Double unrealizedPNLObj = doubleToDouble("unrealizedPNL", unrealizedPNL);
+        Double realizedPNLObj = doubleToDouble("realizedPNL", realizedPNL);
+
+        log.debug("updatePortfolio: contract={}, position={}, marketPrice={}, marketValue={}, averageCost={}, " +
+                          "unrealizedPNL={}, realizedPNL={}, accountName={}",
+                  contract, position, marketPrice, marketValue, averageCost, unrealizedPNL, realizedPNL, accountName);
+
+        TwsPortfolio portfolio = new TwsPortfolio(contract, positionObj, marketPriceObj, marketValueObj, averageCostObj,
+                                                  unrealizedPNLObj, realizedPNLObj, accountName);
+
+        cache.updatePortfolio(portfolio);
+        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_PORTFOLIO, portfolio, true);
+    }
+
+    @Override
+    public void accountDownloadEnd(String accountName) {
+        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_PORTFOLIO, null, true);
+        requests.confirmAndRemove(RequestRepository.Event.REQ_PORTFOLIO, null,
+                                  cache.getPortfolio());
+    }
+
+    @Override
+    public void error(final Exception e) {
+        if (e instanceof SocketException) {
+
+            final ConnectionMonitor.Status connectionStatus = connectionMonitor.status();
+
+            if (connectionStatus == ConnectionMonitor.Status.DISCONNECTING ||
+                    connectionStatus == ConnectionMonitor.Status.DISCONNECTED) {
+
+                log.debug("Socket has been closed at shutdown");
+                return;
+            }
+
+            log.warn("Connection lost", e);
+            connectionMonitor.reconnect();
+        }
+
+        log.error("TWS error", e);
+    }
+
+    @Override
+    public void error(final int id, final int code, final String message) {
+        errorHandler.handle(id, code, message);
+    }
+
+    @Override
+    public void nextValidId(int id) {
+        log.debug("New request ID: {}", id);
+        idGenerator.setOrderId(id);
+    }
+
+    private void publishNewTick(int tickerId, TwsTick result) {
+        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_MARKET_DATA, tickerId, result, false);
     }
 
     @Override
@@ -63,7 +282,7 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void contractDetailsEnd(final int reqId) {
-        requests.confirmAndRemove(RequestRepository.Event.REQ_CONTRACT_DETAIL, reqId, null);
+        requests.confirmListAndRemove(RequestRepository.Event.REQ_CONTRACT_DETAIL, reqId);
     }
 
     @Override
@@ -71,52 +290,10 @@ public class Wrapper implements EWrapper {
         requests.confirmAndRemove(RequestRepository.Event.REQ_CURRENT_TIME, null, time);
     }
 
-    @Override
-    public void tickSize(final int tickerId, final int field, final int value) {
-    }
-
-    @Override
-    public void tickPrice(int tickerId, int field, double value, TickAttr attrib) {
-    }
-
-    @Override
-    public void tickString(final int tickerId, final int field, final String value) {
-    }
-
-    @Override
-    public void tickGeneric(final int tickerId, final int field, final double value) {
-    }
-
-    @Override
-    public void tickSnapshotEnd(final int tickerId) {
-    }
-
-    @Override
-    public void position(final String account, final Contract contract, final double pos, final double avgCost) {
-    }
-
-    @Override
-    public void positionEnd() {
-    }
-
-    @Override
-    public void nextValidId(int id) {
-    }
-
-    @Override
-    public void error(final Exception e) {
-    }
 
     @Override
     public void error(final String str) {
-    }
-
-    @Override
-    public void error(final int id, final int errorCode, final String errorMsg) {
-    }
-
-    @Override
-    public void connectionClosed() {
+        log.error("Shouldn't be there. err={}", str);
     }
 
     @Override
@@ -155,23 +332,8 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
-    public void updatePortfolio(final Contract contract,
-                                final double position,
-                                final double marketPrice,
-                                final double marketValue,
-                                final double averageCost,
-                                final double unrealizedPNL,
-                                final double realizedPNL,
-                                final String accountName) {
-    }
-
-    @Override
     public void updateAccountTime(final String timeStamp) {
         log.debug("updateAccountTime: {}", timeStamp);
-    }
-
-    @Override
-    public void accountDownloadEnd(final String accountName) {
     }
 
     @Override
@@ -216,10 +378,6 @@ public class Wrapper implements EWrapper {
                                    final String message,
                                    final String origExchange) {
         log.debug("updateNewsBulletin: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void managedAccounts(final String accountsList) {
     }
 
     @Override
@@ -489,5 +647,21 @@ public class Wrapper implements EWrapper {
     @Override
     public void historicalTicksLast(int reqId, List<HistoricalTickLast> ticks, boolean done) {
         log.debug("historicalTicksLast: NOT IMPLEMENTED");
+    }
+
+    public Set<String> getManagedAccounts() {
+        return managedAccounts;
+    }
+
+    /**
+     * TWS API describes that double equals Double.MAX_VALUE should be threaded as unset
+     */
+    private Double doubleToDouble(String name, double value) {
+        if (value == Double.MAX_VALUE) {
+            log.debug("Missing value for '{}'", name);
+            return null;
+        }
+
+        return value;
     }
 }

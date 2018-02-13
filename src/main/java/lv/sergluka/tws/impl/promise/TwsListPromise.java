@@ -1,21 +1,23 @@
 package lv.sergluka.tws.impl.promise;
 
 import lv.sergluka.tws.impl.sender.EventKey;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.LinkedList;
 import java.util.List;
-import java.util.function.Consumer;
 
-// TODO: Hide implementtion, and expose interface only
 public class TwsListPromise<T> extends TwsPromiseImpl<List<T>> {
 
-    public TwsListPromise(EventKey event, Consumer<List<T>> consumer, @NotNull final Runnable onTimeout) {
-        super(event, consumer, onTimeout);
-        value = new LinkedList<>();
+    private List<T> value = new LinkedList<>();
+
+    public TwsListPromise(EventKey event) {
+        super(event);
     }
 
     public void add(T element) {
         value.add(element);
+    }
+
+    public boolean complete() {
+        return super.complete(value);
     }
 }

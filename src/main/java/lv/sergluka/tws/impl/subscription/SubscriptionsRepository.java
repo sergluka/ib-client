@@ -93,12 +93,12 @@ public class SubscriptionsRepository implements AutoCloseable {
     @NotNull
     public <Param, RegResult> TwsSubscriptionPromise addPromiseUnique(@Nullable EventType type,
                                                                       @NotNull Consumer<Param> callback,
-                                                                      @Nullable Function<Integer, RegResult> registration,
-                                                                      @Nullable Consumer<Integer> unregistration) {
+                                                                      @Nullable Function<Integer, RegResult> subscribe,
+                                                                      @Nullable Consumer<Integer> unsubscribe) {
 
         Key key = new Key(type, null);
         SubscriptionPromiseImpl subscription =
-                new SubscriptionPromiseImpl(subscriptions, key, callback, registration, unregistration);
+                new SubscriptionPromiseImpl(subscriptions, key, callback, subscribe, unsubscribe);
         addSubscription(key, subscription);
         return subscription;
     }
@@ -162,7 +162,7 @@ public class SubscriptionsRepository implements AutoCloseable {
 
     @Override
     public void close() {
-        subscriptions.values().forEach(SubscriptionImpl::close);
+        subscriptions.values().forEach(SubscriptionImpl::unsubscribe);
         subscriptions.clear();
 
         executors.shutdownNow().forEach(runnable -> log.warn("Thread still works at shutdown: {}", runnable));
