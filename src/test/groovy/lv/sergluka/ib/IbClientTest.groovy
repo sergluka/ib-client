@@ -13,7 +13,7 @@ class IbClientTest extends Specification {
 
     void setup() {
         client = new IbClient()
-        client.connect("127.0.0.1", 7497, 2)
+        client.connect("127.0.0.1", 7496, 2)
         client.waitForConnect(30, TimeUnit.SECONDS)
         client.reqGlobalCancel()
         // Wait until all respective callbacks will be called
@@ -149,6 +149,25 @@ class IbClientTest extends Specification {
 
         when:
         client.subscribeOnPositionChange { position ->
+            if (position != null) {
+                vars.data.add(position)
+            } else {
+                vars.done = true
+            }
+        }
+
+        then:
+        vars.done
+        vars.data.size() > 0
+    }
+
+    def "Request positions for account"() {
+        given:
+        def vars = new BlockingVariables(5)
+        vars.data = []
+
+        when:
+        client.subscribeOnPositionChange("DU22993") { position ->
             if (position != null) {
                 vars.data.add(position)
             } else {

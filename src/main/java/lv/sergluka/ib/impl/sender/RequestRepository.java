@@ -24,6 +24,7 @@ public class RequestRepository {
         REQ_ORDER_LIST,
         REQ_MARKET_DATA,
         REQ_POSITIONS,
+        REQ_POSITIONS_MULTI,
         REQ_PORTFOLIO
     }
 

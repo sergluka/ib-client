@@ -28,6 +28,7 @@ public class SubscriptionsRepository implements AutoCloseable {
         EVENT_CONTRACT_PNL,
         EVENT_ACCOUNT_PNL,
         EVENT_POSITION,
+        EVENT_POSITION_MULTI,
         EVENT_ORDER_STATUS,
         EVENT_MARKET_DATA,
         EVENT_PORTFOLIO,
@@ -97,6 +98,20 @@ public class SubscriptionsRepository implements AutoCloseable {
                                                                    @Nullable Consumer<Integer> unsubscribe) {
 
         Key key = new Key(type, null);
+        SubscriptionFutureImpl subscription =
+                new SubscriptionFutureImpl(subscriptions, key, callback, subscribe, unsubscribe);
+        addSubscription(key, subscription);
+        return subscription;
+    }
+
+    @NotNull
+    public <Param, RegResult> IbSubscriptionFuture addFuture(@Nullable EventType type,
+                                                                   @NotNull Consumer<Param> callback,
+                                                                   @Nullable Function<Integer, RegResult> subscribe,
+                                                                   @Nullable Consumer<Integer> unsubscribe) {
+
+        int id = idGenerator.nextRequestId();
+        Key key = new Key(type, id);
         SubscriptionFutureImpl subscription =
                 new SubscriptionFutureImpl(subscriptions, key, callback, subscribe, unsubscribe);
         addSubscription(key, subscription);

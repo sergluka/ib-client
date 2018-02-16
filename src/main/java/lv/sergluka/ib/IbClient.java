@@ -124,17 +124,34 @@ public class IbClient implements AutoCloseable {
         return subscriptions.addUnique(SubscriptionsRepository.EventType.EVENT_ORDER_STATUS, callback, null, null);
     }
 
-    public synchronized IbSubscriptionFuture<ImmutableSet<IbPosition>> subscribeOnPositionChange(Consumer<IbPosition> callback) {
+    public synchronized IbSubscriptionFuture<ImmutableSet<IbPosition>>
+    subscribeOnPositionChange(Consumer<IbPosition> callback) {
+
         return subscriptions.addFutureUnique(SubscriptionsRepository.EventType.EVENT_POSITION, callback,
                                              (unused) -> {
                                                   shouldBeConnected();
                                                   return requests.postSingleRequest(RequestRepository.Event.REQ_POSITIONS,
-                                                                                    null,
-                                                                                    () -> socket.reqPositions());
+                                                                                    null, () -> socket.reqPositions());
                                               },
                                              (unused) -> {
                                                   shouldBeConnected();
                                                   socket.cancelPositions();
+                                              });
+    }
+
+    public synchronized IbSubscriptionFuture<ImmutableSet<IbPosition>>
+    subscribeOnPositionChange(String account, Consumer<IbPosition> callback) {
+
+        return subscriptions.addFuture(SubscriptionsRepository.EventType.EVENT_POSITION_MULTI, callback,
+                                             (id) -> {
+                                                  shouldBeConnected();
+                                                  return requests.postSingleRequest(
+                                                          RequestRepository.Event.REQ_POSITIONS_MULTI,
+                                                          id, () -> socket.reqPositionsMulti(id, account, ""));
+                                              },
+                                             (id) -> {
+                                                  shouldBeConnected();
+                                                  socket.cancelPositionsMulti(id);
                                               });
     }
 
@@ -234,10 +251,9 @@ public class IbClient implements AutoCloseable {
         return subscriptions.addFutureUnique(SubscriptionsRepository.EventType.EVENT_PORTFOLIO, callback,
                                              (unused) -> {
                                                   shouldBeConnected();
-                                                  return requests.postSingleRequest(RequestRepository.Event.REQ_PORTFOLIO,
-                                                                                    null,
-                                                                                    () -> socket.reqAccountUpdates(true,
-                                                                                                                   account));
+                                                  return requests.postSingleRequest(
+                                                          RequestRepository.Event.REQ_PORTFOLIO,
+                                                          null, () -> socket.reqAccountUpdates(true, account));
                                               },
                                              (unused) -> {
                                                   shouldBeConnected();

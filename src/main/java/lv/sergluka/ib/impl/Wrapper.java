@@ -147,6 +147,7 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void managedAccounts(String accountsList) {
+        log.debug("Managed accounts are: {}", accountsList);
         this.managedAccounts = new HashSet<>(Splitter.on(",").splitToList(accountsList));
     }
 
@@ -289,7 +290,6 @@ public class Wrapper implements EWrapper {
     public void currentTime(final long time) {
         requests.confirmAndRemove(RequestRepository.Event.REQ_CURRENT_TIME, null, time);
     }
-
 
     @Override
     public void error(final String str) {
@@ -496,12 +496,19 @@ public class Wrapper implements EWrapper {
                               final Contract contract,
                               final double pos,
                               final double avgCost) {
-        log.debug("positionMulti: NOT IMPLEMENTED");
+
+        log.info("Position change for account {}, model='{}': contractId={}, symbol={}, pos={}",
+                 account, modelCode != null ? modelCode : "", contract.conid(), contract.localSymbol(), pos);
+
+        IbPosition position = new IbPosition(account, contract, pos, avgCost);
+        cache.updatePosition(position);
+        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_POSITION_MULTI, reqId, position, true);
     }
 
     @Override
     public void positionMultiEnd(final int reqId) {
-        log.debug("positionMultiEnd: NOT IMPLEMENTED");
+        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_POSITION_MULTI, reqId, null, true);
+        requests.confirmAndRemove(RequestRepository.Event.REQ_POSITIONS_MULTI, reqId, cache.getPositions());
     }
 
     @Override
