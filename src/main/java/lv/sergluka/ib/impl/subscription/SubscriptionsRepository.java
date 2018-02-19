@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -92,28 +93,30 @@ public class SubscriptionsRepository implements AutoCloseable {
     }
 
     @NotNull
-    public <Param, RegResult> IbSubscriptionFuture addFutureUnique(@Nullable EventType type,
-                                                                   @NotNull Consumer<Param> callback,
-                                                                   @Nullable Function<Integer, RegResult> subscribe,
-                                                                   @Nullable Consumer<Integer> unsubscribe) {
+    public <Param, RetResult> IbSubscriptionFuture<RetResult> addFutureUnique(
+            @Nullable EventType type,
+            @NotNull Consumer<Param> callback,
+            @Nullable Function<Integer, Future<Param>> subscribe,
+            @Nullable Consumer<Integer> unsubscribe) {
 
         Key key = new Key(type, null);
         SubscriptionFutureImpl subscription =
-                new SubscriptionFutureImpl(subscriptions, key, callback, subscribe, unsubscribe);
+                new SubscriptionFutureImpl<>(subscriptions, key, callback, subscribe, unsubscribe);
         addSubscription(key, subscription);
         return subscription;
     }
 
     @NotNull
-    public <Param, RegResult> IbSubscriptionFuture addFuture(@Nullable EventType type,
-                                                                   @NotNull Consumer<Param> callback,
-                                                                   @Nullable Function<Integer, RegResult> subscribe,
-                                                                   @Nullable Consumer<Integer> unsubscribe) {
+    public <Param, RetResult> IbSubscriptionFuture<RetResult> addFuture(
+            @Nullable EventType type,
+            @NotNull Consumer<Param> callback,
+            @Nullable Function<Integer, Future<Param>> subscribe,
+            @Nullable Consumer<Integer> unsubscribe) {
 
         int id = idGenerator.nextRequestId();
         Key key = new Key(type, id);
         SubscriptionFutureImpl subscription =
-                new SubscriptionFutureImpl(subscriptions, key, callback, subscribe, unsubscribe);
+                new SubscriptionFutureImpl<>(subscriptions, key, callback, subscribe, unsubscribe);
         addSubscription(key, subscription);
         return subscription;
     }
@@ -165,7 +168,7 @@ public class SubscriptionsRepository implements AutoCloseable {
             log.debug("Restoring {} subscription", subscriptions.size());
         }
 
-        subscriptions.values().forEach( subscription -> {
+        subscriptions.values().forEach(subscription -> {
             log.debug("Subscription {} is restoring", subscription);
 
             subscription.subscribe(subscription.getId());

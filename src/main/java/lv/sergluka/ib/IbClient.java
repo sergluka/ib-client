@@ -19,7 +19,6 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 
-@SuppressWarnings("unused")
 public class IbClient implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(IbClient.class);
@@ -32,8 +31,7 @@ public class IbClient implements AutoCloseable {
     private CacheRepository cache;
     private ConnectionMonitor connectionMonitor;
     private IdGenerator idGenerator;
-
-    protected SubscriptionsRepository subscriptions;
+    private SubscriptionsRepository subscriptions;
 
     public IbClient() {
         this(Executors.newCachedThreadPool());
@@ -49,12 +47,24 @@ public class IbClient implements AutoCloseable {
         return cache;
     }
 
-    public void connect(final @NotNull String ip, final int port, final int connId) {
+    enum LogLevel {
+        NONE,
+        SYSTEM,
+        ERROR,
+        WARNING,
+        INFORMATION,
+        DETAIL,
+    }
+
+    public CompletableFuture connect(final @NotNull String ip, final int port, final int connId) {
         log.debug("Connecting to {}:{}, id={} ...", ip, port, connId);
+
+        CompletableFuture<Void> result = new CompletableFuture<>();
 
         if (isConnected()) {
             log.warn("Already is connected");
-            return;
+            result.complete(null);
+            return result;
         }
 
         requests = new RequestRepository(this);
@@ -67,7 +77,7 @@ public class IbClient implements AutoCloseable {
                 init();
                 socket.setAsyncEConnect(false);
                 socket.eConnect(ip, port, connId);
-                socket.setServerLogLevel(5); // TODO
+                socket.setServerLogLevel(LogLevel.DETAIL.ordinal());
             }
 
             @Override
@@ -82,6 +92,7 @@ public class IbClient implements AutoCloseable {
             @Override
             protected void afterConnect() {
                 subscriptions.resubscribe();
+                result.complete(null);
             }
 
             @Override
@@ -94,7 +105,8 @@ public class IbClient implements AutoCloseable {
 
         connectionMonitor.start();
         connectionMonitor.connect();
-        // TODO return Future
+
+        return result;
     }
 
     @Override
@@ -102,9 +114,9 @@ public class IbClient implements AutoCloseable {
         disconnect();
     }
 
-    public void waitForConnect(long time, TimeUnit unit) throws TimeoutException {
-        connectionMonitor.waitForStatus(ConnectionMonitor.Status.CONNECTED, time, unit);
-    }
+//    public void waitForConnect(long time, TimeUnit unit) throws TimeoutException {
+//        connectionMonitor.waitForStatus(ConnectionMonitor.Status.CONNECTED, time, unit);
+//    }
 
     public void disconnect() {
         log.debug("Disconnecting...");
@@ -129,30 +141,30 @@ public class IbClient implements AutoCloseable {
 
         return subscriptions.addFutureUnique(SubscriptionsRepository.EventType.EVENT_POSITION, callback,
                                              (unused) -> {
-                                                  shouldBeConnected();
-                                                  return requests.postSingleRequest(RequestRepository.Event.REQ_POSITIONS,
-                                                                                    null, () -> socket.reqPositions());
-                                              },
+                                                 shouldBeConnected();
+                                                 return requests.postSingleRequest(RequestRepository.Event.REQ_POSITIONS,
+                                                                                   null, () -> socket.reqPositions());
+                                             },
                                              (unused) -> {
-                                                  shouldBeConnected();
-                                                  socket.cancelPositions();
-                                              });
+                                                 shouldBeConnected();
+                                                 socket.cancelPositions();
+                                             });
     }
 
     public synchronized IbSubscriptionFuture<ImmutableSet<IbPosition>>
     subscribeOnPositionChange(String account, Consumer<IbPosition> callback) {
 
         return subscriptions.addFuture(SubscriptionsRepository.EventType.EVENT_POSITION_MULTI, callback,
-                                             (id) -> {
-                                                  shouldBeConnected();
-                                                  return requests.postSingleRequest(
-                                                          RequestRepository.Event.REQ_POSITIONS_MULTI,
-                                                          id, () -> socket.reqPositionsMulti(id, account, ""));
-                                              },
-                                             (id) -> {
-                                                  shouldBeConnected();
-                                                  socket.cancelPositionsMulti(id);
-                                              });
+                                       (id) -> {
+                                           shouldBeConnected();
+                                           return requests.postSingleRequest(
+                                                   RequestRepository.Event.REQ_POSITIONS_MULTI,
+                                                   id, () -> socket.reqPositionsMulti(id, account, ""));
+                                       },
+                                       (id) -> {
+                                           shouldBeConnected();
+                                           socket.cancelPositionsMulti(id);
+                                       });
     }
 
     public Set<String> getManagedAccounts() {
@@ -250,15 +262,15 @@ public class IbClient implements AutoCloseable {
 
         return subscriptions.addFutureUnique(SubscriptionsRepository.EventType.EVENT_PORTFOLIO, callback,
                                              (unused) -> {
-                                                  shouldBeConnected();
-                                                  return requests.postSingleRequest(
-                                                          RequestRepository.Event.REQ_PORTFOLIO,
-                                                          null, () -> socket.reqAccountUpdates(true, account));
-                                              },
+                                                 shouldBeConnected();
+                                                 return requests.postSingleRequest(
+                                                         RequestRepository.Event.REQ_PORTFOLIO,
+                                                         null, () -> socket.reqAccountUpdates(true, account));
+                                             },
                                              (unused) -> {
-                                                  shouldBeConnected();
-                                                  socket.reqAccountUpdates(false, account);
-                                              });
+                                                 shouldBeConnected();
+                                                 socket.reqAccountUpdates(false, account);
+                                             });
     }
 
     public synchronized IbSubscriptionFuture setOnConnectionStatus(Consumer<ConnectionMonitor.Status> callback) {
@@ -302,7 +314,6 @@ public class IbClient implements AutoCloseable {
     public synchronized CompletableFuture<List<IbOrder>> reqAllOpenOrders() {
         shouldBeConnected();
 
-        final Integer id = idGenerator.nextRequestId();
         return requests.postSingleRequest(RequestRepository.Event.REQ_ORDER_LIST, null,
                                           () -> socket.reqAllOpenOrders());
     }

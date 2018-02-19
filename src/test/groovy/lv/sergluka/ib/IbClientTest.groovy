@@ -13,8 +13,7 @@ class IbClientTest extends Specification {
 
     void setup() {
         client = new IbClient()
-        client.connect("127.0.0.1", 7496, 2)
-        client.waitForConnect(30, TimeUnit.SECONDS)
+        client.connect("127.0.0.1", 7496, 2).get(30, TimeUnit.SECONDS)
         client.reqGlobalCancel()
         // Wait until all respective callbacks will be called
         sleep(2_000)
@@ -220,7 +219,7 @@ class IbClientTest extends Specification {
         def var = new BlockingVariable(4 * 60) // Account updates once per 3 min
 
         when:
-        client.subscribeOnAccountPortfolio("DU22993") { portfolio ->
+        client.subscribeOnPortfolio("DU22993") { portfolio ->
             var.set(portfolio)
         }
 
@@ -293,8 +292,7 @@ class IbClientTest extends Specification {
         expect:
 
         (0..10).each {
-            client.connect("127.0.0.1", 7497, 1)
-            client.waitForConnect(10, TimeUnit.SECONDS)
+            client.connect("127.0.0.1", 7497, 1).get(10, TimeUnit.SECONDS)
             assert client.isConnected()
             client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
             client.disconnect()
@@ -315,11 +313,11 @@ class IbClientTest extends Specification {
         tick.getBidSize() > 0
     }
 
-    private def createContractEUR() {
-        def contract = new Contract();
-        contract.symbol("EUR");
-        contract.currency("USD");
-        contract.exchange("IDEALPRO");
+    private static def createContractEUR() {
+        def contract = new Contract()
+        contract.symbol("EUR")
+        contract.currency("USD")
+        contract.exchange("IDEALPRO")
         contract.secType(Types.SecType.CASH)
         return contract
     }
@@ -328,14 +326,14 @@ class IbClientTest extends Specification {
         return createOrderEUR(client.nextOrderId())
     }
 
-    private def createOrderEUR(int id) {
+    private static def createOrderEUR(int id) {
         def order = new Order()
         order.orderId(id)
         order.action("BUY")
-        order.orderType("STP");
+        order.orderType("STP")
         order.auxPrice(1.0f)
         order.tif("GTC")
         order.totalQuantity(20000.0f)
-        return order;
+        return order
     }
 }
