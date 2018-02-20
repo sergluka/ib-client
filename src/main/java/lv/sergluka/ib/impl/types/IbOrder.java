@@ -18,7 +18,7 @@ public class IbOrder {
     private final Order order;
     private final OrderState state;
 
-    private final TreeSet<IbOrderStatus> statuses = new TreeSet<>(); // TODO: make thread safe
+    private final TreeSet<IbOrderStatus> statuses = new TreeSet<>();
 
     public IbOrder(int orderId, Contract contract, Order order, OrderState state) {
         this.orderId = orderId;
@@ -27,11 +27,11 @@ public class IbOrder {
         this.state = state;
     }
 
-    public boolean addStatus(@NotNull IbOrderStatus status) {
+    public synchronized boolean addStatus(@NotNull IbOrderStatus status) {
         return statuses.add(status);
     }
 
-    public boolean addStatuses(@NotNull Set<IbOrderStatus> statuses) {
+    public synchronized boolean addStatuses(@NotNull Set<IbOrderStatus> statuses) {
         return statuses.addAll(statuses);
     }
 
@@ -39,7 +39,7 @@ public class IbOrder {
         return orderId;
     }
 
-    public IbOrderStatus getLastStatus() {
+    public synchronized IbOrderStatus getLastStatus() {
         return statuses.last();
     }
 

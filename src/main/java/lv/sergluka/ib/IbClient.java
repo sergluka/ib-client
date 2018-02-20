@@ -21,6 +21,32 @@ import java.util.function.Consumer;
 
 public class IbClient implements AutoCloseable {
 
+    enum LogLevel {
+        NONE,
+        SYSTEM,
+        ERROR,
+        WARNING,
+        INFORMATION,
+        DETAIL,
+    }
+
+    public enum MarketDataType {
+        LIVE(1),
+        FROZEN(2),
+        DELAYED(3),
+        DELAYED_FROZEN(4);
+
+        private int value;
+
+        MarketDataType(int value) {
+            this.value = value;
+        }
+
+        public int getValue() {
+            return value;
+        }
+    }
+
     private static final Logger log = LoggerFactory.getLogger(IbClient.class);
 
     private IbReader reader;
@@ -45,15 +71,6 @@ public class IbClient implements AutoCloseable {
 
     public CacheRepository getCache() {
         return cache;
-    }
-
-    enum LogLevel {
-        NONE,
-        SYSTEM,
-        ERROR,
-        WARNING,
-        INFORMATION,
-        DETAIL,
     }
 
     public CompletableFuture connect(final @NotNull String ip, final int port, final int connId) {
@@ -114,10 +131,6 @@ public class IbClient implements AutoCloseable {
         disconnect();
     }
 
-//    public void waitForConnect(long time, TimeUnit unit) throws TimeoutException {
-//        connectionMonitor.waitForStatus(ConnectionMonitor.Status.CONNECTED, time, unit);
-//    }
-
     public void disconnect() {
         log.debug("Disconnecting...");
         subscriptions.close();
@@ -169,23 +182,6 @@ public class IbClient implements AutoCloseable {
 
     public Set<String> getManagedAccounts() {
         return wrapper.getManagedAccounts();
-    }
-
-    public enum MarketDataType {
-        LIVE(1),
-        FROZEN(2),
-        DELAYED(3),
-        DELAYED_FROZEN(4);
-
-        private int value;
-
-        MarketDataType(int value) {
-            this.value = value;
-        }
-
-        public int getValue() {
-            return value;
-        }
     }
 
     public synchronized void reqMarketDataType(MarketDataType type) {
@@ -280,7 +276,7 @@ public class IbClient implements AutoCloseable {
                                              null);
     }
 
-    public int nextOrderId() {
+    public synchronized int nextOrderId() {
         return idGenerator.nextOrderId();
     }
 

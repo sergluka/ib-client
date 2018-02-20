@@ -43,7 +43,13 @@ public class Wrapper implements EWrapper {
 
             @Override
             void onError() {
-                // TODO: Don't reconnect, if error was at disconnecting
+                ConnectionMonitor.Status status = connectionMonitor.status();
+                if (status == ConnectionMonitor.Status.DISCONNECTING ||
+                        status == ConnectionMonitor.Status.DISCONNECTED) {
+                    log.warn("Got error at disconnect. Ignoring");
+                    return;
+                }
+
                 connectionMonitor.reconnect();
             }
 

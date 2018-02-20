@@ -106,7 +106,7 @@ public class RequestRepository {
             log.debug("<= {}", key);
             runnable.run();
         } catch (Exception e) {
-            futures.remove(key); // TODO: wrap with lock all procedure?
+            futures.remove(key);
             throw e;
         }
     }
