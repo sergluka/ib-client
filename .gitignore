@@ -1,1 +1,7 @@
 .*
+
+out/
+gradle/
+
+gradlew 
+gradlew.bat 

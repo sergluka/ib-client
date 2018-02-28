@@ -1,0 +1,36 @@
+group 'lv.sergluka'
+version '1.0-SNAPSHOT'
+
+buildscript {
+    repositories {
+        jcenter()
+    }
+
+    dependencies {
+        classpath 'eu.appsatori:gradle-fatjar-plugin:0.3'
+    }
+}
+
+apply plugin: 'eu.appsatori.fatjar'
+
+apply plugin: 'java'
+apply plugin: 'groovy'
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile files('libs/TwsApi_debug.jar')
+    compile "org.slf4j:slf4j-api:1.7.+"
+    compile "ch.qos.logback:logback-classic:1.2.+"
+    compile "org.jetbrains:annotations-java5:15.0"
+    compile 'com.google.guava:guava:23.5-jre'
+    compile 'org.apache.commons:commons-math3:3.6.1'
+
+    compile "org.codehaus.groovy:groovy-all:2.4.12"
+    testCompile "org.spockframework:spock-core:1.1+"
+}
