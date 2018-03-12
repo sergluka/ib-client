@@ -46,15 +46,6 @@ abstract class TerminalErrorHandler {
                 severity = ErrorType.WARN;
                 break;
 
-//            case 110: // The price does not conform to the minimum price variation for this contract
-//            case 200: // The contract description specified for <Symbol> is ambiguous.
-//            case 320: // Server error when reading an API client request.
-//            case 321: // Server error when validating an API client request.
-//            case 354: // Requested market data is not subscribed
-//            case 10168: // Requested market data is not subscribed. Delayed market data is not enabled
-//                severity = ErrorType.REQUEST;
-//                break;
-
             case 503: // The TWS is out of date and must be upgraded
                 severity = ErrorType.CRITICAL;
                 break;

@@ -55,7 +55,7 @@ public class SubscriptionImpl<Param, RegResult> implements IbSubscription {
             }
             log.info("Has been unsubscribed from {}", this);
         } catch (Exception e) {
-            log.error("Error unsubscribe for subscription: {}", this);
+            log.error("Error unsubscribe for subscription: {}. {}", this, e.getMessage());
         }
     }
 

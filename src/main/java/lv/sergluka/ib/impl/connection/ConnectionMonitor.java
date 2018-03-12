@@ -1,4 +1,4 @@
-package lv.sergluka.ib.impl;
+package lv.sergluka.ib.impl.connection;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +17,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         DISCONNECT,
         CONNECT,
         RECONNECT,
-        CONFIRM_CONNECT,
+        CONFIRM_CONNECT
     }
 
     public enum Status {
@@ -26,10 +26,11 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         CONNECTING,
         CONNECTED,
         DISCONNECTING,
+        SLEEP,
     }
 
     private static final Logger log = LoggerFactory.getLogger(ConnectionMonitor.class);
-    private static final int RECONNECT_DELAY = 1_000;
+    private static final long RECONNECT_DELAY = 1_000;
 
     private Thread thread;
 
@@ -39,6 +40,8 @@ public abstract class ConnectionMonitor implements AutoCloseable {
     private final Lock statusLock = new ReentrantLock();
     private final Condition statusCondition = statusLock.newCondition();
     private Status expectedStatus = null;
+
+    private SleepTimer timer = new SleepTimer();
 
     protected abstract void connectRequest(boolean reconnect);
     protected abstract void disconnectRequest(boolean reconnect);
@@ -79,52 +82,20 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         return status.get();
     }
 
-    public void waitForStatus(Status status, long time, TimeUnit unit) throws TimeoutException {
-        try {
-            statusLock.lock();
-            expectedStatus = status;
-
-            while (this.status.get() != expectedStatus) {
-                if (!statusCondition.await(time, unit)) {
-                    throw new TimeoutException(String.format(
-                            "Timeout of '%s' status. Actual status is '%s'", expectedStatus, this.status));
-                }
-            }
-        } catch (InterruptedException e) {
-            log.error("waitForStatus has been interrupted", e);
-        } finally {
-            statusLock.unlock();
-        }
-    }
-
-    private void waitForStatus(Status status) {
-        try {
-            statusLock.lock();
-            expectedStatus = status;
-            while (this.status.get() != expectedStatus) {
-                statusCondition.await();
-            }
-        } catch (InterruptedException e) {
-            log.warn("waitForStatus has been interrupted", e);
-        } finally {
-            statusLock.unlock();
-        }
-    }
-
-    public void connect() {
+    public synchronized void connect() {
         setCommand(Command.CONNECT);
     }
 
-    public void connect(int timeout, TimeUnit unit) throws TimeoutException {
+    public synchronized void connect(int timeout, TimeUnit unit) throws TimeoutException {
         setCommand(Command.CONNECT);
         waitForStatus(Status.CONNECTED, timeout, unit);
     }
 
-    public void confirmConnection() {
+    public synchronized void confirmConnection() {
         setCommand(Command.CONFIRM_CONNECT);
     }
 
-    public void reconnect() {
+    public synchronized void reconnect() {
         setCommand(Command.RECONNECT);
     }
 
@@ -154,7 +125,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         }
     }
 
-    private Command handleCommand(Command command) throws InterruptedException {
+    private Command handleCommand(Command command) {
         switch (command) {
             case CONNECT:
                 setStatus(Status.CONNECTING);
@@ -164,42 +135,53 @@ public abstract class ConnectionMonitor implements AutoCloseable {
                 setStatus(Status.DISCONNECTING);
                 disconnectRequest(true);
                 setStatus(Status.DISCONNECTED);
-                Thread.sleep(RECONNECT_DELAY);
-                setStatus(Status.CONNECTING);
-                connectRequest(true);
+
+                timer.start(RECONNECT_DELAY, () -> {
+                    setStatus(Status.CONNECTING);
+                    connectRequest(true);
+                });
+
                 break;
             case CONFIRM_CONNECT:
                 /* Right after connect, an error 507 (Bad Message Length) can occur, so we re-read command
                    to be sure valid connection still persist */
-                Thread.sleep(1000);
-                command = this.command.getAndSet(Command.NONE);
-                if (command == Command.NONE) {
+                timer.start(RECONNECT_DELAY, () -> {
                     setStatus(Status.CONNECTED);
                     afterConnect();
-                } else {
-                    handleCommand(command);
-                }
+                });
+
                 break;
             case DISCONNECT:
                 setStatus(Status.DISCONNECTING);
                 disconnectRequest(false);
                 setStatus(Status.DISCONNECTED);
                 break;
+            case NONE:
+                if (timer.isRunning()) {
+                    setStatus(Status.SLEEP);
+                    if (timer.run()) {
+                        timer.reset();
+                    }
+                }
+                break;
+
         }
         return command;
     }
 
     private void setCommand(Command newCommand) {
+        timer.reset();
         this.command.set(newCommand);
         log.debug("Command: {}", newCommand.name());
     }
 
     private void setStatus(Status newStatus) {
         Status oldStatus = this.status.getAndSet(newStatus);
-        if (oldStatus != newStatus) {
-            log.debug("Status change: {} => {}", oldStatus.name(), newStatus.name());
+        if (oldStatus == newStatus) {
+            return;
         }
 
+        log.debug("Status change: {} => {}", oldStatus.name(), newStatus.name());
         onStatusChange(newStatus);
 
         statusLock.lock();
@@ -207,6 +189,38 @@ public abstract class ConnectionMonitor implements AutoCloseable {
             if (expectedStatus == newStatus) {
                 statusCondition.signal();
             }
+        } finally {
+            statusLock.unlock();
+        }
+    }
+
+    private void waitForStatus(Status status, long time, TimeUnit unit) throws TimeoutException {
+        try {
+            statusLock.lock();
+            expectedStatus = status;
+
+            while (this.status.get() != expectedStatus) {
+                if (!statusCondition.await(time, unit)) {
+                    throw new TimeoutException(String.format(
+                            "Timeout of '%s' status. Actual status is '%s'", expectedStatus, this.status));
+                }
+            }
+        } catch (InterruptedException e) {
+            log.error("waitForStatus has been interrupted", e);
+        } finally {
+            statusLock.unlock();
+        }
+    }
+
+    private void waitForStatus(Status status) {
+        try {
+            statusLock.lock();
+            expectedStatus = status;
+            while (this.status.get() != expectedStatus) {
+                statusCondition.await();
+            }
+        } catch (InterruptedException e) {
+            log.warn("waitForStatus has been interrupted", e);
         } finally {
             statusLock.unlock();
         }

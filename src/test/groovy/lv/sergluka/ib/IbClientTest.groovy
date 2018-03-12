@@ -13,7 +13,7 @@ class IbClientTest extends Specification {
 
     void setup() {
         client = new IbClient()
-        client.connect("127.0.0.1", 7496, 2).get(30, TimeUnit.SECONDS)
+        client.connect("127.0.0.1", 7497, 2).get(30, TimeUnit.SECONDS)
         client.reqGlobalCancel()
         // Wait until all respective callbacks will be called
         sleep(2_000)
@@ -219,7 +219,7 @@ class IbClientTest extends Specification {
         def var = new BlockingVariable(4 * 60) // Account updates once per 3 min
 
         when:
-        client.subscribeOnPortfolio("DU22993") { portfolio ->
+        client.subscribeOnAccountPortfolio("DU22993") { portfolio ->
             var.set(portfolio)
         }
 

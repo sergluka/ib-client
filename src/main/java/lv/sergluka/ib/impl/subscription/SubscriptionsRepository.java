@@ -144,15 +144,13 @@ public class SubscriptionsRepository implements AutoCloseable {
         if (subscription == null) {
             if (requireSubscription) {
                 log.error("Got event '{}' with unknown request id {}", type, reqId);
-            } else {
-                log.debug("Got unsubscribed event '{}' with id {}", type, reqId);
             }
             return;
         }
 
         // TODO: Add queue explicitly and monitor its size
         // TODO: Log posting, execution and finalization of a task
-        executors.submit(() -> {
+        Runnable runnable = () -> {
             Thread thread = Thread.currentThread();
             thread.setName(String.format("subscription-%s", subscription.toString()));
             try {
@@ -160,7 +158,14 @@ public class SubscriptionsRepository implements AutoCloseable {
             } catch (Exception e) {
                 log.error("Error at handling event={} of subscription={}: {}", data, subscription, e.getMessage(), e);
             }
-        });
+        };
+
+        try {
+            executors.submit(runnable);
+        } catch (Exception e) {
+            log.error("Fail to submit task for execution: {}, id: {}, param: {}", type, reqId, data);
+            throw e;
+        }
     }
 
     public void resubscribe() {

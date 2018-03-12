@@ -25,10 +25,13 @@ public class IbReader {
         this.signal = signal;
 
         processor.setName("Processor");
+        processor.setPriority(Thread.MAX_PRIORITY);
     }
 
     public void start() {
         reader = new EReader(socket, signal);
+        reader.setPriority(Thread.MAX_PRIORITY);
+
         reader.start();
         processor.start();
     }

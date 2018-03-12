@@ -2,7 +2,7 @@ package lv.sergluka.ib;
 
 import com.google.common.collect.ImmutableSet;
 import com.ib.client.*;
-import lv.sergluka.ib.impl.ConnectionMonitor;
+import lv.sergluka.ib.impl.connection.ConnectionMonitor;
 import lv.sergluka.ib.impl.IbReader;
 import lv.sergluka.ib.impl.Wrapper;
 import lv.sergluka.ib.impl.cache.CacheRepository;
@@ -21,7 +21,7 @@ import java.util.function.Consumer;
 
 public class IbClient implements AutoCloseable {
 
-    enum LogLevel {
+    public enum LogLevel {
         NONE,
         SYSTEM,
         ERROR,
@@ -60,7 +60,7 @@ public class IbClient implements AutoCloseable {
     private SubscriptionsRepository subscriptions;
 
     public IbClient() {
-        this(Executors.newCachedThreadPool());
+        this(Executors.newWorkStealingPool());
     }
 
     public IbClient(ExecutorService subscriptionsExecutor) {
@@ -73,7 +73,7 @@ public class IbClient implements AutoCloseable {
         return cache;
     }
 
-    public CompletableFuture connect(final @NotNull String ip, final int port, final int connId) {
+    public CompletableFuture<Void> connect(final @NotNull String ip, final int port, final int connId) {
         log.debug("Connecting to {}:{}, id={} ...", ip, port, connId);
 
         CompletableFuture<Void> result = new CompletableFuture<>();
@@ -91,23 +91,30 @@ public class IbClient implements AutoCloseable {
 
             @Override
             protected void connectRequest(boolean reconnect) {
-                init();
+
+                EJavaSignal signal = new EJavaSignal();
+
+                socket = new EClientSocket(wrapper, signal);
+                wrapper.setSocket(socket);
+                wrapper.setReader(reader);
+
                 socket.setAsyncEConnect(false);
                 socket.eConnect(ip, port, connId);
-                socket.setServerLogLevel(LogLevel.DETAIL.ordinal());
+
+                reader = new IbReader(socket, signal);
+                reader.start();
             }
 
             @Override
             protected void disconnectRequest(boolean reconnect) {
-                if (!reconnect) {
-                    subscriptions.close();
-                }
                 socket.eDisconnect();
                 reader.close();
             }
 
             @Override
             protected void afterConnect() {
+                socket.setServerLogLevel(IbClient.LogLevel.DETAIL.ordinal());
+
                 subscriptions.resubscribe();
                 result.complete(null);
             }
@@ -144,6 +151,18 @@ public class IbClient implements AutoCloseable {
                 connectionMonitor.status() == ConnectionMonitor.Status.CONNECTED;
     }
 
+    public ConnectionMonitor.Status status() {
+        if (connectionMonitor == null) {
+            return ConnectionMonitor.Status.DISCONNECTED;
+        }
+
+        return connectionMonitor.status();
+    }
+
+    public Set<String> getManagedAccounts() {
+        return wrapper.getManagedAccounts();
+    }
+
     @NotNull
     public IbSubscription subscribeOnOrderNewStatus(Consumer<IbOrderStatus> callback) {
         return subscriptions.addUnique(SubscriptionsRepository.EventType.EVENT_ORDER_STATUS, callback, null, null);
@@ -178,10 +197,6 @@ public class IbClient implements AutoCloseable {
                                            shouldBeConnected();
                                            socket.cancelPositionsMulti(id);
                                        });
-    }
-
-    public Set<String> getManagedAccounts() {
-        return wrapper.getManagedAccounts();
     }
 
     public synchronized void reqMarketDataType(MarketDataType type) {
@@ -269,7 +284,7 @@ public class IbClient implements AutoCloseable {
                                              });
     }
 
-    public synchronized IbSubscriptionFuture setOnConnectionStatus(Consumer<ConnectionMonitor.Status> callback) {
+    public synchronized IbSubscriptionFuture subscribeOnConnectionStatus(Consumer<ConnectionMonitor.Status> callback) {
         return subscriptions.addFutureUnique(SubscriptionsRepository.EventType.EVENT_CONNECTION_STATUS,
                                              callback,
                                              null,
@@ -292,7 +307,11 @@ public class IbClient implements AutoCloseable {
     public synchronized CompletableFuture<IbOrder> placeOrder(@NotNull Contract contract, @NotNull Order order) {
         shouldBeConnected();
 
+        if (order.orderId() == 0) {
+            order.orderId(idGenerator.nextOrderId());
+        }
         final Integer id = order.orderId();
+
         return requests.postSingleRequest(RequestRepository.Event.REQ_ORDER_PLACE, id,
                                           () -> socket.placeOrder(id, contract, order));
     }
@@ -321,16 +340,6 @@ public class IbClient implements AutoCloseable {
         final Integer id = idGenerator.nextRequestId();
         return requests.postListRequest(RequestRepository.Event.REQ_CONTRACT_DETAIL, id,
                                         () -> socket.reqContractDetails(id, contract));
-    }
-
-    private void init() {
-        EJavaSignal signal = new EJavaSignal();
-
-        socket = new EClientSocket(wrapper, signal);
-        reader = new IbReader(socket, signal);
-
-        wrapper.setSocket(socket);
-        wrapper.setReader(reader);
     }
 
     private void shouldBeConnected() {

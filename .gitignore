@@ -1,7 +1,4 @@
 .*
 
 out/
-gradle/
-
-gradlew 
-gradlew.bat 
+build/

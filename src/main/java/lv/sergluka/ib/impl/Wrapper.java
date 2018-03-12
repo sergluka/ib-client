@@ -4,6 +4,7 @@ import com.google.common.base.Splitter;
 import com.ib.client.*;
 import lv.sergluka.ib.IdGenerator;
 import lv.sergluka.ib.impl.cache.CacheRepository;
+import lv.sergluka.ib.impl.connection.ConnectionMonitor;
 import lv.sergluka.ib.impl.sender.RequestRepository;
 import lv.sergluka.ib.impl.subscription.SubscriptionsRepository;
 import lv.sergluka.ib.impl.types.*;
@@ -11,10 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.SocketException;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class Wrapper implements EWrapper {
 
@@ -75,13 +73,7 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void connectAck() {
-        try {
-            log.info("Connection is opened. version: {}", socket.serverVersion());
-            reader.start();
-            connectionMonitor.confirmConnection();
-        } catch (Exception e) {
-            log.error("Exception at `connectAck`: {}", e.getMessage(), e);
-        }
+        log.info("Connection is opened. version: {}", socket.serverVersion());
     }
 
     @Override
@@ -153,6 +145,9 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void managedAccounts(String accountsList) {
+        // Documentation said that connection fully established after `managedAccounts` and `nextValidId` called
+        connectionMonitor.confirmConnection();
+
         log.debug("Managed accounts are: {}", accountsList);
         this.managedAccounts = new HashSet<>(Splitter.on(",").splitToList(accountsList));
     }
@@ -260,11 +255,22 @@ public class Wrapper implements EWrapper {
                 return;
             }
 
-            log.warn("Connection lost", e);
+            log.warn("Connection lost");
             connectionMonitor.reconnect();
+            return;
+        }
+        // Ugly TWS client library try to read from null stream even it doesn't created when TWS is unreachable
+        else if (e instanceof NullPointerException && e.getStackTrace().length > 0) {
+            StackTraceElement element = e.getStackTrace()[0];
+            if (Objects.equals(element.getClassName(), "com.ib.client.EClientSocket") &&
+                Objects.equals(element.getMethodName(), "readInt")) {
+
+                log.debug("Ignoring error of uninitialized stream");
+                return;
+            }
         }
 
-        log.error("TWS error", e);
+        log.error("TWS exception", e);
     }
 
     @Override
