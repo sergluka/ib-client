@@ -15,7 +15,6 @@ class CacheRepositoryTest extends Specification {
         when:
         def position = cache.getPosition("AAAA", contract)
 
-
         then:
         position == null
     }

@@ -203,7 +203,7 @@ public class IbClient implements AutoCloseable {
         socket.reqMarketDataType(type.getValue());
     }
 
-    public synchronized CompletableFuture<IbTick> reqMktDataSnapshot(Contract contract) {
+    public synchronized CompletableFuture<IbTick> reqMktData(Contract contract) {
         shouldBeConnected();
 
         int tickerId = idGenerator.nextRequestId();

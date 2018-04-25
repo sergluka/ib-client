@@ -1,4 +1,4 @@
-package lv.sergluka.ib;
+package lv.sergluka.ib.utils;
 
 import java.util.Objects;
 

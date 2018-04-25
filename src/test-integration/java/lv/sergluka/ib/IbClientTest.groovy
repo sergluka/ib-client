@@ -306,7 +306,7 @@ class IbClientTest extends Specification {
 
     def "Get contract snapshot"() {
         when:
-        def future = client.reqMktDataSnapshot(createContractEUR())
+        def future = client.reqMktData(createContractEUR())
         def tick = future.get(10, TimeUnit.SECONDS)
 
         then:

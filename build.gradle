@@ -1,5 +1,3 @@
-group 'lv.sergluka'
-version '1.0-SNAPSHOT'
 
 buildscript {
     repositories {
@@ -11,10 +9,18 @@ buildscript {
     }
 }
 
+plugins {
+    id 'org.unbroken-dome.test-sets' version '1.4.5'
+}
+
 apply plugin: 'eu.appsatori.fatjar'
 
+apply plugin: 'idea'
 apply plugin: 'java'
 apply plugin: 'groovy'
+
+group 'lv.sergluka'
+version '1.0-SNAPSHOT'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
@@ -33,4 +39,10 @@ dependencies {
 
     compile "org.codehaus.groovy:groovy-all:2.4.12"
     testCompile "org.spockframework:spock-core:1.1+"
+}
+
+testSets {
+    integrationTest {
+        dirName = 'test-integration'
+    }
 }

@@ -1,17 +1,15 @@
 package lv.sergluka.ib.impl.types;
 
+import java.util.Set;
+import java.util.TreeSet;
+
+import org.jetbrains.annotations.NotNull;
+
 import com.ib.client.Contract;
 import com.ib.client.Order;
 import com.ib.client.OrderState;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.*;
 
 public class IbOrder {
-
-    private static final Logger log = LoggerFactory.getLogger(IbOrder.class);
 
     private final int orderId;
     private final Contract contract;
