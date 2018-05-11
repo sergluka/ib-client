@@ -6,6 +6,9 @@ public class IbExceptions {
 
     public static class TerminalError extends RuntimeException {
 
+        //An attempt was made to cancel an order not currently in the system.
+        public static int CODE_CANT_FIND_ORDER = 135;
+
         private final String errorMsg;
         private final int errorCode;
 
