@@ -36,6 +36,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
 
     private AtomicReference<Status> status;
     private AtomicReference<Command> command;
+    private boolean isConnected = false;
 
     private final Lock statusLock = new ReentrantLock();
     private final Condition statusCondition = statusLock.newCondition();
@@ -46,11 +47,12 @@ public abstract class ConnectionMonitor implements AutoCloseable {
     protected abstract void connectRequest(boolean reconnect);
     protected abstract void disconnectRequest(boolean reconnect);
     protected abstract void afterConnect();
-    protected abstract void onStatusChange(Status status);
+    protected abstract void onConnectStatusChange(Boolean connected);
 
     public void start() {
         status = new AtomicReference<>(Status.UNKNOWN);
         command = new AtomicReference<>(Command.NONE);
+        isConnected = false;
 
         thread = new Thread(this::run);
         thread.setName("Connection monitor");
@@ -182,7 +184,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         }
 
         log.debug("Status change: {} => {}", oldStatus.name(), newStatus.name());
-        onStatusChange(newStatus);
+        triggerStatusOnChange(newStatus);
 
         statusLock.lock();
         try {
@@ -194,6 +196,16 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         }
     }
 
+    private void triggerStatusOnChange(Status newStatus) {
+        if (!isConnected && newStatus == Status.CONNECTED) {
+            isConnected = true;
+            onConnectStatusChange(isConnected);
+        } else if (isConnected && newStatus != Status.CONNECTED) {
+            isConnected = false;
+            onConnectStatusChange(isConnected);
+        }
+    }
+
     private void waitForStatus(Status status, long time, TimeUnit unit) throws TimeoutException {
         try {
             statusLock.lock();
@@ -202,7 +214,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
             while (this.status.get() != expectedStatus) {
                 if (!statusCondition.await(time, unit)) {
                     throw new TimeoutException(String.format(
-                            "Timeout of '%s' status. Actual status is '%s'", expectedStatus, this.status));
+                          "Timeout of '%s' status. Actual status is '%s'", expectedStatus, this.status));
                 }
             }
         } catch (InterruptedException e) {

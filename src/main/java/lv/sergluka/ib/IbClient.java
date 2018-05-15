@@ -120,7 +120,7 @@ public class IbClient implements AutoCloseable {
             }
 
             @Override
-            protected void onStatusChange(Status status) {
+            protected void onConnectStatusChange(Boolean status) {
                 subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_CONNECTION_STATUS, status, false);
             }
         };
@@ -284,7 +284,7 @@ public class IbClient implements AutoCloseable {
                                              });
     }
 
-    public synchronized IbSubscriptionFuture subscribeOnConnectionStatus(Consumer<ConnectionMonitor.Status> callback) {
+    public synchronized IbSubscriptionFuture subscribeOnConnectionStatus(Consumer<Boolean> callback) {
         return subscriptions.addFutureUnique(SubscriptionsRepository.EventType.EVENT_CONNECTION_STATUS,
                                              callback,
                                              null,
