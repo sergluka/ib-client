@@ -2,6 +2,8 @@ package lv.sergluka.ib.impl;
 
 import com.google.common.base.Splitter;
 import com.ib.client.*;
+
+import lv.sergluka.ib.IbExceptions;
 import lv.sergluka.ib.IdGenerator;
 import lv.sergluka.ib.impl.cache.CacheRepository;
 import lv.sergluka.ib.impl.connection.ConnectionMonitor;
@@ -204,6 +206,12 @@ public class Wrapper implements EWrapper {
         log.trace("tickSnapshotEnd({})", tickerId);
 
         IbTick tick = cache.getTick(tickerId);
+        if (tick == null) {
+            log.info("No ticks for ticker {}", tickerId);
+            requests.setError(tickerId, new IbExceptions.NoTicks());
+            return;
+        }
+
         requests.confirmAndRemove(RequestRepository.Event.REQ_MARKET_DATA, tickerId, tick);
     }
 

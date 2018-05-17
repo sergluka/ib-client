@@ -45,4 +45,10 @@ public class IbExceptions {
         }
     }
 
+    public static class NoTicks extends RuntimeException {
+        public NoTicks() {
+            super("Has no ticks");
+        }
+    }
+
 }
