@@ -1,6 +1,7 @@
 package lv.sergluka.ib.impl.cache;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.ib.client.Contract;
 import lv.sergluka.ib.impl.types.*;
@@ -15,6 +16,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 // TODO: some entries can remain forever. We have to cleanup expired entries.
+// TODO: Expose repository interface to hide `add` functions
 public class CacheRepository {
 
     private static final Logger log = LoggerFactory.getLogger(CacheRepository.class);
@@ -47,8 +49,8 @@ public class CacheRepository {
         return result.get();
     }
 
-    public List<IbOrder> getOrders() {
-        return ImmutableList.copyOf(orders.values());
+    public Map<Integer, IbOrder> getOrders() {
+        return ImmutableMap.copyOf(orders);
     }
 
     public boolean addNewStatus(@NotNull IbOrderStatus status) {
