@@ -120,13 +120,13 @@ public class Wrapper implements EWrapper {
         if (cache.addOrder(twsOrder)) {
             log.info("New order: requestId={}, contract={}, order={}, orderState={}",
                      orderId, contract.symbol(), order.orderId(), state.status());
-            requests.confirmAndRemove(RequestRepository.Event.REQ_ORDER_PLACE, orderId, twsOrder);
+            requests.onNextAndConfirm(RequestRepository.Event.REQ_ORDER_PLACE, orderId, twsOrder);
         }
     }
 
     @Override
     public void openOrderEnd() {
-        requests.confirmAndRemove(RequestRepository.Event.REQ_ORDER_LIST, null, cache.getOrders());
+        requests.onNextAndConfirm(RequestRepository.Event.REQ_ORDER_LIST, null, cache.getOrders());
     }
 
     @Override
@@ -141,7 +141,7 @@ public class Wrapper implements EWrapper {
     @Override
     public void positionEnd() {
         subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_POSITION, null, true);
-        requests.confirmAndRemove(RequestRepository.Event.REQ_POSITIONS, null,
+        requests.onNextAndConfirm(RequestRepository.Event.REQ_POSITIONS, null,
                                   cache.getPositions());
     }
 
@@ -212,7 +212,7 @@ public class Wrapper implements EWrapper {
             return;
         }
 
-        requests.confirmAndRemove(RequestRepository.Event.REQ_MARKET_DATA, tickerId, tick);
+        requests.onNextAndConfirm(RequestRepository.Event.REQ_MARKET_DATA, tickerId, tick);
     }
 
     @Override
@@ -246,7 +246,7 @@ public class Wrapper implements EWrapper {
     @Override
     public void accountDownloadEnd(String accountName) {
         subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_PORTFOLIO, null, true);
-        requests.confirmAndRemove(RequestRepository.Event.REQ_PORTFOLIO, null,
+        requests.onNextAndConfirm(RequestRepository.Event.REQ_PORTFOLIO, null,
                                   cache.getPortfolio());
     }
 
@@ -303,12 +303,12 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void contractDetailsEnd(final int reqId) {
-        requests.confirmListAndRemove(RequestRepository.Event.REQ_CONTRACT_DETAIL, reqId);
+        requests.onComplete(RequestRepository.Event.REQ_CONTRACT_DETAIL, reqId);
     }
 
     @Override
     public void currentTime(final long time) {
-        requests.confirmAndRemove(RequestRepository.Event.REQ_CURRENT_TIME, null, time);
+        requests.onNextAndConfirm(RequestRepository.Event.REQ_CURRENT_TIME, null, time);
     }
 
     @Override
@@ -528,7 +528,7 @@ public class Wrapper implements EWrapper {
     @Override
     public void positionMultiEnd(final int reqId) {
         subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_POSITION_MULTI, reqId, null, true);
-        requests.confirmAndRemove(RequestRepository.Event.REQ_POSITIONS_MULTI, reqId, cache.getPositions());
+        requests.onNextAndConfirm(RequestRepository.Event.REQ_POSITIONS_MULTI, reqId, cache.getPositions());
     }
 
     @Override

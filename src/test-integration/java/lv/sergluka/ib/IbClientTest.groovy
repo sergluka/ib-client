@@ -32,7 +32,7 @@ class IbClientTest extends Specification {
 
     def "Call reqCurrentTime is OK"() {
         when:
-        long time = client.reqCurrentTime().get(10, TimeUnit.SECONDS)
+        long time = client.getCurrentTime().get(10, TimeUnit.SECONDS)
 
         then:
         time > 1510320971
@@ -294,14 +294,14 @@ class IbClientTest extends Specification {
         (0..10).each {
             client.connect("127.0.0.1", 7497, 1).get(10, TimeUnit.SECONDS)
             assert client.isConnected()
-            client.reqCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
+            client.getCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
             client.disconnect()
         }
     }
 
     def "Set market data type"() {
         expect:
-        client.reqMarketDataType(IbClient.MarketDataType.DELAYED_FROZEN)
+        client.setMarketDataType(IbClient.MarketDataType.DELAYED_FROZEN)
     }
 
     def "Get contract snapshot"() {
