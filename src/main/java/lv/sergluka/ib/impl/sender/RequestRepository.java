@@ -22,7 +22,8 @@ public class RequestRepository {
         REQ_CURRENT_TIME,
         REQ_ORDER_PLACE,
         REQ_ORDER_LIST,
-        REQ_MARKET_DATA,
+        REQ_MARKET_DATA_LVL1,
+        REQ_MARKET_DATA_LVL2,
         REQ_POSITIONS,
         REQ_POSITIONS_MULTI,
         REQ_PORTFOLIO
@@ -92,6 +93,11 @@ public class RequestRepository {
         }
 
         future.add(element);
+    }
+
+    public boolean exists(@NotNull Event event, Integer id) {
+        final EventKey key = new EventKey(event, id);
+        return futures.containsKey(key);
     }
 
     private void post(EventKey key, @NotNull IbFutureImpl future, @NotNull Runnable runnable) {

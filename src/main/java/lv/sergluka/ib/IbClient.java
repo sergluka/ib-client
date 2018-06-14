@@ -207,13 +207,13 @@ public class IbClient implements AutoCloseable {
         shouldBeConnected();
 
         int tickerId = idGenerator.nextRequestId();
-        return requests.postSingleRequest(RequestRepository.Event.REQ_MARKET_DATA,
+        return requests.postSingleRequest(RequestRepository.Event.REQ_MARKET_DATA_LVL1,
                                           tickerId,
                                           () -> socket.reqMktData(tickerId, contract, "", true, false, null));
     }
 
     public synchronized IbSubscription subscribeOnMarketData(Contract contract, Consumer<IbTick> callback) {
-        return subscriptions.add(SubscriptionsRepository.EventType.EVENT_MARKET_DATA, callback,
+        return subscriptions.add(SubscriptionsRepository.EventType.EVENT_MARKET_DATA_LVL1, callback,
                                  (id) -> {
                                      shouldBeConnected();
                                      socket.reqMktData(id, contract, "", false, false, null);
@@ -223,6 +223,30 @@ public class IbClient implements AutoCloseable {
                                      shouldBeConnected();
                                      socket.cancelMktData(id);
                                  });
+    }
+
+    /**
+     * Get current order book snapshot.
+     *
+     * Since there doesn't exist single request function in IB API for recent data receiving only, we subscribe to
+     * order book (aka market data lvl 2) update stream, and as soon full book is received, stop subscription
+     *
+     * @param contract  IB contract
+     * @param numRows   Order book max depth
+     * @return Map<depth, IbOrderBook>
+     */
+    public synchronized CompletableFuture<Map<IbOrderBook.Key, IbOrderBook>> getMarketDepth(Contract contract, int numRows) {
+        shouldBeConnected();
+
+        int tickerId = idGenerator.nextRequestId();
+        CompletableFuture<Map<IbOrderBook.Key, IbOrderBook>> future =
+              requests.postSingleRequest(RequestRepository.Event.REQ_MARKET_DATA_LVL2, tickerId,
+                                         () -> socket.reqMktDepth(tickerId, contract, numRows, null));
+        future.whenComplete((val, e) -> {
+            log.debug("Unsubscribe from Market Depth");
+            socket.cancelMktDepth(tickerId);
+        });
+        return future;
     }
 
     public synchronized IbSubscription subscribeOnContractPnl(int contractId,

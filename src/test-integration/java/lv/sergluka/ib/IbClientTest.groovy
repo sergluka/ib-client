@@ -1,6 +1,7 @@
 package lv.sergluka.ib
 
 import com.ib.client.*
+import lv.sergluka.ib.impl.types.IbOrderBook
 import spock.lang.Specification
 import spock.util.concurrent.BlockingVariable
 import spock.util.concurrent.BlockingVariables
@@ -113,7 +114,7 @@ class IbClientTest extends Specification {
 
         then:
         vars.status1 == OrderStatus.PreSubmitted
-        vars.status2 == OrderStatus.Submitted
+        vars.status2 in [OrderStatus.Submitted, OrderStatus.Filled]
     }
 
 
@@ -198,7 +199,7 @@ class IbClientTest extends Specification {
 
     def "Request PnL per account"() {
         given:
-        def var = new BlockingVariable(5)
+        def var = new BlockingVariable(10)
 
         when:
         false
@@ -208,7 +209,7 @@ class IbClientTest extends Specification {
 
         then:
         def pnl = var.get()
-        pnl.unrealizedPnL != 0
+        pnl.unrealizedPnL != null
 
         cleanup:
         subscription?.unsubscribe()
@@ -225,7 +226,7 @@ class IbClientTest extends Specification {
 
         then:
         def portfolio = var.get()
-        portfolio.position != 0.0
+        portfolio.position != null
     }
 
     def "Get market data"() {
@@ -243,6 +244,40 @@ class IbClientTest extends Specification {
 
         cleanup:
         subscription?.unsubscribe()
+    }
+
+    def "Get market depth"() {
+        when:
+        def orderBook = client.getMarketDepth(createContractEUR(), 20).get(10, TimeUnit.SECONDS)
+        print(orderBook)
+
+        then:
+        orderBook.size() > 0
+        def level1 = orderBook.get(new IbOrderBook.Key(IbOrderBook.Side.BUY, 0))
+        level1.position == 0
+        level1.side == IbOrderBook.Side.BUY
+        level1.price > 0.0
+        level1.size > 0
+
+        def level2 = orderBook.get(new IbOrderBook.Key(IbOrderBook.Side.BUY, 1))
+        level2.position == 1
+        level2.side == IbOrderBook.Side.BUY
+        level2.price > 0.0
+        level2.size > 0
+
+        def level3 = orderBook.get(new IbOrderBook.Key(IbOrderBook.Side.SELL, 0))
+        level3.position == 0
+        level3.side == IbOrderBook.Side.SELL
+        level3.price > 0.0
+        level3.size > 0
+
+        def level4 = orderBook.get(new IbOrderBook.Key(IbOrderBook.Side.SELL, 1))
+        level4.position == 1
+        level4.side == IbOrderBook.Side.SELL
+        level4.price > 0.0
+        level4.size > 0
+
+        sleep(3000)
     }
 
     def "Request orders and place orders shouldn't interfere each other"() {

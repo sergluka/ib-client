@@ -1,8 +1,6 @@
 package lv.sergluka.ib.impl.cache;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.ib.client.Contract;
 import lv.sergluka.ib.impl.types.*;
 import org.jetbrains.annotations.NotNull;
@@ -25,6 +23,7 @@ public class CacheRepository {
     private final ConcurrentHashMap<PositionKey, IbPosition> positions = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, IbTick> ticks = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, IbPortfolio> portfolioContracts = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<IbOrderBook.Key, IbOrderBook> orderBook = new ConcurrentHashMap<>();
 
     // After order placing, some statuses goes first, before `openOrder` callback, so storing then separately
     private final LinkedHashMap<Integer, Set<IbOrderStatus>> statuses = new LinkedHashMap<>();
@@ -84,16 +83,24 @@ public class CacheRepository {
         return tick;
     }
 
+    public void addOrderBook(IbOrderBook orderBook) {
+        this.orderBook.put(new IbOrderBook.Key(orderBook.getSide(), orderBook.getPosition()), orderBook);
+    }
+
+    public Map<IbOrderBook.Key, IbOrderBook> getOrderBook() {
+        return Collections.unmodifiableMap(orderBook);
+    }
+
     public IbTick getTick(int tickerId) {
         return ticks.get(tickerId);
     }
 
-    public ImmutableSet<IbPosition> getPositions() {
-        return ImmutableSet.copyOf(positions.values());
+    public Collection<IbPosition> getPositions() {
+        return Collections.unmodifiableCollection(positions.values());
     }
 
-    public ImmutableSet<IbPortfolio> getPortfolio() {
-        return ImmutableSet.copyOf(portfolioContracts.values());
+    public Collection<IbPortfolio> getPortfolio() {
+        return Collections.unmodifiableCollection(portfolioContracts.values());
     }
 
     @Nullable

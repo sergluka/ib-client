@@ -212,7 +212,32 @@ public class Wrapper implements EWrapper {
             return;
         }
 
-        requests.confirmAndRemove(RequestRepository.Event.REQ_MARKET_DATA, tickerId, tick);
+        requests.confirmAndRemove(RequestRepository.Event.REQ_MARKET_DATA_LVL1, tickerId, tick);
+    }
+
+    @Override
+    public void updateMktDepth(final int tickerId,
+                               final int position,
+                               final int operation,
+                               final int side,
+                               final double price,
+                               final int size) {
+        log.debug("updateMktDepth: tickerId = {}, position = {}, operation = {}, side = {}, price = {}, size = {}",
+                  tickerId,  position, operation, side, price, size);
+
+        if (!requests.exists(RequestRepository.Event.REQ_MARKET_DATA_LVL2, tickerId)) {
+            log.debug("Market depth is ignored");
+            return;
+        }
+
+        if (operation != IbOrderBook.Operation.INSERT.ordinal()) {
+            Map<IbOrderBook.Key, IbOrderBook> result = cache.getOrderBook();
+            requests.confirmAndRemove(RequestRepository.Event.REQ_MARKET_DATA_LVL2, tickerId, result);
+            return;
+        }
+
+        IbOrderBook orderBook = new IbOrderBook(position, side, price, size);
+        cache.addOrderBook(orderBook);
     }
 
     @Override
@@ -293,7 +318,7 @@ public class Wrapper implements EWrapper {
     }
 
     private void publishNewTick(int tickerId, IbTick result) {
-        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_MARKET_DATA, tickerId, result, false);
+        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_MARKET_DATA_LVL1, tickerId, result, false);
     }
 
     @Override
@@ -369,16 +394,6 @@ public class Wrapper implements EWrapper {
     @Override
     public void execDetailsEnd(final int reqId) {
         log.debug("execDetailsEnd: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void updateMktDepth(final int tickerId,
-                               final int position,
-                               final int operation,
-                               final int side,
-                               final double price,
-                               final int size) {
-        log.debug("updateMktDepth: NOT IMPLEMENTED");
     }
 
     @Override

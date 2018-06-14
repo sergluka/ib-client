@@ -31,7 +31,7 @@ public class SubscriptionsRepository implements AutoCloseable {
         EVENT_POSITION,
         EVENT_POSITION_MULTI,
         EVENT_ORDER_STATUS,
-        EVENT_MARKET_DATA,
+        EVENT_MARKET_DATA_LVL1,
         EVENT_PORTFOLIO,
         EVENT_CONNECTION_STATUS
     }
