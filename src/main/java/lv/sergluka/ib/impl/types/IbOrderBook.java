@@ -44,8 +44,8 @@ public class IbOrderBook {
     }
 
     public enum Side {
-        BUY,
-        SELL
+        SELL,
+        BUY
     }
 
     public enum Operation {
@@ -62,10 +62,10 @@ public class IbOrderBook {
     public IbOrderBook(int position, int side, double price, int size) {
         switch (side) {
             case 0:
-                this.side = Side.BUY;
+                this.side = Side.SELL;
                 break;
             case 1:
-                this.side = Side.SELL;
+                this.side = Side.BUY;
                 break;
             default:
                 throw new IllegalArgumentException(String.format("Unexpected side: %d", side));
