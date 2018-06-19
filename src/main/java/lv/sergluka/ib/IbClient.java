@@ -168,7 +168,7 @@ public class IbClient implements AutoCloseable {
         return subscriptions.addUnique(SubscriptionsRepository.EventType.EVENT_ORDER_STATUS, callback, null, null);
     }
 
-    public synchronized IbSubscriptionFuture<ImmutableSet<IbPosition>>
+    public synchronized IbSubscriptionFuture<Collection<IbPosition>>
     subscribeOnPositionChange(Consumer<IbPosition> callback) {
 
         return subscriptions.addFutureUnique(SubscriptionsRepository.EventType.EVENT_POSITION, callback,
