@@ -1,9 +1,12 @@
 package lv.sergluka.ib
 
 import com.ib.client.*
+import io.reactivex.observers.TestObserver
+import lv.sergluka.ib.impl.types.IbPosition
 import spock.lang.Specification
 import spock.util.concurrent.BlockingVariable
 import spock.util.concurrent.BlockingVariables
+import spock.util.concurrent.PollingConditions
 
 import java.util.concurrent.TimeUnit
 
@@ -13,7 +16,7 @@ class IbClientTest extends Specification {
 
     void setup() {
         client = new IbClient()
-        client.connect("127.0.0.1", 7497, 2).get(30, TimeUnit.SECONDS)
+        assert client.connect("127.0.0.1", 7497, 2).blockingAwait(30, TimeUnit.SECONDS)
         client.reqGlobalCancel()
         // Wait until all respective callbacks will be called
         sleep(2_000)
@@ -32,7 +35,7 @@ class IbClientTest extends Specification {
 
     def "Call reqCurrentTime is OK"() {
         when:
-        long time = client.getCurrentTime().get(10, TimeUnit.SECONDS)
+        long time = client.getCurrentTime().blockingGet()
 
         then:
         time > 1510320971
@@ -46,7 +49,7 @@ class IbClientTest extends Specification {
         contract.secType(Types.SecType.CASH)
 
         when:
-        def list = client.reqContractDetails(contract).get(1, TimeUnit.MINUTES)
+        def list = client.reqContractDetails(contract).toList().blockingGet()
 
         then:
         println(list)
@@ -59,11 +62,11 @@ class IbClientTest extends Specification {
         def order = createOrderEUR()
 
         when:
-        def future = client.placeOrder(contract, order)
-        def state = future.get(10, TimeUnit.SECONDS)
+        def state = client.placeOrder(contract, order).blockingGet()
 
         then:
-        state
+        state.order.action() == order.action()
+        state.orderId > 0
     }
 
     def "Few placeOrder shouldn't interfere"() {
@@ -71,28 +74,28 @@ class IbClientTest extends Specification {
         def contract = createContractEUR()
 
         when:
-        def future1 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
-        def future2 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
-        def future3 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
-        def future4 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
-        def future5 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
-        def future6 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
-        def future7 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
-        def future8 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
-        def future9 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
-        def future10 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def single1 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def single2 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def single3 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def single4 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def single5 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def single6 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def single7 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def single8 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def single9 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
+        def single10 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
 
         then:
-        future1.get(10, TimeUnit.SECONDS)
-        future2.get(10, TimeUnit.SECONDS)
-        future3.get(10, TimeUnit.SECONDS)
-        future4.get(10, TimeUnit.SECONDS)
-        future5.get(10, TimeUnit.SECONDS)
-        future6.get(10, TimeUnit.SECONDS)
-        future7.get(10, TimeUnit.SECONDS)
-        future8.get(10, TimeUnit.SECONDS)
-        future9.get(10, TimeUnit.SECONDS)
-        future10.get(10, TimeUnit.SECONDS)
+        single1.blockingGet()
+        single2.blockingGet()
+        single3.blockingGet()
+        single4.blockingGet()
+        single5.blockingGet()
+        single6.blockingGet()
+        single7.blockingGet()
+        single8.blockingGet()
+        single9.blockingGet()
+        single10.blockingGet()
     }
 
     def "Expect for states after placeOrder"() {
@@ -103,26 +106,27 @@ class IbClientTest extends Specification {
         def vars = new BlockingVariables(10)
         def calls = 1
 
-        client.subscribeOnOrderNewStatus {
-            assert it.orderId == it.orderId
+        client.subscribeOnOrderNewStatus().subscribe( {
             vars.setProperty("status${calls++}", it.status)
-        }
+        })
 
         when:
-        client.placeOrder(contract, order).get(30, TimeUnit.SECONDS)
+        client.placeOrder(contract, order).blockingGet()
 
         then:
         vars.status1 == OrderStatus.PreSubmitted
-        vars.status2 == OrderStatus.Submitted
+        vars.status2 in [OrderStatus.Submitted, OrderStatus.Filled]
     }
 
 
     def "Request cannot be duplicated"() {
         when:
-        client.reqAllOpenOrders()
-        client.reqAllOpenOrders()
-        client.reqAllOpenOrders()
-        client.reqAllOpenOrders()
+        def observable = client.reqAllOpenOrders()
+                .mergeWith(client.reqAllOpenOrders())
+                .mergeWith(client.reqAllOpenOrders())
+                .mergeWith(client.reqAllOpenOrders())
+                .mergeWith(client.reqAllOpenOrders())
+        observable.blockingLast()
 
         then:
         IbExceptions.DuplicatedRequest ex = thrown()
@@ -133,8 +137,8 @@ class IbClientTest extends Specification {
         def contract = createContractEUR()
 
         when:
-        client.placeOrder(contract, createOrderEUR(client.nextOrderId())).get(3, TimeUnit.SECONDS)
-        def list = client.reqAllOpenOrders().get(2, TimeUnit.SECONDS)
+        client.placeOrder(contract, createOrderEUR(client.nextOrderId())).blockingGet()
+        def list = client.reqAllOpenOrders().toList().blockingGet()
 
         then:
         println list
@@ -142,41 +146,38 @@ class IbClientTest extends Specification {
     }
 
     def "Request positions"() {
-        given:
-        def vars = new BlockingVariables(5)
-        vars.data = []
+
+//        given:
+//        client.placeOrder(createContractXAUUSD(), createOrderXAUUSD(client.nextOrderId())).blockingGet()
 
         when:
-        client.subscribeOnPositionChange { position ->
-            if (position != null) {
-                vars.data.add(position)
-            } else {
-                vars.done = true
-            }
-        }
+        def positions = client.subscribeOnPositionChange("DU22993")
+                .takeWhile({ it -> it != null })
+                .toList()
+                .timeout(10, TimeUnit.SECONDS)
+                .blockingGet()
 
         then:
-        vars.done
-        vars.data.size() > 0
+        positions
+        positions.size() > 0
     }
 
+    // TODO: Close all positions at startup, and make one for test
     def "Request positions for account"() {
         given:
-        def vars = new BlockingVariables(5)
-        vars.data = []
+        TestObserver<IbPosition> observer = new TestObserver<>()
+        def condition = new PollingConditions(timeout: 5)
 
         when:
-        client.subscribeOnPositionChange("DU22993") { position ->
-            if (position != null) {
-                vars.data.add(position)
-            } else {
-                vars.done = true
-            }
-        }
+        client.subscribeOnPositionChange("DU22993").subscribe(observer)
 
         then:
-        vars.done
-        vars.data.size() > 0
+        condition.eventually {
+            observer.values().size() > 0
+        }
+        observer.assertNoErrors()
+        observer.assertNotComplete()
+        observer.assertValueAt(observer.values().size() - 1, IbPosition.EMPTY)
     }
 
     def "Request PnL per contract"() {
@@ -251,24 +252,24 @@ class IbClientTest extends Specification {
 
         when:
         def future1 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
-        client.reqAllOpenOrders().get(10, TimeUnit.SECONDS)
+        client.reqAllOpenOrders().blockingGet(10, TimeUnit.SECONDS)
         def future2 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
         def future3 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
-        client.reqAllOpenOrders().get(10, TimeUnit.SECONDS)
+        client.reqAllOpenOrders().blockingGet(10, TimeUnit.SECONDS)
         def future4 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
         def future5 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
         def future6 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
 
         and:
 
-        def order1 = future1.get(10, TimeUnit.SECONDS)
-        def order2 = future2.get(10, TimeUnit.SECONDS)
-        def order3 = future3.get(10, TimeUnit.SECONDS)
-        def order4 = future4.get(10, TimeUnit.SECONDS)
-        def order5 = future5.get(10, TimeUnit.SECONDS)
-        def list1 = client.reqAllOpenOrders().get(10, TimeUnit.SECONDS)
-        def order6 = future6.get(10, TimeUnit.SECONDS)
-        def list2 = client.reqAllOpenOrders().get(10, TimeUnit.SECONDS)
+        def order1 = future1.blockingGet(10, TimeUnit.SECONDS)
+        def order2 = future2.blockingGet(10, TimeUnit.SECONDS)
+        def order3 = future3.blockingGet(10, TimeUnit.SECONDS)
+        def order4 = future4.blockingGet(10, TimeUnit.SECONDS)
+        def order5 = future5.blockingGet(10, TimeUnit.SECONDS)
+        def list1 = client.reqAllOpenOrders().blockingGet(10, TimeUnit.SECONDS)
+        def order6 = future6.blockingGet(10, TimeUnit.SECONDS)
+        def list2 = client.reqAllOpenOrders().blockingGet(10, TimeUnit.SECONDS)
 
 
         then:
@@ -292,9 +293,9 @@ class IbClientTest extends Specification {
         expect:
 
         (0..10).each {
-            client.connect("127.0.0.1", 7497, 1).get(10, TimeUnit.SECONDS)
+            client.connect("127.0.0.1", 7497, 1).blockingGet(10, TimeUnit.SECONDS)
             assert client.isConnected()
-            client.getCurrentTime().get(10, TimeUnit.SECONDS) > 1510320971
+            client.getCurrentTime().blockingGet(10, TimeUnit.SECONDS) > 1510320971
             client.disconnect()
         }
     }
@@ -307,7 +308,7 @@ class IbClientTest extends Specification {
     def "Get contract snapshot"() {
         when:
         def future = client.reqMktData(createContractEUR())
-        def tick = future.get(10, TimeUnit.SECONDS)
+        def tick = future.blockingGet(10, TimeUnit.SECONDS)
 
         then:
         tick.getBidSize() > 0
@@ -322,6 +323,15 @@ class IbClientTest extends Specification {
         return contract
     }
 
+    private static def createContractXAUUSD() {
+        def contract = new Contract()
+        contract.symbol("XAUUSD")
+        contract.currency("USD")
+        contract.exchange("SMART")
+        contract.secType(Types.SecType.CMDTY)
+        return contract
+    }
+
     private def createOrderEUR() {
         return createOrderEUR(client.nextOrderId())
     }
@@ -330,10 +340,20 @@ class IbClientTest extends Specification {
         def order = new Order()
         order.orderId(id)
         order.action("BUY")
-        order.orderType("STP")
+        order.orderType(OrderType.STP)
         order.auxPrice(1.0f)
         order.tif("GTC")
         order.totalQuantity(20000.0f)
+        return order
+    }
+
+    private static def createOrderXAUUSD(int id) {
+        def order = new Order()
+        order.orderId(id)
+        order.action("BUY")
+        order.orderType("MKT")
+        order.auxPrice(1.0f)
+        order.totalQuantity(1.0f)
         return order
     }
 }

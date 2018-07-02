@@ -74,18 +74,18 @@ public class RequestRepository {
         future.onError(exception);
     }
 
-    public <E> void addToList(@NotNull Event event, Integer id, @NotNull E element) {
-        final EventKey key = new EventKey(event, id);
-        log.debug("=> {}:add", key);
-
-        final IbListFuture future = (IbListFuture) futures.get(key);
-        if (future == null) {
-            log.error("Got event {} for unknown or expired request", key);
-            return;
-        }
-
-        future.add(element);
-    }
+//    public <E> void addToList(@NotNull Event event, Integer id, @NotNull E element) {
+//        final EventKey key = new EventKey(event, id);
+//        log.debug("=> {}:add", key);
+//
+//        final IbListFuture future = (IbListFuture) futures.get(key);
+//        if (future == null) {
+//            log.error("Got event {} for unknown or expired request", key);
+//            return;
+//        }
+//
+//        future.add(element);
+//    }
 
 //    private <T> void post(EventKey key, @NotNull SingleEmitter<T> emitter, @NotNull Runnable runnable) {
 //
@@ -103,6 +103,19 @@ public class RequestRepository {
 //            throw e;
 //        }
 //    }
+
+    public void onNext(@NotNull Event event, Integer id, Object result) {
+        final EventKey key = new EventKey(event, id);
+        log.debug("=> {}: {}", key, result != null ? result.toString().replaceAll("\n", "; ") : "null");
+
+        final ObservableEmitter future = futures.get(key);
+        if (future == null) {
+            log.error("Got event {} for unknown or expired request", key);
+            return;
+        }
+
+        future.onNext(result);
+    }
 
     public void onNextAndConfirm(@NotNull Event event, Integer id, Object result) {
         final EventKey key = new EventKey(event, id);
@@ -138,7 +151,7 @@ public class RequestRepository {
         REQ_ORDER_LIST,
         REQ_MARKET_DATA,
         REQ_POSITIONS,
-        REQ_POSITIONS_MULTI,
+//        REQ_POSITIONS_MULTI,
         REQ_PORTFOLIO
     }
 }

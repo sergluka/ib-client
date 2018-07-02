@@ -76,15 +76,6 @@ public class SubscriptionsRepository implements AutoCloseable {
 //    }
 
     @NotNull
-    public <Param, RetResult> Observable<RetResult> addSubscriptionUnique(
-          @Nullable EventType type,
-          @Nullable Function<Integer, Param> subscribe,
-          @Nullable Consumer<Integer> unsubscribe) {
-
-        return addSubscriptionImpl(type, null, subscribe, unsubscribe);
-    }
-
-    @NotNull
     private <Param, RetResult> Observable<RetResult> addSubscriptionImpl(
           @Nullable EventType type,
           @Nullable Integer id,
@@ -117,6 +108,15 @@ public class SubscriptionsRepository implements AutoCloseable {
         return addSubscriptionImpl(type, id, subscribe, unsubscribe);
     }
 
+    @NotNull
+    public <Param, RetResult> Observable<RetResult> addSubscriptionUnique(
+          @Nullable EventType type,
+          @Nullable Function<Integer, Observable<Param>> subscribe,
+          @Nullable Consumer<Integer> unsubscribe) {
+
+        return addSubscriptionImpl(type, null, subscribe, unsubscribe);
+    }
+
 //    private <Param, RegResult> IbSubscription add(EventType type,
 //                                                  Integer id,
 //                                                  Consumer<Param> callback,
@@ -131,11 +131,11 @@ public class SubscriptionsRepository implements AutoCloseable {
 //        return subscription;
 //    }
 
-    public <Param> void eventOnData(EventType type, Param data, Boolean requireSubscription) {
-        eventOnData(type, null, data, requireSubscription);
+    public <Param> void onNext(EventType type, Param data, Boolean requireSubscription) {
+        onNext(type, null, data, requireSubscription);
     }
 
-    public <Param> void eventOnData(EventType type, Integer reqId, Param data, Boolean requireSubscription) {
+    public <Param> void onNext(EventType type, Integer reqId, Param data, Boolean requireSubscription) {
         SubscriptionImpl2<Param, ?> subscription = subscriptions.get(new Key(type, reqId));
         if (subscription == null) {
             if (requireSubscription) {

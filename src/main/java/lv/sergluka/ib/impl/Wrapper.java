@@ -106,7 +106,7 @@ public class Wrapper implements EWrapper {
         if (cache.addNewStatus(twsStatus)) {
 
             log.info("New order status: {}", twsStatus);
-            subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_ORDER_STATUS, twsStatus, false);
+            subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_ORDER_STATUS, twsStatus, false);
         }
     }
 
@@ -135,14 +135,12 @@ public class Wrapper implements EWrapper {
 
         IbPosition position = new IbPosition(account, contract, pos, avgCost);
         cache.updatePosition(position);
-        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_POSITION, position, true);
+        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_POSITION, position, true);
     }
 
     @Override
     public void positionEnd() {
-        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_POSITION, null, true);
-        requests.onNextAndConfirm(RequestRepository.Event.REQ_POSITIONS, null,
-                                  cache.getPositions());
+        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_POSITION, IbPosition.EMPTY, true);
     }
 
     @Override
@@ -165,7 +163,7 @@ public class Wrapper implements EWrapper {
         Double valueObj = doubleToDouble("value", value);
 
         IbPnl pnl = new IbPnl(pos, dailyPnLObj, unrealizedPnLObj, realizedPnLObj, valueObj);
-        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_CONTRACT_PNL, reqId, pnl, true);
+        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_CONTRACT_PNL, reqId, pnl, true);
     }
 
     @Override
@@ -174,7 +172,7 @@ public class Wrapper implements EWrapper {
                   reqId, dailyPnL, unrealizedPnL, realizedPnL);
 
         IbPnl pnl = new IbPnl(null, dailyPnL, unrealizedPnL, realizedPnL, null);
-        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_ACCOUNT_PNL, reqId, pnl, true);
+        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_ACCOUNT_PNL, reqId, pnl, true);
     }
 
     @Override
@@ -240,12 +238,12 @@ public class Wrapper implements EWrapper {
                                                 unrealizedPNLObj, realizedPNLObj, accountName);
 
         cache.updatePortfolio(portfolio);
-        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_PORTFOLIO, portfolio, true);
+        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_PORTFOLIO, portfolio, true);
     }
 
     @Override
     public void accountDownloadEnd(String accountName) {
-        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_PORTFOLIO, null, true);
+        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_PORTFOLIO, null, true);
         requests.onNextAndConfirm(RequestRepository.Event.REQ_PORTFOLIO, null,
                                   cache.getPortfolio());
     }
@@ -293,12 +291,12 @@ public class Wrapper implements EWrapper {
     }
 
     private void publishNewTick(int tickerId, IbTick result) {
-        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_MARKET_DATA, tickerId, result, false);
+        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_MARKET_DATA, tickerId, result, false);
     }
 
     @Override
     public void contractDetails(final int reqId, final ContractDetails contractDetails) {
-        requests.addToList(RequestRepository.Event.REQ_CONTRACT_DETAIL, reqId, contractDetails);
+        requests.onNext(RequestRepository.Event.REQ_CONTRACT_DETAIL, reqId, contractDetails);
     }
 
     @Override
@@ -314,6 +312,28 @@ public class Wrapper implements EWrapper {
     @Override
     public void error(final String str) {
         log.error("Shouldn't be there. err={}", str);
+    }
+
+    @Override
+    public void positionMulti(final int reqId,
+                              final String account,
+                              final String modelCode,
+                              final Contract contract,
+                              final double pos,
+                              final double avgCost) {
+
+        log.info("Position change for account {}, model='{}': contractId={}, symbol={}, pos={}",
+                 account, modelCode != null ? modelCode : "", contract.conid(), contract.localSymbol(), pos);
+
+        IbPosition position = new IbPosition(account, contract, pos, avgCost);
+        cache.updatePosition(position);
+
+        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_POSITION_MULTI, reqId, position, true);
+    }
+
+    @Override
+    public void positionMultiEnd(final int reqId) {
+        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_POSITION_MULTI, reqId, IbPosition.EMPTY, true);
     }
 
     @Override
@@ -507,28 +527,6 @@ public class Wrapper implements EWrapper {
     @Override
     public void displayGroupUpdated(final int reqId, final String contractInfo) {
         log.debug("displayGroupUpdated: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void positionMulti(final int reqId,
-                              final String account,
-                              final String modelCode,
-                              final Contract contract,
-                              final double pos,
-                              final double avgCost) {
-
-        log.info("Position change for account {}, model='{}': contractId={}, symbol={}, pos={}",
-                 account, modelCode != null ? modelCode : "", contract.conid(), contract.localSymbol(), pos);
-
-        IbPosition position = new IbPosition(account, contract, pos, avgCost);
-        cache.updatePosition(position);
-        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_POSITION_MULTI, reqId, position, true);
-    }
-
-    @Override
-    public void positionMultiEnd(final int reqId) {
-        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_POSITION_MULTI, reqId, null, true);
-        requests.onNextAndConfirm(RequestRepository.Event.REQ_POSITIONS_MULTI, reqId, cache.getPositions());
     }
 
     @Override

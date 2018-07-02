@@ -100,7 +100,7 @@ public class IbClient implements AutoCloseable {
 
                 @Override
                 protected void onConnectStatusChange(Boolean status) {
-                    subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_CONNECTION_STATUS, status, false);
+                    subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_CONNECTION_STATUS, status, false);
                 }
             };
 
@@ -130,7 +130,7 @@ public class IbClient implements AutoCloseable {
 
     @NotNull
     public Observable<IbOrderStatus> subscribeOnOrderNewStatus() {
-        return subscriptions.addSubscription(SubscriptionsRepository.EventType.EVENT_ORDER_STATUS, null, null);
+        return subscriptions.addSubscriptionUnique(SubscriptionsRepository.EventType.EVENT_ORDER_STATUS, null, null);
     }
 
     public Observable<IbPosition> subscribeOnPositionChange() {
@@ -153,9 +153,11 @@ public class IbClient implements AutoCloseable {
         return subscriptions.addSubscription(SubscriptionsRepository.EventType.EVENT_POSITION_MULTI,
                                              (id) -> {
                                                  shouldBeConnected();
-                                                 return requests.postRequest(
-                                                       RequestRepository.Event.REQ_POSITIONS_MULTI,
-                                                       id, () -> socket.reqPositionsMulti(id, account, ""));
+                                                 socket.reqPositionsMulti(id, account, "");
+                                                 return null;
+//                                                 return requests.postRequest(
+//                                                       RequestRepository.Event.REQ_POSITIONS_MULTI,
+//                                                       id, () -> socket.reqPositionsMulti(id, account, ""));
                                              },
                                              (id) -> {
                                                  shouldBeConnected();
@@ -163,6 +165,21 @@ public class IbClient implements AutoCloseable {
                                              });
     }
 
+//    public synchronized Observable<IbPosition> subscribeOnPositionChange(String account) {
+//
+//        return subscriptions.addSubscription(SubscriptionsRepository.EventType.EVENT_POSITION_MULTI,
+//                                             (id) -> {
+//                                                 shouldBeConnected();
+//                                                 return requests.postRequest(
+//                                                       RequestRepository.Event.REQ_POSITIONS_MULTI,
+//                                                       id, () -> socket.reqPositionsMulti(id, account, ""));
+//                                             },
+//                                             (id) -> {
+//                                                 shouldBeConnected();
+//                                                 socket.cancelPositionsMulti(id);
+//                                             });
+//    }
+//
     public synchronized void setMarketDataType(MarketDataType type) {
         socket.reqMarketDataType(type.getValue());
     }
@@ -296,13 +313,13 @@ public class IbClient implements AutoCloseable {
     }
 
     @NotNull
-    public Single<ContractDetails> reqContractDetails(@NotNull Contract contract) {
+    public Observable<ContractDetails> reqContractDetails(@NotNull Contract contract) {
         Objects.requireNonNull(contract);
 
-        shouldBeConnected(); // TODO: move to sibscribe
+        shouldBeConnected(); // TODO: move to subscribe
         final Integer id = idGenerator.nextRequestId(); // TODO: move to sibscribe
         return requests.<ContractDetails>postRequest(RequestRepository.Event.REQ_CONTRACT_DETAIL, id,
-                                    () -> socket.reqContractDetails(id, contract)).firstOrError();
+                                    () -> socket.reqContractDetails(id, contract));
     }
 
     private void shouldBeConnected() {

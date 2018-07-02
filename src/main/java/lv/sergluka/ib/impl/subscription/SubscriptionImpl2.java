@@ -39,7 +39,7 @@ public class SubscriptionImpl2<Param, RegResult> implements IbSubscription {
         return subscribe(key.id);
     }
 
-    RegResult subscribe(int id) {
+    RegResult subscribe(Integer id) {
         if (registrationFn != null) {
             return registrationFn.apply(id);
         }

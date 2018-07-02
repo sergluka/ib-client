@@ -8,6 +8,9 @@ import static org.apache.commons.math3.util.Precision.*;
 import java.util.Objects;
 
 public class IbPosition {
+
+    public static final IbPosition EMPTY = new IbPosition(null, null, 0.0, 0.0);
+
     private final String account;
     private final Contract contract;
     private final double pos;
