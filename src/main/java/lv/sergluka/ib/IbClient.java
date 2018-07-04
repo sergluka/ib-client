@@ -34,13 +34,9 @@ public class IbClient implements AutoCloseable {
     private SubscriptionsRepository subscriptions;
 
     public IbClient() {
-        this(Executors.newWorkStealingPool());
-    }
-
-    public IbClient(ExecutorService subscriptionsExecutor) {
         super();
         idGenerator = new IdGenerator();
-        subscriptions = new SubscriptionsRepository(subscriptionsExecutor, idGenerator);
+        subscriptions = new SubscriptionsRepository(idGenerator);
     }
 
     @Override
@@ -155,9 +151,6 @@ public class IbClient implements AutoCloseable {
                                                  shouldBeConnected();
                                                  socket.reqPositionsMulti(id, account, "");
                                                  return null;
-//                                                 return requests.postRequest(
-//                                                       RequestRepository.Event.REQ_POSITIONS_MULTI,
-//                                                       id, () -> socket.reqPositionsMulti(id, account, ""));
                                              },
                                              (id) -> {
                                                  shouldBeConnected();

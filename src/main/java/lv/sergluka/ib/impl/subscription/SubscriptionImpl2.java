@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory;
 
 import io.reactivex.ObservableEmitter;
 
-public class SubscriptionImpl2<Param, RegResult> implements IbSubscription {
+public class SubscriptionImpl2<Param, RegResult> {
 
     private static final Logger log = LoggerFactory.getLogger(SubscriptionImpl2.class);
 
@@ -27,10 +27,10 @@ public class SubscriptionImpl2<Param, RegResult> implements IbSubscription {
         this.unregistrationFn = unregistrationFn;
     }
 
-    public ObservableEmitter<Param> getEmitter() {
-        return emitter;
-    }
-
+//    public ObservableEmitter<Param> getEmitter() {
+//        return emitter;
+//    }
+//
     Integer getId() {
         return key.id;
     }
@@ -38,6 +38,7 @@ public class SubscriptionImpl2<Param, RegResult> implements IbSubscription {
     RegResult subscribe() {
         return subscribe(key.id);
     }
+
 
     RegResult subscribe(Integer id) {
         if (registrationFn != null) {
@@ -61,6 +62,10 @@ public class SubscriptionImpl2<Param, RegResult> implements IbSubscription {
         }
     }
 
+    public void onNext(Param data) {
+        emitter.onNext(data);
+    }
+
     @Override
     public String toString() {
         final StringBuffer buffer = new StringBuffer("{");
@@ -68,9 +73,5 @@ public class SubscriptionImpl2<Param, RegResult> implements IbSubscription {
         buffer.append(", type=").append(key.type);
         buffer.append('}');
         return buffer.toString();
-    }
-
-    public void onNext(Param data) {
-        emitter.onNext(data);
     }
 }

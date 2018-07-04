@@ -61,7 +61,7 @@ abstract class TerminalErrorHandler {
 
         switch (severity) {
             case REQUEST:
-                requests.setError(id, new IbExceptions.TerminalError(message, code));
+                requests.onError(id, new IbExceptions.TerminalError(message, code));
                 break;
             case INFO:
                 log.info("TWS message: [#{}] {}", code, message);

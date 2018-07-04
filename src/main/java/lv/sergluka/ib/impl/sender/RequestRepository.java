@@ -10,7 +10,6 @@ import io.reactivex.Observable;
 import io.reactivex.ObservableEmitter;
 import lv.sergluka.ib.IbClient;
 import lv.sergluka.ib.IbExceptions;
-import lv.sergluka.ib.impl.future.IbListFuture;
 
 @SuppressWarnings("unchecked")
 public class RequestRepository {
@@ -42,27 +41,11 @@ public class RequestRepository {
             log.debug("<= {}", key);
             runnable.run();
         });
-//
-//        // Make sure future removes itself from a repository // TODO: Test removal form a repository
-//        return future.whenComplete((val, e) -> futures.remove(key));
+
+        // Make sure future removes itself from a repository // TODO: Test removal form a repository
     }
 
-//    public <T> CompletableFuture<T> postListRequest(@NotNull Event event,
-//                                                    Integer requestId,
-//                                                    @NotNull Runnable runnable) {
-//        if (!client.isConnected()) {
-//            throw new IbExceptions.NotConnected();
-//        }
-//
-//        final EventKey key = new EventKey(event, requestId);
-//        final IbFutureImpl future = new IbListFuture<T>(key);
-//        post(key, future, runnable);
-//
-//        // Make sure future removes itself from a repository
-//        return future.whenComplete((val, e) -> futures.remove(key));
-//    }
-
-    public void setError(int requestId, RuntimeException exception) {
+    public void onError(int requestId, RuntimeException exception) {
         final EventKey key = new EventKey(null, requestId);
         final ObservableEmitter<?> future = futures.get(key);
         if (future == null) {
@@ -73,36 +56,6 @@ public class RequestRepository {
 
         future.onError(exception);
     }
-
-//    public <E> void addToList(@NotNull Event event, Integer id, @NotNull E element) {
-//        final EventKey key = new EventKey(event, id);
-//        log.debug("=> {}:add", key);
-//
-//        final IbListFuture future = (IbListFuture) futures.get(key);
-//        if (future == null) {
-//            log.error("Got event {} for unknown or expired request", key);
-//            return;
-//        }
-//
-//        future.add(element);
-//    }
-
-//    private <T> void post(EventKey key, @NotNull SingleEmitter<T> emitter, @NotNull Runnable runnable) {
-//
-//        final ObservableEmitter old = futures.put(key, emitter);
-//        if (old != null) {
-//            log.error("Duplicated request: {}", key);
-//            throw new IbExceptions.DuplicatedRequest(key);
-//        }
-//
-//        try {
-//            log.debug("<= {}", key);
-//            runnable.run();
-//        } catch (Exception e) {
-//            futures.remove(key);
-//            throw e;
-//        }
-//    }
 
     public void onNext(@NotNull Event event, Integer id, Object result) {
         final EventKey key = new EventKey(event, id);
