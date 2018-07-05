@@ -22,6 +22,7 @@ public class RequestRepository {
         REQ_CURRENT_TIME,
         REQ_ORDER_PLACE,
         REQ_ORDER_LIST,
+        REQ_MARKET_DEPTH_EXCHANGES,
         REQ_MARKET_DATA_LVL1,
         REQ_MARKET_DATA_LVL2,
         REQ_POSITIONS,

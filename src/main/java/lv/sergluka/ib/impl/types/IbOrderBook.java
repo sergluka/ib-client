@@ -58,8 +58,9 @@ public class IbOrderBook {
     private final Side side;
     private final double price;
     private final int size;
+    private final String marketMaker;
 
-    public IbOrderBook(int position, int side, double price, int size) {
+    public IbOrderBook(int position, int side, double price, int size, String marketMaker) {
         switch (side) {
             case 0:
                 this.side = Side.BUY;
@@ -74,6 +75,7 @@ public class IbOrderBook {
         this.position = position;
         this.price = price;
         this.size = size;
+        this.marketMaker = marketMaker;
     }
 
     public int getPosition() {
@@ -99,6 +101,7 @@ public class IbOrderBook {
         buffer.append(", side=").append(side);
         buffer.append(", price=").append(price);
         buffer.append(", size=").append(size);
+        buffer.append(", marketMaker=").append(marketMaker);
         buffer.append('}');
         return buffer.toString();
     }

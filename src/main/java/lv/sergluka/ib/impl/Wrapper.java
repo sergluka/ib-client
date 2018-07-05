@@ -1,6 +1,7 @@
 package lv.sergluka.ib.impl;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.Lists;
 import com.ib.client.*;
 
 import lv.sergluka.ib.IbExceptions;
@@ -15,6 +16,7 @@ import org.slf4j.LoggerFactory;
 
 import java.net.SocketException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class Wrapper implements EWrapper {
 
@@ -216,6 +218,17 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
+    public void mktDepthExchanges(DepthMktDataDescription[] depthMktDataDescriptions) {
+        List<IbDepthMktDataDescription> result =
+              Lists.newArrayList(depthMktDataDescriptions).stream()
+                   .map(IbDepthMktDataDescription::new)
+              .collect(Collectors.toList());
+        log.debug("mktDepthExchanges: {}", result);
+
+        requests.confirmAndRemove(RequestRepository.Event.REQ_MARKET_DEPTH_EXCHANGES, null, result);
+    }
+
+    @Override
     public void updateMktDepth(final int tickerId,
                                final int position,
                                final int operation,
@@ -225,19 +238,22 @@ public class Wrapper implements EWrapper {
         log.debug("updateMktDepth: tickerId = {}, position = {}, operation = {}, side = {}, price = {}, size = {}",
                   tickerId,  position, operation, side, price, size);
 
-        if (!requests.exists(RequestRepository.Event.REQ_MARKET_DATA_LVL2, tickerId)) {
-            log.debug("Market depth is ignored");
-            return;
-        }
+        handleUpdateMktDepth(tickerId, position, null, operation, side, price, size);
+    }
 
-        if (operation != IbOrderBook.Operation.INSERT.ordinal()) {
-            Map<IbOrderBook.Key, IbOrderBook> result = cache.getOrderBook();
-            requests.confirmAndRemove(RequestRepository.Event.REQ_MARKET_DATA_LVL2, tickerId, result);
-            return;
-        }
+    @Override
+    public void updateMktDepthL2(final int tickerId,
+                                 final int position,
+                                 final String marketMaker,
+                                 final int operation,
+                                 final int side,
+                                 final double price,
+                                 final int size) {
 
-        IbOrderBook orderBook = new IbOrderBook(position, side, price, size);
-        cache.addOrderBook(orderBook);
+        log.debug("updateMktDepthL2: tickerId = {}, position = {}, marketMaker = {}, operation = {}, side = {}, " +
+                  "price = {}, size = {}", tickerId, marketMaker, position, operation, side, price, size);
+
+        handleUpdateMktDepth(tickerId, position, marketMaker, operation, side, price, size);
     }
 
     @Override
@@ -394,17 +410,6 @@ public class Wrapper implements EWrapper {
     @Override
     public void execDetailsEnd(final int reqId) {
         log.debug("execDetailsEnd: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void updateMktDepthL2(final int tickerId,
-                                 final int position,
-                                 final String marketMaker,
-                                 final int operation,
-                                 final int side,
-                                 final double price,
-                                 final int size) {
-        log.debug("updateMktDepthL2: NOT IMPLEMENTED");
     }
 
     @Override
@@ -602,11 +607,6 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
-    public void mktDepthExchanges(DepthMktDataDescription[] depthMktDataDescriptions) {
-        log.debug("mktDepthExchanges: NOT IMPLEMENTED");
-    }
-
-    @Override
     public void tickNews(int tickerId,
                          long timeStamp,
                          String providerCode,
@@ -693,6 +693,23 @@ public class Wrapper implements EWrapper {
 
     public Set<String> getManagedAccounts() {
         return managedAccounts;
+    }
+
+    private void handleUpdateMktDepth(int tickerId, int position, String marketMaker, int operation, int side,
+                                      double price, int size) {
+        if (!requests.exists(RequestRepository.Event.REQ_MARKET_DATA_LVL2, tickerId)) {
+            log.debug("Market depth is ignored");
+            return;
+        }
+
+        if (operation != IbOrderBook.Operation.INSERT.ordinal()) {
+            Map<IbOrderBook.Key, IbOrderBook> result = cache.getOrderBook();
+            requests.confirmAndRemove(RequestRepository.Event.REQ_MARKET_DATA_LVL2, tickerId, result);
+            return;
+        }
+
+        IbOrderBook orderBook = new IbOrderBook(position, side, price, size, marketMaker);
+        cache.addOrderBook(orderBook);
     }
 
     /**

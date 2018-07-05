@@ -203,6 +203,14 @@ public class IbClient implements AutoCloseable {
         socket.reqMarketDataType(type.getValue());
     }
 
+    public synchronized CompletableFuture<List<IbDepthMktDataDescription>> reqMktDepthExchanges() {
+        shouldBeConnected();
+
+        return requests.postSingleRequest(RequestRepository.Event.REQ_MARKET_DEPTH_EXCHANGES,
+                                          null,
+                                          () -> socket.reqMktDepthExchanges());
+    }
+
     public synchronized CompletableFuture<IbTick> reqMktData(Contract contract) {
         shouldBeConnected();
 
@@ -233,7 +241,7 @@ public class IbClient implements AutoCloseable {
      *
      * @param contract  IB contract
      * @param numRows   Order book max depth
-     * @return Map<depth, IbOrderBook>
+     * @return Map<depth, IbOrderBook>updateMktDepthL2
      */
     public synchronized CompletableFuture<Map<IbOrderBook.Key, IbOrderBook>> getMarketDepth(Contract contract, int numRows) {
         shouldBeConnected();
@@ -242,6 +250,8 @@ public class IbClient implements AutoCloseable {
         CompletableFuture<Map<IbOrderBook.Key, IbOrderBook>> future =
               requests.postSingleRequest(RequestRepository.Event.REQ_MARKET_DATA_LVL2, tickerId,
                                          () -> socket.reqMktDepth(tickerId, contract, numRows, null));
+
+        // TODO: Remove. If needed, should be called by client
         future.whenComplete((val, e) -> {
             log.debug("Unsubscribe from Market Depth");
             socket.cancelMktDepth(tickerId);
