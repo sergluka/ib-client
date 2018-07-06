@@ -35,6 +35,8 @@ public class Wrapper implements EWrapper {
     private IbReader reader;
     private EClientSocket socket;
 
+    private Long orderBookMaxMarketMaker = null;
+
     public Wrapper(ConnectionMonitor connectionMonitor,
                    RequestRepository requests,
                    CacheRepository cache,
@@ -702,14 +704,30 @@ public class Wrapper implements EWrapper {
             return;
         }
 
-        if (operation != IbOrderBook.Operation.INSERT.ordinal()) {
+        Runnable completeOrderBook = () -> {
             Map<IbOrderBook.Key, IbOrderBook> result = cache.getOrderBook();
             requests.confirmAndRemove(RequestRepository.Event.REQ_MARKET_DATA_LVL2, tickerId, result);
+        };
+
+        if (operation != IbOrderBook.Operation.INSERT.ordinal()) {
+            completeOrderBook.run();
             return;
         }
 
         IbOrderBook orderBook = new IbOrderBook(position, side, price, size, marketMaker);
         cache.addOrderBook(orderBook);
+
+        if (marketMaker != null) {
+            Long marketMakerLong = Long.valueOf(marketMaker);
+            if (marketMakerLong > orderBookMaxMarketMaker) {
+                orderBookMaxMarketMaker = marketMakerLong;
+            }
+
+            if (side == IbOrderBook.Side.SELL.ordinal() && Objects.equals(marketMakerLong, orderBookMaxMarketMaker)) {
+                completeOrderBook.run();
+                return;
+            }
+        }
     }
 
     /**

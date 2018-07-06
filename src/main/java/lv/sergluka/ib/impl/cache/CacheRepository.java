@@ -23,6 +23,7 @@ public class CacheRepository {
     private final ConcurrentHashMap<PositionKey, IbPosition> positions = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, IbTick> ticks = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, IbPortfolio> portfolioContracts = new ConcurrentHashMap<>();
+
     private final ConcurrentHashMap<IbOrderBook.Key, IbOrderBook> orderBook = new ConcurrentHashMap<>();
 
     // After order placing, some statuses goes first, before `openOrder` callback, so storing then separately

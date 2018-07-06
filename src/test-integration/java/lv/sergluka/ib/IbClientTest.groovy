@@ -285,7 +285,6 @@ class IbClientTest extends Specification {
     def "Get market depth L2"() {
         when:
         def orderBook = client.getMarketDepth(createContractARRY_L2(), 5).get(10, TimeUnit.SECONDS)
-        print(orderBook)
 
         then:
         orderBook.size() > 0
