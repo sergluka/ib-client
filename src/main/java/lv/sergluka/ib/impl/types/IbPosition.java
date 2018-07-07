@@ -9,14 +9,14 @@ import java.util.Objects;
 
 public class IbPosition {
 
-    public static final IbPosition EMPTY = new IbPosition(null, null, 0.0, 0.0);
+    public static final IbPosition EMPTY = new IbPosition(null, null, null, null);
 
     private final String account;
     private final Contract contract;
-    private final double pos;
-    private final double avgCost;
+    private final Double pos;
+    private final Double avgCost;
 
-    public IbPosition(String account, Contract contract, double pos, double avgCost) {
+    public IbPosition(String account, Contract contract, Double pos, Double avgCost) {
         this.account = account;
         this.contract = contract;
         this.pos = pos;
@@ -31,11 +31,11 @@ public class IbPosition {
         return contract;
     }
 
-    public double getPos() {
+    public Double getPos() {
         return pos;
     }
 
-    public double getAvgCost() {
+    public Double getAvgCost() {
         return avgCost;
     }
 

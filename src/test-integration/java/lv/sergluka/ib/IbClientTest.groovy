@@ -1,7 +1,11 @@
 package lv.sergluka.ib
 
 import com.ib.client.*
+import io.reactivex.functions.Predicate
+import io.reactivex.observers.BaseTestConsumer
 import io.reactivex.observers.TestObserver
+import lv.sergluka.ib.impl.types.IbPnl
+import lv.sergluka.ib.impl.types.IbPortfolio
 import lv.sergluka.ib.impl.types.IbPosition
 import spock.lang.Specification
 import spock.util.concurrent.BlockingVariable
@@ -106,7 +110,7 @@ class IbClientTest extends Specification {
         def vars = new BlockingVariables(10)
         def calls = 1
 
-        client.subscribeOnOrderNewStatus().subscribe( {
+        client.subscribeOnOrderNewStatus().subscribe({
             vars.setProperty("status${calls++}", it.status)
         })
 
@@ -182,51 +186,47 @@ class IbClientTest extends Specification {
 
     def "Request PnL per contract"() {
         given:
-        def var = new BlockingVariable(5)
+        TestObserver<IbPnl> observer = new TestObserver<>()
 
         when:
-        def subscription = client.subscribeOnContractPnl(12087792, "DU22993") { pnl ->
-            var.set(pnl)
-        }
+        client.subscribeOnContractPnl(12087792 /* EUR.USD */, "DU22993").subscribe(observer)
 
         then:
-        def pnl = var.get()
-        pnl.positionId > 0
-
-        cleanup:
-        subscription?.unsubscribe()
+        observer.awaitCount(1, BaseTestConsumer.TestWaitStrategy.SLEEP_1000MS)
+        observer.assertNoErrors()
+        observer.assertNotComplete()
+        observer.assertValueCount(1)
+        observer.assertValueAt 0, { it.positionId > 0 } as Predicate
     }
 
     def "Request PnL per account"() {
         given:
-        def var = new BlockingVariable(5)
+        TestObserver<IbPnl> observer = new TestObserver<>()
 
         when:
-        false
-        def subscription = client.subscribeOnAccountPnl("DU22993") { pnl ->
-            var.set(pnl)
-        }
+        client.subscribeOnAccountPnl("DU22993").subscribe(observer)
 
         then:
-        def pnl = var.get()
-        pnl.unrealizedPnL != 0
-
-        cleanup:
-        subscription?.unsubscribe()
+        observer.awaitCount(1, BaseTestConsumer.TestWaitStrategy.SLEEP_1000MS)
+        observer.assertNoErrors()
+        observer.assertNotComplete()
+        observer.assertValueCount(1)
+        observer.assertValueAt 0, { it.unrealizedPnL != 0 } as Predicate
     }
 
     def "Request for Portfolio change for account"() {
         given:
-        def var = new BlockingVariable(4 * 60) // Account updates once per 3 min
+        TestObserver<IbPortfolio> observer = new TestObserver<>()
 
         when:
-        client.subscribeOnAccountPortfolio("DU22993") { portfolio ->
-            var.set(portfolio)
-        }
+        client.subscribeOnAccountPortfolio("DU22993").subscribe(observer)
 
         then:
-        def portfolio = var.get()
-        portfolio.position != 0.0
+        observer.awaitCount(1, BaseTestConsumer.TestWaitStrategy.SLEEP_1000MS, 4 * 60 * 1000) // Account updates once per 3 min
+        observer.assertNoErrors()
+        observer.assertNotComplete()
+        observer.assertValueCount(1)
+        observer.assertValueAt 0, { it.position != 0.0 } as Predicate
     }
 
     def "Get market data"() {
@@ -295,7 +295,7 @@ class IbClientTest extends Specification {
         (0..10).each {
             client.connect("127.0.0.1", 7497, 1).blockingGet(10, TimeUnit.SECONDS)
             assert client.isConnected()
-            client.getCurrentTime().blockingGet(10, TimeUnit.SECONDS) > 1510320971
+            client.getCurrentTime().timeout(10, TimeUnit.SECONDS).blockingGet() > 1510320971
             client.disconnect()
         }
     }
@@ -308,10 +308,12 @@ class IbClientTest extends Specification {
     def "Get contract snapshot"() {
         when:
         def future = client.reqMktData(createContractEUR())
-        def tick = future.blockingGet(10, TimeUnit.SECONDS)
+        def tick = future.timeout(10, TimeUnit.SECONDS).blockingGet()
 
         then:
-        tick.getBidSize() > 0
+        tick.getBid() != 0.0
+        tick.getAsk() != 0.0
+        tick.getClosePrice() != 0.0
     }
 
     private static def createContractEUR() {

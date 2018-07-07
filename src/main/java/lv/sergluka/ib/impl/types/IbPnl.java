@@ -18,7 +18,7 @@ public class IbPnl {
         this.value = value;
     }
 
-    public int getPositionId() {
+    public Integer getPositionId() {
         return positionId;
     }
 
