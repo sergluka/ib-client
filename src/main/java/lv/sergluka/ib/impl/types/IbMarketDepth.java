@@ -1,12 +1,18 @@
 package lv.sergluka.ib.impl.types;
 
-public class IbOrderBook {
+import java.util.Objects;
+
+import com.ib.client.Contract;
+
+public class IbMarketDepth {
+
+    private final Contract contract;
 
     public static class Key {
         private final Side side;
-        private final int position;
+        private final Integer position;
 
-        public Key(Side side, int position) {
+        public Key(Side side, Integer position) {
             this.side = side;
             this.position = position;
         }
@@ -15,7 +21,7 @@ public class IbOrderBook {
             return side;
         }
 
-        public int getPosition() {
+        public Integer getPosition() {
             return position;
         }
 
@@ -31,13 +37,13 @@ public class IbOrderBook {
 
             Key key = (Key) o;
 
-            if (position != key.position) return false;
+            if (!Objects.equals(position, key.position)) return false;
             return side == key.side;
         }
 
         @Override
         public int hashCode() {
-            int result = side.hashCode();
+            Integer result = side.hashCode();
             result = 31 * result + position;
             return result;
         }
@@ -54,13 +60,14 @@ public class IbOrderBook {
         REMOVE
     }
 
-    private final int position;
+    private final Integer position;
     private final Side side;
-    private final double price;
-    private final int size;
+    private final Double price;
+    private final Integer size;
     private final String marketMaker;
 
-    public IbOrderBook(int position, int side, double price, int size, String marketMaker) {
+    public IbMarketDepth(Contract contract, Integer position, Integer side, Double price, Integer size,
+                         String marketMaker) {
         switch (side) {
             case 0:
                 this.side = Side.SELL;
@@ -72,13 +79,22 @@ public class IbOrderBook {
                 throw new IllegalArgumentException(String.format("Unexpected side: %d", side));
         }
 
+        this.contract = contract;
         this.position = position;
         this.price = price;
         this.size = size;
         this.marketMaker = marketMaker;
     }
 
-    public int getPosition() {
+    public Key key() {
+        return new Key(side, position);
+    }
+
+    public Contract getContract() {
+        return contract;
+    }
+
+    public Integer getPosition() {
         return position;
     }
 
@@ -86,11 +102,11 @@ public class IbOrderBook {
         return side;
     }
 
-    public double getPrice() {
+    public Double getPrice() {
         return price;
     }
 
-    public int getSize() {
+    public Integer getSize() {
         return size;
     }
 

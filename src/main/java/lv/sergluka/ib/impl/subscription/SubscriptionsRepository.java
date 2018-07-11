@@ -32,6 +32,7 @@ public class SubscriptionsRepository implements AutoCloseable {
         EVENT_POSITION_MULTI,
         EVENT_ORDER_STATUS,
         EVENT_MARKET_DATA_LVL1,
+        EVENT_MARKET_DATA_LVL2,
         EVENT_PORTFOLIO,
         EVENT_CONNECTION_STATUS
     }
@@ -80,7 +81,17 @@ public class SubscriptionsRepository implements AutoCloseable {
                                                  Consumer<Integer> unregistration) {
 
         int id = idGenerator.nextRequestId();
-        return add(type, id, callback, registration, unregistration);
+        return add(type, id, callback, registration, unregistration, null);
+    }
+
+    public <Param, RegResult> IbSubscription add(EventType type,
+                                                 Consumer<Param> callback,
+                                                 Function<Integer, RegResult> registration,
+                                                 Consumer<Integer> unregistration,
+                                                 Object userData) {
+
+        int id = idGenerator.nextRequestId();
+        return add(type, id, callback, registration, unregistration, userData);
     }
 
     @NotNull
@@ -89,7 +100,7 @@ public class SubscriptionsRepository implements AutoCloseable {
                                                        @Nullable Function<Integer, RegResult> registration,
                                                        @Nullable Consumer<Integer> unregistration) {
 
-        return add(type, null, callback, registration, unregistration);
+        return add(type, null, callback, registration, unregistration, null);
     }
 
     @NotNull
@@ -101,7 +112,7 @@ public class SubscriptionsRepository implements AutoCloseable {
 
         Key key = new Key(type, null);
         SubscriptionFutureImpl subscription =
-                new SubscriptionFutureImpl<>(subscriptions, key, callback, subscribe, unsubscribe);
+                new SubscriptionFutureImpl<>(subscriptions, key, callback, subscribe, unsubscribe, null);
         addSubscription(key, subscription);
         return subscription;
     }
@@ -116,7 +127,7 @@ public class SubscriptionsRepository implements AutoCloseable {
         int id = idGenerator.nextRequestId();
         Key key = new Key(type, id);
         SubscriptionFutureImpl subscription =
-                new SubscriptionFutureImpl<>(subscriptions, key, callback, subscribe, unsubscribe);
+                new SubscriptionFutureImpl<>(subscriptions, key, callback, subscribe, unsubscribe, null);
         addSubscription(key, subscription);
         return subscription;
     }
@@ -125,11 +136,12 @@ public class SubscriptionsRepository implements AutoCloseable {
                                                   Integer id,
                                                   Consumer<Param> callback,
                                                   Function<Integer, RegResult> registration,
-                                                  Consumer<Integer> unregistration) {
+                                                  Consumer<Integer> unregistration,
+                                                  Object userData) {
 
         Key key = new Key(type, id);
         SubscriptionImpl subscription =
-                new SubscriptionImpl<>(subscriptions, key, callback, registration, unregistration);
+                new SubscriptionImpl<>(subscriptions, key, callback, registration, unregistration, userData);
 
         addSubscription(key, subscription);
         return subscription;
@@ -166,6 +178,11 @@ public class SubscriptionsRepository implements AutoCloseable {
             log.error("Fail to submit task for execution: {}, id: {}, param: {}", type, reqId, data);
             throw e;
         }
+    }
+
+    public <Param, RegResult> Object getUserData(EventType type, Integer reqId) {
+        SubscriptionImpl<Param, RegResult> subscription = subscriptions.get(new Key(type, reqId));
+        return subscription.getUserData();
     }
 
     public void resubscribe() {

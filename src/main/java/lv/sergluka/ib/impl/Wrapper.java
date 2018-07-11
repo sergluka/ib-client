@@ -35,8 +35,6 @@ public class Wrapper implements EWrapper {
     private IbReader reader;
     private EClientSocket socket;
 
-    private Long orderBookMaxMarketMaker = null;
-
     public Wrapper(ConnectionMonitor connectionMonitor,
                    RequestRepository requests,
                    CacheRepository cache,
@@ -253,7 +251,7 @@ public class Wrapper implements EWrapper {
                                  final int size) {
 
         log.debug("updateMktDepthL2: tickerId = {}, position = {}, marketMaker = {}, operation = {}, side = {}, " +
-                  "price = {}, size = {}", tickerId, marketMaker, position, operation, side, price, size);
+                  "price = {}, size = {}", tickerId, position, marketMaker, operation, side, price, size);
 
         handleUpdateMktDepth(tickerId, position, marketMaker, operation, side, price, size);
     }
@@ -699,35 +697,16 @@ public class Wrapper implements EWrapper {
 
     private void handleUpdateMktDepth(int tickerId, int position, String marketMaker, int operation, int side,
                                       double price, int size) {
-        if (!requests.exists(RequestRepository.Event.REQ_MARKET_DATA_LVL2, tickerId)) {
-            log.debug("Market depth is ignored");
-            return;
-        }
 
-        Runnable completeOrderBook = () -> {
-            Map<IbOrderBook.Key, IbOrderBook> result = cache.getOrderBook();
-            requests.confirmAndRemove(RequestRepository.Event.REQ_MARKET_DATA_LVL2, tickerId, result);
-        };
+        Contract contract = (Contract) subscriptions.getUserData(
+              SubscriptionsRepository.EventType.EVENT_MARKET_DATA_LVL2, tickerId);
+        Objects.requireNonNull(contract);
 
-        if (operation != IbOrderBook.Operation.INSERT.ordinal()) {
-            completeOrderBook.run();
-            return;
-        }
+        IbMarketDepth orderBookDepth = new IbMarketDepth(contract, position, side, price, size, marketMaker);
+        cache.addMarketDepth(contract, orderBookDepth, IbMarketDepth.Operation.values()[operation]);
 
-        IbOrderBook orderBook = new IbOrderBook(position, side, price, size, marketMaker);
-        cache.addOrderBook(orderBook);
-
-        if (marketMaker != null) {
-            Long marketMakerLong = Long.valueOf(marketMaker);
-            if (marketMakerLong > orderBookMaxMarketMaker) {
-                orderBookMaxMarketMaker = marketMakerLong;
-            }
-
-            if (side == IbOrderBook.Side.SELL.ordinal() && Objects.equals(marketMakerLong, orderBookMaxMarketMaker)) {
-                completeOrderBook.run();
-                return;
-            }
-        }
+        subscriptions.eventOnData(SubscriptionsRepository.EventType.EVENT_MARKET_DATA_LVL2, tickerId,
+                                  orderBookDepth, true);
     }
 
     /**

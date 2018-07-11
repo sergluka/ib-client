@@ -24,13 +24,12 @@ public class RequestRepository {
         REQ_ORDER_LIST,
         REQ_MARKET_DEPTH_EXCHANGES,
         REQ_MARKET_DATA_LVL1,
-        REQ_MARKET_DATA_LVL2,
         REQ_POSITIONS,
         REQ_POSITIONS_MULTI,
         REQ_PORTFOLIO
     }
 
-    private final ConcurrentHashMap<EventKey, CompletableFuture> futures = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<EventKey, IbFutureImpl> futures = new ConcurrentHashMap<>();
 
     private final IbClient client;
 
@@ -39,7 +38,7 @@ public class RequestRepository {
     }
 
     public <T> CompletableFuture<T> postSingleRequest(@NotNull Event event, Integer requestId,
-                                                 @NotNull Runnable runnable) {
+                                                      @NotNull Runnable runnable) {
         if (!client.isConnected()) {
             throw new IbExceptions.NotConnected();
         }
@@ -72,8 +71,8 @@ public class RequestRepository {
     }
 
     public void setError(int requestId, RuntimeException exception) {
-        final EventKey key = new EventKey(null, requestId);
-        final CompletableFuture future = futures.get(key);
+        final CompletableFuture future = get(null, requestId);
+
         if (future == null) {
             log.warn("Cannot set error for unknown future with ID {}", requestId);
             log.error("Received error is: {}", exception.getMessage(), exception);
@@ -99,6 +98,11 @@ public class RequestRepository {
     public boolean exists(@NotNull Event event, Integer id) {
         final EventKey key = new EventKey(event, id);
         return futures.containsKey(key);
+    }
+
+    public IbFutureImpl get(Event event, Integer id) {
+        final EventKey key = new EventKey(event, id);
+        return futures.get(key);
     }
 
     private void post(EventKey key, @NotNull IbFutureImpl future, @NotNull Runnable runnable) {

@@ -24,7 +24,8 @@ public class CacheRepository {
     private final ConcurrentHashMap<Integer, IbTick> ticks = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, IbPortfolio> portfolioContracts = new ConcurrentHashMap<>();
 
-    private final ConcurrentHashMap<IbOrderBook.Key, IbOrderBook> orderBook = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, Map<IbMarketDepth.Key, IbMarketDepth>> orderBooks =
+          new ConcurrentHashMap<>();
 
     // After order placing, some statuses goes first, before `openOrder` callback, so storing then separately
     private final LinkedHashMap<Integer, Set<IbOrderStatus>> statuses = new LinkedHashMap<>();
@@ -84,12 +85,13 @@ public class CacheRepository {
         return tick;
     }
 
-    public void addOrderBook(IbOrderBook orderBook) {
-        this.orderBook.put(new IbOrderBook.Key(orderBook.getSide(), orderBook.getPosition()), orderBook);
-    }
+    public Map<IbMarketDepth.Key, IbMarketDepth> getOrderBook(Contract contract) {
+        Objects.requireNonNull(contract, "'contract' parameter is null");
+        if (contract.conid() == 0) {
+            throw new IllegalArgumentException("contract ID is missing");
+        }
 
-    public Map<IbOrderBook.Key, IbOrderBook> getOrderBook() {
-        return Collections.unmodifiableMap(orderBook);
+        return orderBooks.get(contract.conid());
     }
 
     public IbTick getTick(int tickerId) {
@@ -121,5 +123,31 @@ public class CacheRepository {
             throw new IllegalArgumentException("Contract has a id 0");
         }
         return portfolioContracts.get(contract.conid());
+    }
+
+    public void addMarketDepth(Contract contract, IbMarketDepth marketDepth, IbMarketDepth.Operation operation) {
+
+        orderBooks.compute(contract.conid(), (key, value) -> {
+            if (value == null) {
+                value = new HashMap<>();
+            }
+
+            switch (operation) {
+                case INSERT:
+                    log.trace("Market depth is added: {}", marketDepth);
+                    value.put(marketDepth.key(), marketDepth);
+                    break;
+                case UPDATE:
+                    log.trace("Market depth is updated: {}", marketDepth);
+                    value.put(marketDepth.key(), marketDepth);
+                    break;
+                case REMOVE:
+                    log.trace("Market depth is removed: {}", marketDepth);
+                    value.remove(marketDepth.key());
+                    break;
+            }
+
+            return value;
+        });
     }
 }

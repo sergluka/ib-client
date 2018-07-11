@@ -18,8 +18,9 @@ public class SubscriptionFutureImpl<T> extends SubscriptionImpl<T, Future<T>> im
                            SubscriptionsRepository.Key key,
                            Consumer<T> callbackFn,
                            Function<Integer, Future<T>> registrationFn,
-                           Consumer<Integer> unregistrationFn) {
-        super(subscriptions, key, callbackFn, registrationFn, unregistrationFn);
+                           Consumer<Integer> unregistrationFn,
+                           Object userData) {
+        super(subscriptions, key, callbackFn, registrationFn, unregistrationFn, userData);
     }
 
     @Override

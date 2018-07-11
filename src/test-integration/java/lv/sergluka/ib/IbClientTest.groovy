@@ -1,7 +1,7 @@
 package lv.sergluka.ib
 
 import com.ib.client.*
-import lv.sergluka.ib.impl.types.IbOrderBook
+import lv.sergluka.ib.impl.types.IbMarketDepth
 import spock.lang.Ignore
 import spock.lang.Specification
 import spock.util.concurrent.BlockingVariable
@@ -248,72 +248,88 @@ class IbClientTest extends Specification {
     }
 
     def "Get market depth"() {
+        given:
+        def contract = createContractEUR()
+
         when:
-        def orderBook = client.getMarketDepth(createContractEUR(), 20).get(10, TimeUnit.SECONDS)
-        print(orderBook)
+        def subscription = client.getMarketDepth(contract, 2) {}
+        sleep(5000)
 
         then:
+        def orderBook = client.getCache().getOrderBook(contract)
+
         orderBook.size() > 0
-        def level1 = orderBook.get(new IbOrderBook.Key(IbOrderBook.Side.BUY, 0))
+
+        def level1 = orderBook.get(new IbMarketDepth.Key(IbMarketDepth.Side.BUY, 0))
         level1.position == 0
-        level1.side == IbOrderBook.Side.BUY
+        level1.side == IbMarketDepth.Side.BUY
         level1.price > 0.0
         level1.size > 0
 
-        def level2 = orderBook.get(new IbOrderBook.Key(IbOrderBook.Side.BUY, 1))
+        def level2 = orderBook.get(new IbMarketDepth.Key(IbMarketDepth.Side.BUY, 1))
         level2.position == 1
-        level2.side == IbOrderBook.Side.BUY
+        level2.side == IbMarketDepth.Side.BUY
         level2.price > 0.0
         level2.size > 0
 
-        def level3 = orderBook.get(new IbOrderBook.Key(IbOrderBook.Side.SELL, 0))
+        def level3 = orderBook.get(new IbMarketDepth.Key(IbMarketDepth.Side.SELL, 0))
         level3.position == 0
-        level3.side == IbOrderBook.Side.SELL
+        level3.side == IbMarketDepth.Side.SELL
         level3.price > 0.0
         level3.size > 0
 
-        def level4 = orderBook.get(new IbOrderBook.Key(IbOrderBook.Side.SELL, 1))
+        def level4 = orderBook.get(new IbMarketDepth.Key(IbMarketDepth.Side.SELL, 1))
         level4.position == 1
-        level4.side == IbOrderBook.Side.SELL
+        level4.side == IbMarketDepth.Side.SELL
         level4.price > 0.0
         level4.size > 0
 
-        sleep(3000)
+        cleanup:
+        subscription?.unsubscribe()
     }
 
-    @Ignore("To check contracts with L2 paid subscription is need. Use this test for respective account and run manually")
+    @Ignore("To check contracts with L2 paid subscription is need and opened trading session. Use this test for respective account and run manually")
     def "Get market depth L2"() {
+        given:
+        def contract = createContractARRY_L2()
+
         when:
-        def orderBook = client.getMarketDepth(createContractARRY_L2(), 5).get(10, TimeUnit.SECONDS)
+        def subscription = client.getMarketDepth(contract, 2) {}
+        sleep(5000)
 
         then:
+        def orderBook = client.getCache().getOrderBook(contract)
+
         orderBook.size() > 0
-        def level1 = orderBook.get(new IbOrderBook.Key(IbOrderBook.Side.BUY, 0))
+
+        def level1 = orderBook.get(new IbMarketDepth.Key(IbMarketDepth.Side.BUY, 0))
         level1.position == 0
-        level1.side == IbOrderBook.Side.BUY
+        level1.side == IbMarketDepth.Side.BUY
         level1.price > 0.0
         level1.size > 0
 
-        def level2 = orderBook.get(new IbOrderBook.Key(IbOrderBook.Side.BUY, 1))
+        def level2 = orderBook.get(new IbMarketDepth.Key(IbMarketDepth.Side.BUY, 1))
         level2.position == 1
-        level2.side == IbOrderBook.Side.BUY
+        level2.side == IbMarketDepth.Side.BUY
         level2.price > 0.0
         level2.size > 0
 
-        def level3 = orderBook.get(new IbOrderBook.Key(IbOrderBook.Side.SELL, 0))
+        def level3 = orderBook.get(new IbMarketDepth.Key(IbMarketDepth.Side.SELL, 0))
         level3.position == 0
-        level3.side == IbOrderBook.Side.SELL
+        level3.side == IbMarketDepth.Side.SELL
         level3.price > 0.0
         level3.size > 0
 
-        def level4 = orderBook.get(new IbOrderBook.Key(IbOrderBook.Side.SELL, 1))
+        def level4 = orderBook.get(new IbMarketDepth.Key(IbMarketDepth.Side.SELL, 1))
         level4.position == 1
-        level4.side == IbOrderBook.Side.SELL
+        level4.side == IbMarketDepth.Side.SELL
         level4.price > 0.0
         level4.size > 0
 
-        sleep(3000)
+        cleanup:
+        subscription?.unsubscribe()
     }
+
     def "Request market depth information about exchanges"() {
         when:
         def exchanges = client.reqMktDepthExchanges().get(10, TimeUnit.SECONDS)
@@ -392,6 +408,7 @@ class IbClientTest extends Specification {
 
     private static def createContractEUR() {
         def contract = new Contract()
+        contract.conid(12087792)
         contract.symbol("EUR")
         contract.currency("USD")
         contract.exchange("IDEALPRO")
@@ -401,6 +418,7 @@ class IbClientTest extends Specification {
 
     private static def createContractARRY_L2() {
         def contract = new Contract()
+        contract.conid(10831568)
         contract.symbol("ARRY")
         contract.currency("USD")
         contract.exchange("ISLAND")

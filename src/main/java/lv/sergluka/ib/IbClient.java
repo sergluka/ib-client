@@ -2,6 +2,7 @@ package lv.sergluka.ib;
 
 import com.google.common.collect.ImmutableSet;
 import com.ib.client.*;
+
 import lv.sergluka.ib.impl.connection.ConnectionMonitor;
 import lv.sergluka.ib.impl.IbReader;
 import lv.sergluka.ib.impl.Wrapper;
@@ -11,6 +12,7 @@ import lv.sergluka.ib.impl.subscription.SubscriptionsRepository;
 import lv.sergluka.ib.impl.subscription.IbSubscription;
 import lv.sergluka.ib.impl.subscription.IbSubscriptionFuture;
 import lv.sergluka.ib.impl.types.*;
+
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -147,8 +149,8 @@ public class IbClient implements AutoCloseable {
 
     public boolean isConnected() {
         return socket != null &&
-                socket.isConnected() &&
-                connectionMonitor.status() == ConnectionMonitor.Status.CONNECTED;
+               socket.isConnected() &&
+               connectionMonitor.status() == ConnectionMonitor.Status.CONNECTED;
     }
 
     public ConnectionMonitor.Status status() {
@@ -174,7 +176,8 @@ public class IbClient implements AutoCloseable {
         return subscriptions.addFutureUnique(SubscriptionsRepository.EventType.EVENT_POSITION, callback,
                                              (unused) -> {
                                                  shouldBeConnected();
-                                                 return requests.postSingleRequest(RequestRepository.Event.REQ_POSITIONS,
+                                                 return requests.postSingleRequest(RequestRepository.Event
+                                                                                         .REQ_POSITIONS,
                                                                                    null, () -> socket.reqPositions());
                                              },
                                              (unused) -> {
@@ -190,8 +193,8 @@ public class IbClient implements AutoCloseable {
                                        (id) -> {
                                            shouldBeConnected();
                                            return requests.postSingleRequest(
-                                                   RequestRepository.Event.REQ_POSITIONS_MULTI,
-                                                   id, () -> socket.reqPositionsMulti(id, account, ""));
+                                                 RequestRepository.Event.REQ_POSITIONS_MULTI,
+                                                 id, () -> socket.reqPositionsMulti(id, account, ""));
                                        },
                                        (id) -> {
                                            shouldBeConnected();
@@ -239,24 +242,31 @@ public class IbClient implements AutoCloseable {
      * Since there doesn't exist single request function in IB API for recent data receiving only, we subscribe to
      * order book (aka market data lvl 2) update stream, and as soon full book is received, stop subscription
      *
-     * @param contract  IB contract
-     * @param numRows   Order book max depth
-     * @return Map<depth, IbOrderBook>updateMktDepthL2
+     * @param contract IB contract
+     * @param numRows Order book max depth
      */
-    public synchronized CompletableFuture<Map<IbOrderBook.Key, IbOrderBook>> getMarketDepth(Contract contract, int numRows) {
-        shouldBeConnected();
+    public synchronized IbSubscription getMarketDepth(Contract contract,
+                                                      int numRows,
+                                                      Consumer<IbMarketDepth> callback) {
 
-        int tickerId = idGenerator.nextRequestId();
-        CompletableFuture<Map<IbOrderBook.Key, IbOrderBook>> future =
-              requests.postSingleRequest(RequestRepository.Event.REQ_MARKET_DATA_LVL2, tickerId,
-                                         () -> socket.reqMktDepth(tickerId, contract, numRows, null));
+        Objects.requireNonNull(contract, "'contract' parameter is null");
+        if (contract.conid() == 0) {
+            throw new IllegalArgumentException("contract ID is missing");
+        }
 
-        // TODO: Remove. If needed, should be called by client
-        future.whenComplete((val, e) -> {
-            log.debug("Unsubscribe from Market Depth");
-            socket.cancelMktDepth(tickerId);
-        });
-        return future;
+        Objects.requireNonNull(callback, "'callback' parameter is null");
+
+        return subscriptions.add(SubscriptionsRepository.EventType.EVENT_MARKET_DATA_LVL2, callback,
+                                 (id) -> {
+                                     shouldBeConnected();
+                                     socket.reqMktDepth(id, contract, numRows, null);
+                                     return null;
+                                 },
+                                 (id) -> {
+                                     shouldBeConnected();
+                                     socket.cancelMktDepth(id);
+                                 },
+                                 contract);
     }
 
     public synchronized IbSubscription subscribeOnContractPnl(int contractId,
@@ -295,8 +305,8 @@ public class IbClient implements AutoCloseable {
     }
 
     public synchronized IbSubscriptionFuture<ImmutableSet<IbPortfolio>> subscribeOnAccountPortfolio(
-            @NotNull String account,
-            @NotNull Consumer<IbPortfolio> callback) {
+          @NotNull String account,
+          @NotNull Consumer<IbPortfolio> callback) {
 
         Objects.requireNonNull(account, "'account' parameter is null");
         Objects.requireNonNull(callback, "'callback' parameter is null");
@@ -309,8 +319,8 @@ public class IbClient implements AutoCloseable {
                                              (unused) -> {
                                                  shouldBeConnected();
                                                  return requests.postSingleRequest(
-                                                         RequestRepository.Event.REQ_PORTFOLIO,
-                                                         null, () -> socket.reqAccountUpdates(true, account));
+                                                       RequestRepository.Event.REQ_PORTFOLIO,
+                                                       null, () -> socket.reqAccountUpdates(true, account));
                                              },
                                              (unused) -> {
                                                  shouldBeConnected();

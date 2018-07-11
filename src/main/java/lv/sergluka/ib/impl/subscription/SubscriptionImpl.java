@@ -16,21 +16,28 @@ public class SubscriptionImpl<Param, RegResult> implements IbSubscription {
     private final Consumer<Param> callbackFn;
     private final Function<Integer, RegResult> registrationFn;
     private final Consumer<Integer> unregistrationFn;
+    private final Object userData;
 
     SubscriptionImpl(Map<SubscriptionsRepository.Key, SubscriptionImpl> subscriptions,
                      SubscriptionsRepository.Key key,
                      Consumer<Param> callbackFn,
                      Function<Integer, RegResult> registrationFn,
-                     Consumer<Integer> unregistrationFn) {
+                     Consumer<Integer> unregistrationFn,
+                     Object userData) {
         this.subscriptions = subscriptions;
         this.key = key;
         this.callbackFn = callbackFn;
         this.registrationFn = registrationFn;
         this.unregistrationFn = unregistrationFn;
+        this.userData = userData;
     }
 
     Integer getId() {
         return key.id;
+    }
+
+    public Object getUserData() {
+        return userData;
     }
 
     RegResult subscribe(Integer id) {
@@ -47,11 +54,11 @@ public class SubscriptionImpl<Param, RegResult> implements IbSubscription {
     @Override
     public void unsubscribe() {
         try {
-            if (subscriptions.remove(key) == null) {
-                log.error("Cannot locate subscription to unsubscribe: {}", this);
-            }
             if (unregistrationFn != null) {
                 unregistrationFn.accept(key.id);
+            }
+            if (subscriptions.remove(key) == null) {
+                log.error("Cannot locate subscription to unsubscribe: {}", this);
             }
             log.info("Has been unsubscribed from {}", this);
         } catch (Exception e) {
