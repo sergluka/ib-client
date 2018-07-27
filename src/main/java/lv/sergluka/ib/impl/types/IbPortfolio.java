@@ -4,6 +4,8 @@ import com.ib.client.Contract;
 
 public class IbPortfolio {
 
+    public static IbPortfolio COMPLETE = new IbPortfolio();
+
     private Contract contract;
     private Double position;
     private Double marketPrice;
@@ -29,6 +31,17 @@ public class IbPortfolio {
         this.unrealizedPNL = unrealizedPNL;
         this.realizedPNL = realizedPNL;
         this.account = account;
+    }
+
+    IbPortfolio() {
+        this.contract = null;
+        this.position = null;
+        this.marketPrice = null;
+        this.marketValue = null;
+        this.averageCost = null;
+        this.unrealizedPNL = null;
+        this.realizedPNL = null;
+        this.account = null;
     }
 
     public Contract getContract() {

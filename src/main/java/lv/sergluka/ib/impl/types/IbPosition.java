@@ -1,26 +1,34 @@
 package lv.sergluka.ib.impl.types;
 
-import com.ib.client.Contract;
-import org.apache.commons.math3.util.Precision;
-
-import static org.apache.commons.math3.util.Precision.*;
+import static org.apache.commons.math3.util.Precision.EPSILON;
 
 import java.util.Objects;
 
+import org.apache.commons.math3.util.Precision;
+
+import com.ib.client.Contract;
+
 public class IbPosition {
 
-    public static final IbPosition EMPTY = new IbPosition(null, null, null, null);
+    public static final IbPosition COMPLETE = new IbPosition();
 
     private final String account;
     private final Contract contract;
-    private final Double pos;
-    private final Double avgCost;
+    private final double pos; // TODO Convert all floats to BigDecimals
+    private final double avgCost;
 
-    public IbPosition(String account, Contract contract, Double pos, Double avgCost) {
+    public IbPosition(String account, Contract contract, double pos, double avgCost) {
         this.account = account;
         this.contract = contract;
         this.pos = pos;
         this.avgCost = avgCost;
+    }
+
+    private IbPosition() {
+        account = null;
+        contract = null;
+        pos = Double.NEGATIVE_INFINITY;
+        avgCost = Double.NEGATIVE_INFINITY;
     }
 
     public String getAccount() {
@@ -31,12 +39,16 @@ public class IbPosition {
         return contract;
     }
 
-    public Double getPos() {
+    public double getPos() {
         return pos;
     }
 
-    public Double getAvgCost() {
+    public double getAvgCost() {
         return avgCost;
+    }
+
+    public boolean isValid() {
+        return account != null && contract != null;
     }
 
     @Override

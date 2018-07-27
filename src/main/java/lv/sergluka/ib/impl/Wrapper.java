@@ -140,7 +140,7 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void positionEnd() {
-        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_POSITION, IbPosition.EMPTY, true);
+        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_POSITION, IbPosition.COMPLETE, true);
     }
 
     @Override
@@ -243,9 +243,7 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void accountDownloadEnd(String accountName) {
-        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_PORTFOLIO, null, true);
-        requests.onNextAndConfirm(RequestRepository.Event.REQ_PORTFOLIO, null,
-                                  cache.getPortfolio());
+        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_PORTFOLIO, IbPortfolio.COMPLETE, true);
     }
 
     @Override
@@ -333,7 +331,7 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void positionMultiEnd(final int reqId) {
-        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_POSITION_MULTI, reqId, IbPosition.EMPTY, true);
+        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_POSITION_MULTI, reqId, IbPosition.COMPLETE, true);
     }
 
     @Override

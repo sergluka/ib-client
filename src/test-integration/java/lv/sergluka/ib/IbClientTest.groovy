@@ -28,6 +28,29 @@ class IbClientTest extends Specification {
 
     void cleanup() {
         if (client) {
+//            def openOrders = client.reqAllOpenOrders().timeout(3, TimeUnit.SECONDS).blockingGet()
+            client.reqGlobalCancel()
+
+//            client.subscribeOnOrderNewStatus().filter({it == OrderStatus.ApiCancelled})
+//                                              .takeUntil({!openOrders.isEmpty()} as Predicate)
+//                                              .timeout(10, TimeUnit.SECONDS)
+//                                              .blockingSubscribe {
+//                openOrders.remove(it.orderId)
+//            }
+
+//            client.subscribeOnOrderNewStatus().timeout(10, TimeUnit.SECONDS).blockingSubscribe {
+//                if (it.status == OrderStatus.ApiCancelled) {
+//                    openOrders.remove(it.orderId)
+//                }
+//            }
+//
+//            for (order in client.cache.orders.values()) {
+//                if (order.getLastStatus())
+//            }
+
+//            client.subscribeOnPositionChange().timeout(10, TimeUnit.SECONDS).blockingSubscribe {
+//                print(it)
+//            }
             client.close()
         }
     }
@@ -142,7 +165,7 @@ class IbClientTest extends Specification {
 
         when:
         client.placeOrder(contract, createOrderEUR(client.nextOrderId())).blockingGet()
-        def list = client.reqAllOpenOrders().toList().blockingGet()
+        def list = client.reqAllOpenOrders().timeout(3, TimeUnit.SECONDS).blockingGet()
 
         then:
         println list
@@ -156,9 +179,9 @@ class IbClientTest extends Specification {
 
         when:
         def positions = client.subscribeOnPositionChange("DU22993")
-                .takeWhile({ it -> it != null })
+                .takeUntil({ it == IbPosition.COMPLETE } as Predicate)
                 .toList()
-                .timeout(10, TimeUnit.SECONDS)
+                .timeout(3, TimeUnit.SECONDS)
                 .blockingGet()
 
         then:
@@ -181,7 +204,7 @@ class IbClientTest extends Specification {
         }
         observer.assertNoErrors()
         observer.assertNotComplete()
-        observer.assertValueAt(observer.values().size() - 1, IbPosition.EMPTY)
+        observer.assertValueAt(observer.values().size() - 1, IbPosition.COMPLETE)
     }
 
     def "Request PnL per contract"() {
@@ -215,18 +238,15 @@ class IbClientTest extends Specification {
     }
 
     def "Request for Portfolio change for account"() {
-        given:
-        TestObserver<IbPortfolio> observer = new TestObserver<>()
-
         when:
-        client.subscribeOnAccountPortfolio("DU22993").subscribe(observer)
+        def portfolio = client.subscribeOnAccountPortfolio("DU22993")
+                .takeUntil({ it == IbPortfolio.COMPLETE } as Predicate)
+                .toList()
+                .timeout(3, TimeUnit.MINUTES) // Account updates once per 3 min
+                .blockingGet()
 
         then:
-        observer.awaitCount(1, BaseTestConsumer.TestWaitStrategy.SLEEP_1000MS, 4 * 60 * 1000) // Account updates once per 3 min
-        observer.assertNoErrors()
-        observer.assertNotComplete()
-        observer.assertValueCount(1)
-        observer.assertValueAt 0, { it.position != 0.0 } as Predicate
+        portfolio.size() > 0
     }
 
     def "Get market data"() {
@@ -252,41 +272,41 @@ class IbClientTest extends Specification {
 
         when:
         def future1 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
-        client.reqAllOpenOrders().blockingGet(10, TimeUnit.SECONDS)
+        client.reqAllOpenOrders().timeout(10, TimeUnit.SECONDS).blockingGet()
         def future2 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
         def future3 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
-        client.reqAllOpenOrders().blockingGet(10, TimeUnit.SECONDS)
+        client.reqAllOpenOrders().timeout(10, TimeUnit.SECONDS).blockingGet()
         def future4 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
         def future5 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
         def future6 = client.placeOrder(contract, createOrderEUR(client.nextOrderId()))
 
         and:
 
-        def order1 = future1.blockingGet(10, TimeUnit.SECONDS)
-        def order2 = future2.blockingGet(10, TimeUnit.SECONDS)
-        def order3 = future3.blockingGet(10, TimeUnit.SECONDS)
-        def order4 = future4.blockingGet(10, TimeUnit.SECONDS)
-        def order5 = future5.blockingGet(10, TimeUnit.SECONDS)
-        def list1 = client.reqAllOpenOrders().blockingGet(10, TimeUnit.SECONDS)
-        def order6 = future6.blockingGet(10, TimeUnit.SECONDS)
-        def list2 = client.reqAllOpenOrders().blockingGet(10, TimeUnit.SECONDS)
+        def order1 = future1.timeout(10, TimeUnit.SECONDS).blockingGet()
+        def order2 = future2.timeout(10, TimeUnit.SECONDS).blockingGet()
+        def order3 = future3.timeout(10, TimeUnit.SECONDS).blockingGet()
+        def order4 = future4.timeout(10, TimeUnit.SECONDS).blockingGet()
+        def order5 = future5.timeout(10, TimeUnit.SECONDS).blockingGet()
+        def list1 = client.reqAllOpenOrders().timeout(10, TimeUnit.SECONDS).blockingGet()
+        def order6 = future6.timeout(10, TimeUnit.SECONDS).blockingGet()
+        def list2 = client.reqAllOpenOrders().timeout(10, TimeUnit.SECONDS).blockingGet()
 
 
         then:
         list1.size() <= 6
-        list1.get(0).getOrderId() == order1.getOrderId()
-        list1.get(1).getOrderId() == order2.getOrderId()
-        list1.get(2).getOrderId() == order3.getOrderId()
-        list1.get(3).getOrderId() == order4.getOrderId()
-        list1.get(4).getOrderId() == order5.getOrderId()
+        list1.containsKey(order1.getOrderId())
+        list1.containsKey(order2.getOrderId())
+        list1.containsKey(order3.getOrderId())
+        list1.containsKey(order4.getOrderId())
+        list1.containsKey(order5.getOrderId())
 
         list2.size() == 6
-        list2.get(0).getOrderId() == order1.getOrderId()
-        list2.get(1).getOrderId() == order2.getOrderId()
-        list2.get(2).getOrderId() == order3.getOrderId()
-        list2.get(3).getOrderId() == order4.getOrderId()
-        list2.get(4).getOrderId() == order5.getOrderId()
-        list2.get(5).getOrderId() == order6.getOrderId()
+        list2.containsKey(order1.getOrderId())
+        list2.containsKey(order2.getOrderId())
+        list2.containsKey(order3.getOrderId())
+        list2.containsKey(order4.getOrderId())
+        list2.containsKey(order5.getOrderId())
+        list2.containsKey(order6.getOrderId())
     }
 
     def "Few reconnects shouldn't impact to functionality"() {

@@ -17,6 +17,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.*;
@@ -134,9 +135,8 @@ public class IbClient implements AutoCloseable {
               SubscriptionsRepository.EventType.EVENT_POSITION,
               (unused) -> {
                   shouldBeConnected();
-                  return requests.postRequest(RequestRepository.Event.REQ_POSITIONS,
-                                              null,
-                                              () -> socket.reqPositions());
+                  socket.reqPositions();
+                  return null;
               },
               (unused) -> {
                   shouldBeConnected();
@@ -158,7 +158,7 @@ public class IbClient implements AutoCloseable {
                                              });
     }
 
-//    public synchronized Observable<IbPosition> subscribeOnPositionChange(String account) {
+    //    public synchronized Observable<IbPosition> subscribeOnPositionChange(String account) {
 //
 //        return subscriptions.addSubscription(SubscriptionsRepository.EventType.EVENT_POSITION_MULTI,
 //                                             (id) -> {
@@ -182,8 +182,13 @@ public class IbClient implements AutoCloseable {
 
         int tickerId = idGenerator.nextRequestId();
         return requests.<IbTick>postRequest(RequestRepository.Event.REQ_MARKET_DATA,
-                                    tickerId,
-                                    () -> socket.reqMktData(tickerId, contract, "", true, false, null)).firstOrError();
+                                            tickerId,
+                                            () -> socket.reqMktData(tickerId,
+                                                                    contract,
+                                                                    "",
+                                                                    true,
+                                                                    false,
+                                                                    null)).firstOrError();
     }
 
     public synchronized Observable<IbTick> subscribeOnMarketData(Contract contract) {
@@ -240,9 +245,8 @@ public class IbClient implements AutoCloseable {
         return subscriptions.addSubscriptionUnique(SubscriptionsRepository.EventType.EVENT_PORTFOLIO,
                                                    (unused) -> {
                                                        shouldBeConnected();
-                                                       return requests.postRequest(
-                                                             RequestRepository.Event.REQ_PORTFOLIO,
-                                                             null, () -> socket.reqAccountUpdates(true, account));
+                                                       socket.reqAccountUpdates(true, account);
+                                                       return null;
                                                    },
                                                    (unused) -> {
                                                        shouldBeConnected();
@@ -271,8 +275,8 @@ public class IbClient implements AutoCloseable {
     public synchronized Single<Long> getCurrentTime() {
         shouldBeConnected();
         return requests.<Long>postRequest(RequestRepository.Event.REQ_CURRENT_TIME,
-                                    null,
-                                    () -> socket.reqCurrentTime()).firstOrError();
+                                          null,
+                                          () -> socket.reqCurrentTime()).firstOrError();
     }
 
     @NotNull
@@ -285,7 +289,7 @@ public class IbClient implements AutoCloseable {
         final Integer id = order.orderId();
 
         return requests.<IbOrder>postRequest(RequestRepository.Event.REQ_ORDER_PLACE, id,
-                                    () -> socket.placeOrder(id, contract, order)).firstOrError();
+                                             () -> socket.placeOrder(id, contract, order)).firstOrError();
     }
 
     public synchronized void cancelOrder(int orderId) {
@@ -298,11 +302,11 @@ public class IbClient implements AutoCloseable {
     }
 
     @NotNull
-    public synchronized Observable<IbOrder> reqAllOpenOrders() {
+    public synchronized Single<Map<Integer, IbOrder>> reqAllOpenOrders() {
         shouldBeConnected();
 
-        return requests.postRequest(RequestRepository.Event.REQ_ORDER_LIST, null,
-                                    () -> socket.reqAllOpenOrders());
+        return requests.<Map<Integer, IbOrder>>postRequest(RequestRepository.Event.REQ_ORDER_LIST, null,
+                                                           () -> socket.reqAllOpenOrders()).firstOrError();
     }
 
     @NotNull
@@ -312,7 +316,7 @@ public class IbClient implements AutoCloseable {
         shouldBeConnected(); // TODO: move to subscribe
         final Integer id = idGenerator.nextRequestId(); // TODO: move to sibscribe
         return requests.<ContractDetails>postRequest(RequestRepository.Event.REQ_CONTRACT_DETAIL, id,
-                                    () -> socket.reqContractDetails(id, contract));
+                                                     () -> socket.reqContractDetails(id, contract));
     }
 
     private void shouldBeConnected() {
