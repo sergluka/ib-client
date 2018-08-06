@@ -36,6 +36,7 @@ abstract class TerminalErrorHandler {
             case 2100: // API client has been unsubscribed from account data..
                 severity = ErrorType.INFO;
                 break;
+            case 161: // Cancel attempted when order is not in a cancellable state
             case 201: // Order rejected
             case 399: // Order message error
             case 2109: // Order Event Warning: Attribute "Outside Regular Trading Hours" is ignored based on the order type and destination. PlaceOrder is now processed.

@@ -62,6 +62,11 @@ public class SubscriptionsRepository implements AutoCloseable {
         onNext(type, null, data, requireSubscription);
     }
 
+    public void onError(EventType type, Integer reqId, Throwable throwable) {
+        SubscriptionImpl2<?, ?> subscription = subscriptions.get(new Key(type, reqId));
+        subscription.onError(throwable);
+    }
+
     public <Param> void onNext(EventType type, Integer reqId, Param data, Boolean requireSubscription) {
         SubscriptionImpl2<Param, ?> subscription = subscriptions.get(new Key(type, reqId));
         if (subscription == null) {

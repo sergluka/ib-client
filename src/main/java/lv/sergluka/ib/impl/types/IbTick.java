@@ -6,6 +6,8 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.ib.client.TickAttr;
+
 public class IbTick {
 
     private static final Logger log = LoggerFactory.getLogger(IbTick.class);
@@ -251,7 +253,7 @@ public class IbTick {
         log.trace("Set value: {} = {}", enumType, value);
     }
 
-    public void setPriceValue(Integer type, Double value) {
+    public void setPriceValue(Integer type, Double value, TickAttr attrib) {
         Types enumType = Types.valueOf(type);
         switch (enumType) {
             case BID:
@@ -353,7 +355,8 @@ public class IbTick {
             default:
                 log.warn("Unknown price type for tick, type={}, value={}", type, value);
         }
-        log.trace("Set value: {} = {}", enumType, value);
+        log.trace("Set value: {} = {}, attr: [auto exec: {}, past limit: {}, pre open: {}]",
+                  enumType, value, attrib.canAutoExecute(), attrib.pastLimit(), attrib.preOpen());
     }
 
     public void setStringValue(Integer type, String value) {

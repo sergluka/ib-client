@@ -8,9 +8,6 @@ import lv.sergluka.ib.impl.types.IbPnl
 import lv.sergluka.ib.impl.types.IbPortfolio
 import lv.sergluka.ib.impl.types.IbPosition
 import spock.lang.Specification
-import spock.util.concurrent.BlockingVariable
-import spock.util.concurrent.BlockingVariables
-import spock.util.concurrent.PollingConditions
 
 import java.util.concurrent.TimeUnit
 
@@ -22,35 +19,11 @@ class IbClientTest extends Specification {
         client = new IbClient()
         assert client.connect("127.0.0.1", 7497, 2).blockingAwait(30, TimeUnit.SECONDS)
         client.reqGlobalCancel()
-        // Wait until all respective callbacks will be called
-        sleep(2_000)
     }
 
     void cleanup() {
         if (client) {
-//            def openOrders = client.reqAllOpenOrders().timeout(3, TimeUnit.SECONDS).blockingGet()
             client.reqGlobalCancel()
-
-//            client.subscribeOnOrderNewStatus().filter({it == OrderStatus.ApiCancelled})
-//                                              .takeUntil({!openOrders.isEmpty()} as Predicate)
-//                                              .timeout(10, TimeUnit.SECONDS)
-//                                              .blockingSubscribe {
-//                openOrders.remove(it.orderId)
-//            }
-
-//            client.subscribeOnOrderNewStatus().timeout(10, TimeUnit.SECONDS).blockingSubscribe {
-//                if (it.status == OrderStatus.ApiCancelled) {
-//                    openOrders.remove(it.orderId)
-//                }
-//            }
-//
-//            for (order in client.cache.orders.values()) {
-//                if (order.getLastStatus())
-//            }
-
-//            client.subscribeOnPositionChange().timeout(10, TimeUnit.SECONDS).blockingSubscribe {
-//                print(it)
-//            }
             client.close()
         }
     }
@@ -129,20 +102,17 @@ class IbClientTest extends Specification {
         given:
         def contract = createContractEUR()
         def order = createOrderEUR()
-
-        def vars = new BlockingVariables(10)
-        def calls = 1
-
-        client.subscribeOnOrderNewStatus().subscribe({
-            vars.setProperty("status${calls++}", it.status)
-        })
+        def observer = client.subscribeOnOrderNewStatus().test()
 
         when:
         client.placeOrder(contract, order).blockingGet()
 
         then:
-        vars.status1 == OrderStatus.PreSubmitted
-        vars.status2 in [OrderStatus.Submitted, OrderStatus.Filled]
+        observer.awaitCount(2)
+        observer.assertNotComplete()
+        observer.assertNoErrors()
+        observer.assertValueAt 0, { it.status == OrderStatus.PreSubmitted } as Predicate
+        observer.assertValueAt 1, { it.status in [OrderStatus.Submitted, OrderStatus.Filled] } as Predicate
     }
 
 
@@ -172,11 +142,15 @@ class IbClientTest extends Specification {
         list.size() > 0
     }
 
+    def "Request orders when no orders exists"() {
+        when:
+        def list = client.reqAllOpenOrders().timeout(3, TimeUnit.SECONDS).blockingGet()
+
+        then:
+        list.isEmpty()
+    }
+
     def "Request positions"() {
-
-//        given:
-//        client.placeOrder(createContractXAUUSD(), createOrderXAUUSD(client.nextOrderId())).blockingGet()
-
         when:
         def positions = client.subscribeOnPositionChange("DU22993")
                 .takeUntil({ it == IbPosition.COMPLETE } as Predicate)
@@ -191,17 +165,11 @@ class IbClientTest extends Specification {
 
     // TODO: Close all positions at startup, and make one for test
     def "Request positions for account"() {
-        given:
-        TestObserver<IbPosition> observer = new TestObserver<>()
-        def condition = new PollingConditions(timeout: 5)
-
         when:
-        client.subscribeOnPositionChange("DU22993").subscribe(observer)
+        def observer = client.subscribeOnPositionChange("DU22993").test()
 
         then:
-        condition.eventually {
-            observer.values().size() > 0
-        }
+        observer.awaitCount(2)
         observer.assertNoErrors()
         observer.assertNotComplete()
         observer.assertValueAt(observer.values().size() - 1, IbPosition.COMPLETE)
@@ -250,20 +218,14 @@ class IbClientTest extends Specification {
     }
 
     def "Get market data"() {
-        given:
-        def var = new BlockingVariable(5)
-
         when:
-        def subscription = client.subscribeOnMarketData(createContractEUR()) { tick ->
-            var.set(tick)
-        }
+        def testObserver = client.subscribeOnMarketData(createContractEUR()).test()
 
         then:
-        def tick = var.get()
-        tick.closePrice > 0
-
-        cleanup:
-        subscription?.unsubscribe()
+        testObserver.awaitCount(10)
+        testObserver.assertNoErrors()
+        testObserver.assertNotComplete()
+        testObserver.assertValueAt 0, { it.closePrice > 0 } as Predicate
     }
 
     def "Request orders and place orders shouldn't interfere each other"() {
@@ -342,6 +304,15 @@ class IbClientTest extends Specification {
         contract.currency("USD")
         contract.exchange("IDEALPRO")
         contract.secType(Types.SecType.CASH)
+        return contract
+    }
+
+    private static def createContractFB() {
+        def contract = new Contract()
+        contract.symbol("FB")
+        contract.currency("USD")
+        contract.exchange("SMART")
+        contract.secType(Types.SecType.STK)
         return contract
     }
 

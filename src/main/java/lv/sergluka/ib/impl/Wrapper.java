@@ -177,13 +177,23 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void tickSize(int tickerId, int field, int value) {
+        if (value == -1) {
+            publishNoData(tickerId);
+            return;
+        }
+
         IbTick result = cache.updateTick(tickerId, (tick) -> tick.setIntValue(field, value));
         publishNewTick(tickerId, result);
     }
 
     @Override
     public void tickPrice(int tickerId, int field, double value, TickAttr attrib) {
-        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setPriceValue(field, value));
+        if (value == -1) {
+            publishNoData(tickerId);
+            return;
+        }
+
+        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setPriceValue(field, value, attrib));
         publishNewTick(tickerId, result);
     }
 
@@ -196,7 +206,7 @@ public class Wrapper implements EWrapper {
     @Override
     public void tickGeneric(int tickerId, int field, double value) {
         IbTick result = cache.updateTick(tickerId, (tick) -> tick.setGenericValue(field, value));
-        publishNewTick(tickerId, result);
+            publishNewTick(tickerId, result);
     }
 
     @Override
@@ -290,6 +300,10 @@ public class Wrapper implements EWrapper {
 
     private void publishNewTick(int tickerId, IbTick result) {
         subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_MARKET_DATA, tickerId, result, false);
+    }
+
+    private void publishNoData(int tickerId) {
+        subscriptions.onError(SubscriptionsRepository.EventType.EVENT_MARKET_DATA, tickerId, new IbExceptions.NoTicks());
     }
 
     @Override

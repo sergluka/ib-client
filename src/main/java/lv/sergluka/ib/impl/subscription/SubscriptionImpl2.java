@@ -66,6 +66,10 @@ public class SubscriptionImpl2<Param, RegResult> {
         emitter.onNext(data);
     }
 
+    public void onError(Throwable throwable) {
+        emitter.onError(throwable);
+    }
+
     @Override
     public String toString() {
         final StringBuffer buffer = new StringBuffer("{");
