@@ -19,7 +19,7 @@ apply plugin: 'idea'
 apply plugin: 'java'
 apply plugin: 'groovy'
 
-group 'lv.sergluka'
+group 'com.finplant'
 version '1.0-SNAPSHOT'
 
 sourceCompatibility = 1.8
