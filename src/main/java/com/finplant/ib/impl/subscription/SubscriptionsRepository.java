@@ -27,7 +27,7 @@ public class SubscriptionsRepository implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(SubscriptionsRepository.class);
 
     private final IdGenerator idGenerator;
-    private final Map<Key, SubscriptionImpl2> subscriptions = new ConcurrentHashMap<>();
+    private final Map<Key, SubscriptionImpl> subscriptions = new ConcurrentHashMap<>();
 
     public SubscriptionsRepository(IdGenerator idGenerator) {
         this.idGenerator = idGenerator;
@@ -63,12 +63,12 @@ public class SubscriptionsRepository implements AutoCloseable {
     }
 
     public void onError(EventType type, Integer reqId, Throwable throwable) {
-        SubscriptionImpl2<?, ?> subscription = subscriptions.get(new Key(type, reqId));
+        SubscriptionImpl<?, ?> subscription = subscriptions.get(new Key(type, reqId));
         subscription.onError(throwable);
     }
 
     public <Param> void onNext(EventType type, Integer reqId, Param data, Boolean requireSubscription) {
-        SubscriptionImpl2<Param, ?> subscription = subscriptions.get(new Key(type, reqId));
+        SubscriptionImpl<Param, ?> subscription = subscriptions.get(new Key(type, reqId));
         if (subscription == null) {
             if (requireSubscription) {
                 log.error("Got event '{}' with unknown request id {}", type, reqId);
@@ -122,7 +122,7 @@ public class SubscriptionsRepository implements AutoCloseable {
 
         Observable<RetResult> observable = Observable.create(emitter -> {
             Key key = new Key(type, id);
-            SubscriptionImpl2 subscription = new SubscriptionImpl2<>(emitter, key, subscribe, unsubscribe);
+            SubscriptionImpl subscription = new SubscriptionImpl<>(emitter, key, subscribe, unsubscribe);
 
             emitter.setCancellable(() -> {
                 subscription.unsubscribe();

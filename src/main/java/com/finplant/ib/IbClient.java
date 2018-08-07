@@ -268,13 +268,6 @@ public class IbClient implements AutoCloseable {
                                                    null);
     }
 
-    //    public synchronized IbSubscriptionFuture subscribeOnConnectionStatus(Consumer<Boolean> callback) {
-//        return subscriptions.addSubscriptionUnique(SubscriptionsRepository.EventType.EVENT_CONNECTION_STATUS,
-//                                             callback,
-//                                             null,
-//                                             null);
-//    }
-//
     public synchronized int nextOrderId() {
         return idGenerator.nextOrderId();
     }

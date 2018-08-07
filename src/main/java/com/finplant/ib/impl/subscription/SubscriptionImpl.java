@@ -8,29 +8,25 @@ import org.slf4j.LoggerFactory;
 
 import io.reactivex.ObservableEmitter;
 
-public class SubscriptionImpl2<Param, RegResult> {
+public class SubscriptionImpl<Param, RegResult> {
 
-    private static final Logger log = LoggerFactory.getLogger(SubscriptionImpl2.class);
+    private static final Logger log = LoggerFactory.getLogger(SubscriptionImpl.class);
 
     private final ObservableEmitter<Param> emitter;
     private final SubscriptionsRepository.Key key;
     private final Function<Integer, RegResult> registrationFn;
     private final Consumer<Integer> unregistrationFn;
 
-    SubscriptionImpl2(ObservableEmitter<Param> emitter,
-                      SubscriptionsRepository.Key key,
-                      Function<Integer, RegResult> registrationFn,
-                      Consumer<Integer> unregistrationFn) {
+    SubscriptionImpl(ObservableEmitter<Param> emitter,
+                     SubscriptionsRepository.Key key,
+                     Function<Integer, RegResult> registrationFn,
+                     Consumer<Integer> unregistrationFn) {
         this.emitter = emitter;
         this.key = key;
         this.registrationFn = registrationFn;
         this.unregistrationFn = unregistrationFn;
     }
 
-//    public ObservableEmitter<Param> getEmitter() {
-//        return emitter;
-//    }
-//
     Integer getId() {
         return key.id;
     }
@@ -46,10 +42,6 @@ public class SubscriptionImpl2<Param, RegResult> {
         }
         return null;
     }
-
-//    public void call(Param data) {
-//        callbackFn.accept(data);
-//    }
 
     public void unsubscribe() {
         try {

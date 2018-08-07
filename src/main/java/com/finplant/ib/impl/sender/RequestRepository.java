@@ -15,7 +15,7 @@ import com.finplant.ib.IbExceptions;
 public class RequestRepository {
 
     private static final Logger log = LoggerFactory.getLogger(RequestRepository.class);
-    private final ConcurrentHashMap<EventKey, ObservableEmitter> futures = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<EventKey, ObservableEmitter> requests = new ConcurrentHashMap<>();
     private final IbClient client;
 
     public RequestRepository(@NotNull IbClient client) {
@@ -30,9 +30,9 @@ public class RequestRepository {
             }
 
             final EventKey key = new EventKey(event, requestId);
-            emitter.setCancellable(() -> futures.remove(key));
+            emitter.setCancellable(() -> requests.remove(key));
 
-            final ObservableEmitter old = futures.put(key, emitter);
+            final ObservableEmitter old = requests.putIfAbsent(key, emitter);
             if (old != null) {
                 log.error("Duplicated request: {}", key);
                 throw new IbExceptions.DuplicatedRequest(key);
@@ -42,12 +42,12 @@ public class RequestRepository {
             runnable.run();
         });
 
-        // Make sure future removes itself from a repository // TODO: Test removal form a repository
+        // Make sure future removes itself from a repository // TODO: Test removal from a repository
     }
 
     public void onError(int requestId, RuntimeException exception) {
         final EventKey key = new EventKey(null, requestId);
-        final ObservableEmitter<?> future = futures.get(key);
+        final ObservableEmitter<?> future = requests.get(key);
         if (future == null) {
             log.warn("Cannot set error for unknown future with ID {}", requestId);
             log.error("Received error is: {}", exception.getMessage(), exception);
@@ -61,7 +61,7 @@ public class RequestRepository {
         final EventKey key = new EventKey(event, id);
         log.debug("=> {}: {}", key, result != null ? result.toString().replaceAll("\n", "; ") : "null");
 
-        final ObservableEmitter future = futures.get(key);
+        final ObservableEmitter future = requests.get(key);
         if (future == null) {
             log.error("Got event {} for unknown or expired request", key);
             return;
@@ -74,7 +74,7 @@ public class RequestRepository {
         final EventKey key = new EventKey(event, id);
         log.debug("=> {}: {}", key, result != null ? result.toString().replaceAll("\n", "; ") : "null");
 
-        final ObservableEmitter future = futures.remove(key);
+        final ObservableEmitter future = requests.remove(key);
         if (future == null) {
             log.error("Got event {} for unknown or expired request", key);
             return;
@@ -88,7 +88,7 @@ public class RequestRepository {
         final EventKey key = new EventKey(event, id);
         log.debug("=> {}", key);
 
-        final ObservableEmitter future = futures.remove(key);
+        final ObservableEmitter future = requests.remove(key);
         if (future == null) {
             log.error("Got event {} for unknown or expired request", key);
             return;
@@ -103,8 +103,5 @@ public class RequestRepository {
         REQ_ORDER_PLACE,
         REQ_ORDER_LIST,
         REQ_MARKET_DATA,
-//        REQ_POSITIONS,
-//        REQ_POSITIONS_MULTI,
-//        REQ_PORTFOLIO
     }
 }

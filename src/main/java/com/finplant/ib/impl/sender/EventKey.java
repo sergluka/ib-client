@@ -12,14 +12,6 @@ public class EventKey {
         this.id = id;
     }
 
-    private RequestRepository.Event getEvent() {
-        return event;
-    }
-
-    private Integer getId() {
-        return id;
-    }
-
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -37,7 +29,7 @@ public class EventKey {
     @Override
     public int hashCode() {
         if (id != null) {
-            return Objects.hash(id);
+            return Objects.hash(event, id);
 
         }
 
