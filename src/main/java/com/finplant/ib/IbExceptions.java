@@ -1,6 +1,6 @@
 package com.finplant.ib;
 
-import com.finplant.ib.impl.sender.EventKey;
+import com.finplant.ib.impl.subscription.SubscriptionKey;
 
 public class IbExceptions {
 
@@ -40,7 +40,7 @@ public class IbExceptions {
     }
 
     public static class DuplicatedRequest extends RuntimeException {
-        public DuplicatedRequest(EventKey key) {
+        public DuplicatedRequest(SubscriptionKey key) {
             super(String.format("Request already exists: %s", key));
         }
     }

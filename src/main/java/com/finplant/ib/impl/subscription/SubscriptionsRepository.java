@@ -1,10 +1,9 @@
 package com.finplant.ib.impl.subscription;
 
 import java.util.Map;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -13,6 +12,9 @@ import org.slf4j.LoggerFactory;
 
 import io.reactivex.Observable;
 import io.reactivex.schedulers.Schedulers;
+
+import com.finplant.ib.IbClient;
+import com.finplant.ib.IbExceptions;
 import com.finplant.ib.IdGenerator;
 
 /**
@@ -26,10 +28,12 @@ public class SubscriptionsRepository implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(SubscriptionsRepository.class);
 
+    @NotNull private final IbClient client;
     private final IdGenerator idGenerator;
-    private final Map<Key, SubscriptionImpl> subscriptions = new ConcurrentHashMap<>();
+    private final Map<SubscriptionKey, Subscription> subscriptions = new ConcurrentHashMap<>();
 
-    public SubscriptionsRepository(IdGenerator idGenerator) {
+    public SubscriptionsRepository(@NotNull IbClient client, IdGenerator idGenerator) {
+        this.client = client;
         this.idGenerator = idGenerator;
     }
 
@@ -40,58 +44,56 @@ public class SubscriptionsRepository implements AutoCloseable {
     }
 
     @NotNull
-    public <Param, RetResult> Observable<RetResult> addSubscription(
-          @Nullable EventType type,
-          @Nullable Function<Integer, Observable<Param>> subscribe,
+    public <RetResult> Observable<RetResult> addSubscriptionWithId(
+          @Nullable Type type,
+          @Nullable Consumer<Integer> subscribe,
           @Nullable Consumer<Integer> unsubscribe) {
 
         int id = idGenerator.nextRequestId();
-        return addSubscriptionImpl(type, id, subscribe, unsubscribe);
+        return addSubscription(type, id, subscribe, unsubscribe);
     }
 
     @NotNull
-    public <Param, RetResult> Observable<RetResult> addSubscriptionUnique(
-          @Nullable EventType type,
-          @Nullable Function<Integer, Observable<Param>> subscribe,
+    public <RetResult> Observable<RetResult> addSubscriptionWithoutId(
+          @Nullable Type type,
+          @Nullable Consumer<Integer> subscribe,
           @Nullable Consumer<Integer> unsubscribe) {
 
-        return addSubscriptionImpl(type, null, subscribe, unsubscribe);
+        return addSubscription(type, null, subscribe, unsubscribe);
     }
 
-    public <Param> void onNext(EventType type, Param data, Boolean requireSubscription) {
-        onNext(type, null, data, requireSubscription);
+    public <Param> void onNext(Type type, Integer reqId, Param data, Boolean requireSubscription) {
+        get(type, reqId, requireSubscription).ifPresent(subscription -> subscription.onNext(data));
     }
 
-    public void onError(EventType type, Integer reqId, Throwable throwable) {
-        SubscriptionImpl<?, ?> subscription = subscriptions.get(new Key(type, reqId));
-        subscription.onError(throwable);
+    public void onError(Type type, Integer reqId, Throwable throwable) {
+        get(type, reqId, true).ifPresent(subscription -> subscription.onError(throwable));
     }
 
-    public <Param> void onNext(EventType type, Integer reqId, Param data, Boolean requireSubscription) {
-        SubscriptionImpl<Param, ?> subscription = subscriptions.get(new Key(type, reqId));
+    public void onError(Integer reqId, Throwable throwable) {
+        get(null, reqId, true).ifPresent(subscription -> subscription.onError(throwable));
+    }
+
+    public <Param> Optional<Subscription<Param, ?>> get(Type type, Integer reqId, Boolean requireSubscription) {
+        Subscription<Param, ?> subscription = subscriptions.get(new SubscriptionKey(type, reqId));
         if (subscription == null) {
             if (requireSubscription) {
                 log.error("Got event '{}' with unknown request id {}", type, reqId);
             }
-            return;
         }
+        return Optional.ofNullable(subscription);
+    }
 
-        subscription.onNext(data);
+    public void onComplete(Type type, Integer reqId, Boolean requireSubscription) {
+        get(type, reqId, requireSubscription).ifPresent(Subscription::onComplete);
+    }
 
-//        // TODO: Add queue explicitly and monitor its size
-//        // TODO: Log posting, execution and finalization of a task
-//        Runnable runnable = () -> {
-//            Thread thread = Thread.currentThread();
-//            thread.setName(String.format("subscription-%s", subscription.toString()));
-//            subscription.onNext(data);
-//        };
-//
-//        try {
-//            executors.submit(runnable);
-//        } catch (Exception e) {
-//            log.error("Fail to submit task for execution: {}, id: {}, param: {}", type, reqId, data);
-//            throw e;
-//        }
+    // TODO: requireSubscription: Boolean to enum
+    public <Param> void onNextAndComplete(Type type, Integer reqId, Param data, Boolean requireSubscription) {
+        get(type, reqId, requireSubscription).ifPresent(subscription -> {
+            subscription.onNext(data);
+            subscription.onComplete();
+        });
     }
 
     // TODO: Make resubscribe optional
@@ -109,36 +111,49 @@ public class SubscriptionsRepository implements AutoCloseable {
         });
     }
 
-    private void remove(Key key) {
+    private void remove(SubscriptionKey key) {
         subscriptions.remove(key);
     }
 
     @NotNull
-    private <Param, RetResult> Observable<RetResult> addSubscriptionImpl(
-          @Nullable EventType type,
+    public synchronized <RetResult> Observable<RetResult> addSubscription(
+          @Nullable Type type,
           @Nullable Integer id,
-          @Nullable Function<Integer, Param> subscribe,
+          @Nullable Consumer<Integer> subscribe,
           @Nullable Consumer<Integer> unsubscribe) {
 
         Observable<RetResult> observable = Observable.create(emitter -> {
-            Key key = new Key(type, id);
-            SubscriptionImpl subscription = new SubscriptionImpl<>(emitter, key, subscribe, unsubscribe);
+
+            if (!client.isConnected()) {
+                throw new IbExceptions.NotConnected();
+            }
+
+            SubscriptionKey key = new SubscriptionKey(type, id);
+            Subscription subscription = new Subscription<>(emitter, key, subscribe, unsubscribe);
+
+            Subscription old = subscriptions.putIfAbsent(key, subscription);
+            if (old != null) {
+                log.error("Duplicated request: {}", key);
+                throw new IbExceptions.DuplicatedRequest(key);
+            }
 
             emitter.setCancellable(() -> {
-                subscription.unsubscribe();
+                if (client.isConnected()) {
+                    subscription.unsubscribe();
+                } else {
+                    log.warn("Have no connection at unsubscribe of {}", key);
+                }
                 remove(key);
             });
 
             subscription.subscribe();
-            subscriptions.put(key, subscription);
-
             log.info("Subscribed to {}", subscription);
         });
 
         return observable.observeOn(Schedulers.io());
     }
 
-    public enum EventType {
+    public enum Type {
         EVENT_CONTRACT_PNL,
         EVENT_ACCOUNT_PNL,
         EVENT_POSITION,
@@ -146,35 +161,11 @@ public class SubscriptionsRepository implements AutoCloseable {
         EVENT_ORDER_STATUS,
         EVENT_MARKET_DATA,
         EVENT_PORTFOLIO,
-        EVENT_CONNECTION_STATUS
-    }
-
-    class Key {
-        final EventType type;
-        final Integer id;
-
-        Key(EventType type, Integer id) {
-            this.type = type;
-            this.id = id;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(type, id);
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-
-            Key key = (Key) obj;
-            return Objects.equals(type, key.type) && Objects.equals(id, key.id);
-        }
+        EVENT_CONNECTION_STATUS,
+        REQ_MARKET_DATA,
+        REQ_CURRENT_TIME,
+        REQ_ORDER_PLACE,
+        REQ_ORDER_LIST,
+        REQ_CONTRACT_DETAIL
     }
 }

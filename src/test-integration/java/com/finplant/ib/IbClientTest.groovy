@@ -62,11 +62,13 @@ class IbClientTest extends Specification {
         def order = createOrderEUR()
 
         when:
-        def state = client.placeOrder(contract, order).blockingGet()
+        def single = client.placeOrder(contract, order).test()
 
         then:
-        state.order.action() == order.action()
-        state.orderId > 0
+        single.awaitTerminalEvent(10, TimeUnit.SECONDS)
+        single.assertNoErrors()
+        single.assertComplete()
+        single.assertValueAt 0, { it.orderId > 0 } as Predicate
     }
 
     def "Few placeOrder shouldn't interfere"() {

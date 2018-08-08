@@ -4,23 +4,23 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.finplant.ib.IbExceptions;
-import com.finplant.ib.impl.sender.RequestRepository;
+import com.finplant.ib.impl.subscription.SubscriptionsRepository;
 
 abstract class TerminalErrorHandler {
 
     private static final Logger log = LoggerFactory.getLogger(TerminalErrorHandler.class);
 
-    private final RequestRepository requests;
+    private final SubscriptionsRepository requests;
 
     private enum ErrorType {
         INFO,
         WARN,
         ERROR,
-        REQUEST,
+        REQUEST_ERROR,
         CRITICAL
     }
 
-    public TerminalErrorHandler(RequestRepository requests) {
+    public TerminalErrorHandler(SubscriptionsRepository requests) {
         this.requests = requests;
     }
 
@@ -54,7 +54,7 @@ abstract class TerminalErrorHandler {
 
             default:
                 if (id >= 0) {
-                    severity = ErrorType.REQUEST;
+                    severity = ErrorType.REQUEST_ERROR;
                 } else {
                     severity = ErrorType.ERROR;
                 }
@@ -62,7 +62,7 @@ abstract class TerminalErrorHandler {
         }
 
         switch (severity) {
-            case REQUEST:
+            case REQUEST_ERROR:
                 requests.onError(id, new IbExceptions.TerminalError(message, code));
                 break;
             case INFO:

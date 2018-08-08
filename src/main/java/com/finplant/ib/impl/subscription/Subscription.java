@@ -8,19 +8,19 @@ import org.slf4j.LoggerFactory;
 
 import io.reactivex.ObservableEmitter;
 
-public class SubscriptionImpl<Param, RegResult> {
+public class Subscription<Param, RegResult> {
 
-    private static final Logger log = LoggerFactory.getLogger(SubscriptionImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(Subscription.class);
 
     private final ObservableEmitter<Param> emitter;
-    private final SubscriptionsRepository.Key key;
-    private final Function<Integer, RegResult> registrationFn;
+    private final SubscriptionKey key;
+    private final Consumer<Integer> registrationFn;
     private final Consumer<Integer> unregistrationFn;
 
-    SubscriptionImpl(ObservableEmitter<Param> emitter,
-                     SubscriptionsRepository.Key key,
-                     Function<Integer, RegResult> registrationFn,
-                     Consumer<Integer> unregistrationFn) {
+    Subscription(ObservableEmitter<Param> emitter,
+                 SubscriptionKey key,
+                 Consumer<Integer> registrationFn,
+                 Consumer<Integer> unregistrationFn) {
         this.emitter = emitter;
         this.key = key;
         this.registrationFn = registrationFn;
@@ -28,17 +28,16 @@ public class SubscriptionImpl<Param, RegResult> {
     }
 
     Integer getId() {
-        return key.id;
+        return key.getId();
     }
 
     RegResult subscribe() {
-        return subscribe(key.id);
+        return subscribe(key.getId());
     }
-
 
     RegResult subscribe(Integer id) {
         if (registrationFn != null) {
-            return registrationFn.apply(id);
+            registrationFn.accept(id);
         }
         return null;
     }
@@ -46,9 +45,9 @@ public class SubscriptionImpl<Param, RegResult> {
     public void unsubscribe() {
         try {
             if (unregistrationFn != null) {
-                unregistrationFn.accept(key.id);
+                unregistrationFn.accept(key.getId());
+                log.info("Has been unsubscribed from {}", this);
             }
-            log.info("Has been unsubscribed from {}", this);
         } catch (Exception e) {
             log.error("Error unsubscribe for subscription: {}. {}", this, e.getMessage());
         }
@@ -58,6 +57,10 @@ public class SubscriptionImpl<Param, RegResult> {
         emitter.onNext(data);
     }
 
+    public void onComplete() {
+        emitter.onComplete();
+    }
+
     public void onError(Throwable throwable) {
         emitter.onError(throwable);
     }
@@ -65,8 +68,8 @@ public class SubscriptionImpl<Param, RegResult> {
     @Override
     public String toString() {
         final StringBuffer buffer = new StringBuffer("{");
-        buffer.append("id=").append(key.id);
-        buffer.append(", type=").append(key.type);
+        buffer.append("id=").append(key.getId());
+        buffer.append(", type=").append(key.getType());
         buffer.append('}');
         return buffer.toString();
     }

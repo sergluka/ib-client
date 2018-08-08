@@ -1,9 +1,19 @@
 package com.finplant.ib.impl;
 
+import java.net.SocketException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.finplant.ib.IbExceptions;
 import com.finplant.ib.IdGenerator;
+import com.finplant.ib.impl.cache.CacheRepository;
 import com.finplant.ib.impl.connection.ConnectionMonitor;
-import com.finplant.ib.impl.sender.RequestRepository;
 import com.finplant.ib.impl.subscription.SubscriptionsRepository;
 import com.finplant.ib.impl.types.IbOrder;
 import com.finplant.ib.impl.types.IbOrderStatus;
@@ -12,26 +22,32 @@ import com.finplant.ib.impl.types.IbPortfolio;
 import com.finplant.ib.impl.types.IbPosition;
 import com.finplant.ib.impl.types.IbTick;
 import com.google.common.base.Splitter;
-import com.ib.client.*;
-
-import com.finplant.ib.IbExceptions;
-import com.finplant.ib.IdGenerator;
-import com.finplant.ib.impl.cache.CacheRepository;
-import com.finplant.ib.impl.connection.ConnectionMonitor;
-import com.finplant.ib.impl.sender.RequestRepository;
-import com.finplant.ib.impl.subscription.SubscriptionsRepository;
-import com.finplant.ib.impl.types.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.net.SocketException;
-import java.util.*;
+import com.ib.client.Bar;
+import com.ib.client.CommissionReport;
+import com.ib.client.Contract;
+import com.ib.client.ContractDescription;
+import com.ib.client.ContractDetails;
+import com.ib.client.DeltaNeutralContract;
+import com.ib.client.DepthMktDataDescription;
+import com.ib.client.EClientSocket;
+import com.ib.client.EWrapper;
+import com.ib.client.Execution;
+import com.ib.client.FamilyCode;
+import com.ib.client.HistogramEntry;
+import com.ib.client.HistoricalTick;
+import com.ib.client.HistoricalTickBidAsk;
+import com.ib.client.HistoricalTickLast;
+import com.ib.client.NewsProvider;
+import com.ib.client.Order;
+import com.ib.client.OrderState;
+import com.ib.client.PriceIncrement;
+import com.ib.client.SoftDollarTier;
+import com.ib.client.TickAttr;
 
 public class Wrapper implements EWrapper {
 
     private static final Logger log = LoggerFactory.getLogger(Wrapper.class);
 
-    private RequestRepository requests;
     private Set<String> managedAccounts;
 
     private final TerminalErrorHandler errorHandler;
@@ -41,16 +57,14 @@ public class Wrapper implements EWrapper {
     private final CacheRepository cache;
     private final SubscriptionsRepository subscriptions;
     private final IdGenerator idGenerator;
-    private IbReader reader;
     private EClientSocket socket;
 
     public Wrapper(ConnectionMonitor connectionMonitor,
-                   RequestRepository requests,
                    CacheRepository cache,
                    SubscriptionsRepository subscriptions,
                    IdGenerator idGenerator) {
 
-        errorHandler = new TerminalErrorHandler(requests) {
+        errorHandler = new TerminalErrorHandler(subscriptions) {
 
             @Override
             void onError() {
@@ -70,7 +84,6 @@ public class Wrapper implements EWrapper {
             }
         };
         this.connectionMonitor = connectionMonitor;
-        this.requests = requests;
         this.cache = cache;
         this.subscriptions = subscriptions;
         this.idGenerator = idGenerator;
@@ -78,10 +91,6 @@ public class Wrapper implements EWrapper {
 
     public void setSocket(EClientSocket socket) {
         this.socket = socket;
-    }
-
-    public void setReader(IbReader reader) {
-        this.reader = reader;
     }
 
     @Override
@@ -117,7 +126,7 @@ public class Wrapper implements EWrapper {
         if (cache.addNewStatus(twsStatus)) {
 
             log.info("New order status: {}", twsStatus);
-            subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_ORDER_STATUS, twsStatus, false);
+            subscriptions.onNext(SubscriptionsRepository.Type.EVENT_ORDER_STATUS, null, twsStatus, false);
         }
     }
 
@@ -131,13 +140,13 @@ public class Wrapper implements EWrapper {
         if (cache.addOrder(twsOrder)) {
             log.info("New order: requestId={}, contract={}, order={}, orderState={}",
                      orderId, contract.symbol(), order.orderId(), state.status());
-            requests.onNextAndConfirm(RequestRepository.Event.REQ_ORDER_PLACE, orderId, twsOrder);
+            subscriptions.onNextAndComplete(SubscriptionsRepository.Type.REQ_ORDER_PLACE, orderId, twsOrder, true);
         }
     }
 
     @Override
     public void openOrderEnd() {
-        requests.onNextAndConfirm(RequestRepository.Event.REQ_ORDER_LIST, null, cache.getOrders());
+        subscriptions.onNextAndComplete(SubscriptionsRepository.Type.REQ_ORDER_LIST, null, cache.getOrders(), true);
     }
 
     @Override
@@ -146,12 +155,12 @@ public class Wrapper implements EWrapper {
 
         IbPosition position = new IbPosition(account, contract, pos, avgCost);
         cache.updatePosition(position);
-        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_POSITION, position, true);
+        subscriptions.onNext(SubscriptionsRepository.Type.EVENT_POSITION, null, position, true);
     }
 
     @Override
     public void positionEnd() {
-        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_POSITION, IbPosition.COMPLETE, true);
+        subscriptions.onNext(SubscriptionsRepository.Type.EVENT_POSITION, null, IbPosition.COMPLETE, true);
     }
 
     @Override
@@ -174,7 +183,7 @@ public class Wrapper implements EWrapper {
         Double valueObj = doubleToDouble("value", value);
 
         IbPnl pnl = new IbPnl(pos, dailyPnLObj, unrealizedPnLObj, realizedPnLObj, valueObj);
-        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_CONTRACT_PNL, reqId, pnl, true);
+        subscriptions.onNext(SubscriptionsRepository.Type.EVENT_CONTRACT_PNL, reqId, pnl, true);
     }
 
     @Override
@@ -183,7 +192,7 @@ public class Wrapper implements EWrapper {
                   reqId, dailyPnL, unrealizedPnL, realizedPnL);
 
         IbPnl pnl = new IbPnl(null, dailyPnL, unrealizedPnL, realizedPnL, null);
-        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_ACCOUNT_PNL, reqId, pnl, true);
+        subscriptions.onNext(SubscriptionsRepository.Type.EVENT_ACCOUNT_PNL, reqId, pnl, true);
     }
 
     @Override
@@ -227,11 +236,11 @@ public class Wrapper implements EWrapper {
         IbTick tick = cache.getTick(tickerId);
         if (tick == null) {
             log.info("No ticks for ticker {}", tickerId);
-            requests.onError(tickerId, new IbExceptions.NoTicks());
+            subscriptions.onError(tickerId, new IbExceptions.NoTicks());
             return;
         }
 
-        requests.onNextAndConfirm(RequestRepository.Event.REQ_MARKET_DATA, tickerId, tick);
+        subscriptions.onNextAndComplete(SubscriptionsRepository.Type.REQ_MARKET_DATA, tickerId, tick, true);
     }
 
     @Override
@@ -259,12 +268,12 @@ public class Wrapper implements EWrapper {
                                                 unrealizedPNLObj, realizedPNLObj, accountName);
 
         cache.updatePortfolio(portfolio);
-        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_PORTFOLIO, portfolio, true);
+        subscriptions.onNext(SubscriptionsRepository.Type.EVENT_PORTFOLIO, null, portfolio, true);
     }
 
     @Override
     public void accountDownloadEnd(String accountName) {
-        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_PORTFOLIO, IbPortfolio.COMPLETE, true);
+        subscriptions.onNext(SubscriptionsRepository.Type.EVENT_PORTFOLIO, null, IbPortfolio.COMPLETE, true);
     }
 
     @Override
@@ -310,26 +319,26 @@ public class Wrapper implements EWrapper {
     }
 
     private void publishNewTick(int tickerId, IbTick result) {
-        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_MARKET_DATA, tickerId, result, false);
+        subscriptions.onNext(SubscriptionsRepository.Type.EVENT_MARKET_DATA, tickerId, result, false);
     }
 
     private void publishNoData(int tickerId) {
-        subscriptions.onError(SubscriptionsRepository.EventType.EVENT_MARKET_DATA, tickerId, new IbExceptions.NoTicks());
+        subscriptions.onError(SubscriptionsRepository.Type.EVENT_MARKET_DATA, tickerId, new IbExceptions.NoTicks());
     }
 
     @Override
     public void contractDetails(final int reqId, final ContractDetails contractDetails) {
-        requests.onNext(RequestRepository.Event.REQ_CONTRACT_DETAIL, reqId, contractDetails);
+        subscriptions.onNext(SubscriptionsRepository.Type.REQ_CONTRACT_DETAIL, reqId, contractDetails, true);
     }
 
     @Override
     public void contractDetailsEnd(final int reqId) {
-        requests.onComplete(RequestRepository.Event.REQ_CONTRACT_DETAIL, reqId);
+        subscriptions.onComplete(SubscriptionsRepository.Type.REQ_CONTRACT_DETAIL, reqId, true);
     }
 
     @Override
     public void currentTime(final long time) {
-        requests.onNextAndConfirm(RequestRepository.Event.REQ_CURRENT_TIME, null, time);
+        subscriptions.onNextAndComplete(SubscriptionsRepository.Type.REQ_CURRENT_TIME, null, time, true);
     }
 
     @Override
@@ -351,12 +360,12 @@ public class Wrapper implements EWrapper {
         IbPosition position = new IbPosition(account, contract, pos, avgCost);
         cache.updatePosition(position);
 
-        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_POSITION_MULTI, reqId, position, true);
+        subscriptions.onNext(SubscriptionsRepository.Type.EVENT_POSITION_MULTI, reqId, position, true);
     }
 
     @Override
     public void positionMultiEnd(final int reqId) {
-        subscriptions.onNext(SubscriptionsRepository.EventType.EVENT_POSITION_MULTI, reqId, IbPosition.COMPLETE, true);
+        subscriptions.onNext(SubscriptionsRepository.Type.EVENT_POSITION_MULTI, reqId, IbPosition.COMPLETE, true);
     }
 
     @Override
