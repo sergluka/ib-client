@@ -4,13 +4,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.finplant.ib.IbExceptions;
-import com.finplant.ib.impl.subscription.SubscriptionsRepository;
+import com.finplant.ib.impl.request.RequestRepository;
 
 abstract class TerminalErrorHandler {
 
     private static final Logger log = LoggerFactory.getLogger(TerminalErrorHandler.class);
 
-    private final SubscriptionsRepository requests;
+    private final RequestRepository requests;
 
     private enum ErrorType {
         INFO,
@@ -20,7 +20,7 @@ abstract class TerminalErrorHandler {
         CRITICAL
     }
 
-    public TerminalErrorHandler(SubscriptionsRepository requests) {
+    public TerminalErrorHandler(RequestRepository requests) {
         this.requests = requests;
     }
 

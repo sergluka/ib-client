@@ -14,7 +14,7 @@ import com.finplant.ib.IbExceptions;
 import com.finplant.ib.IdGenerator;
 import com.finplant.ib.impl.cache.CacheRepository;
 import com.finplant.ib.impl.connection.ConnectionMonitor;
-import com.finplant.ib.impl.subscription.SubscriptionsRepository;
+import com.finplant.ib.impl.request.RequestRepository;
 import com.finplant.ib.impl.types.IbOrder;
 import com.finplant.ib.impl.types.IbOrderStatus;
 import com.finplant.ib.impl.types.IbPnl;
@@ -55,16 +55,16 @@ public class Wrapper implements EWrapper {
     private final ConnectionMonitor connectionMonitor;
 
     private final CacheRepository cache;
-    private final SubscriptionsRepository subscriptions;
+    private final RequestRepository requests;
     private final IdGenerator idGenerator;
     private EClientSocket socket;
 
     public Wrapper(ConnectionMonitor connectionMonitor,
                    CacheRepository cache,
-                   SubscriptionsRepository subscriptions,
+                   RequestRepository requests,
                    IdGenerator idGenerator) {
 
-        errorHandler = new TerminalErrorHandler(subscriptions) {
+        errorHandler = new TerminalErrorHandler(requests) {
 
             @Override
             void onError() {
@@ -85,7 +85,7 @@ public class Wrapper implements EWrapper {
         };
         this.connectionMonitor = connectionMonitor;
         this.cache = cache;
-        this.subscriptions = subscriptions;
+        this.requests = requests;
         this.idGenerator = idGenerator;
     }
 
@@ -126,7 +126,7 @@ public class Wrapper implements EWrapper {
         if (cache.addNewStatus(twsStatus)) {
 
             log.info("New order status: {}", twsStatus);
-            subscriptions.onNext(SubscriptionsRepository.Type.EVENT_ORDER_STATUS, null, twsStatus, false);
+            requests.onNext(RequestRepository.Type.EVENT_ORDER_STATUS, null, twsStatus, false);
         }
     }
 
@@ -140,13 +140,13 @@ public class Wrapper implements EWrapper {
         if (cache.addOrder(twsOrder)) {
             log.info("New order: requestId={}, contract={}, order={}, orderState={}",
                      orderId, contract.symbol(), order.orderId(), state.status());
-            subscriptions.onNextAndComplete(SubscriptionsRepository.Type.REQ_ORDER_PLACE, orderId, twsOrder, true);
+            requests.onNextAndComplete(RequestRepository.Type.REQ_ORDER_PLACE, orderId, twsOrder, true);
         }
     }
 
     @Override
     public void openOrderEnd() {
-        subscriptions.onNextAndComplete(SubscriptionsRepository.Type.REQ_ORDER_LIST, null, cache.getOrders(), true);
+        requests.onNextAndComplete(RequestRepository.Type.REQ_ORDER_LIST, null, cache.getOrders(), true);
     }
 
     @Override
@@ -155,12 +155,12 @@ public class Wrapper implements EWrapper {
 
         IbPosition position = new IbPosition(account, contract, pos, avgCost);
         cache.updatePosition(position);
-        subscriptions.onNext(SubscriptionsRepository.Type.EVENT_POSITION, null, position, true);
+        requests.onNext(RequestRepository.Type.EVENT_POSITION, null, position, true);
     }
 
     @Override
     public void positionEnd() {
-        subscriptions.onNext(SubscriptionsRepository.Type.EVENT_POSITION, null, IbPosition.COMPLETE, true);
+        requests.onNext(RequestRepository.Type.EVENT_POSITION, null, IbPosition.COMPLETE, true);
     }
 
     @Override
@@ -183,7 +183,7 @@ public class Wrapper implements EWrapper {
         Double valueObj = doubleToDouble("value", value);
 
         IbPnl pnl = new IbPnl(pos, dailyPnLObj, unrealizedPnLObj, realizedPnLObj, valueObj);
-        subscriptions.onNext(SubscriptionsRepository.Type.EVENT_CONTRACT_PNL, reqId, pnl, true);
+        requests.onNext(RequestRepository.Type.EVENT_CONTRACT_PNL, reqId, pnl, true);
     }
 
     @Override
@@ -192,7 +192,7 @@ public class Wrapper implements EWrapper {
                   reqId, dailyPnL, unrealizedPnL, realizedPnL);
 
         IbPnl pnl = new IbPnl(null, dailyPnL, unrealizedPnL, realizedPnL, null);
-        subscriptions.onNext(SubscriptionsRepository.Type.EVENT_ACCOUNT_PNL, reqId, pnl, true);
+        requests.onNext(RequestRepository.Type.EVENT_ACCOUNT_PNL, reqId, pnl, true);
     }
 
     @Override
@@ -236,11 +236,11 @@ public class Wrapper implements EWrapper {
         IbTick tick = cache.getTick(tickerId);
         if (tick == null) {
             log.info("No ticks for ticker {}", tickerId);
-            subscriptions.onError(tickerId, new IbExceptions.NoTicks());
+            requests.onError(tickerId, new IbExceptions.NoTicks());
             return;
         }
 
-        subscriptions.onNextAndComplete(SubscriptionsRepository.Type.REQ_MARKET_DATA, tickerId, tick, true);
+        requests.onNextAndComplete(RequestRepository.Type.REQ_MARKET_DATA, tickerId, tick, true);
     }
 
     @Override
@@ -268,12 +268,12 @@ public class Wrapper implements EWrapper {
                                                 unrealizedPNLObj, realizedPNLObj, accountName);
 
         cache.updatePortfolio(portfolio);
-        subscriptions.onNext(SubscriptionsRepository.Type.EVENT_PORTFOLIO, null, portfolio, true);
+        requests.onNext(RequestRepository.Type.EVENT_PORTFOLIO, null, portfolio, true);
     }
 
     @Override
     public void accountDownloadEnd(String accountName) {
-        subscriptions.onNext(SubscriptionsRepository.Type.EVENT_PORTFOLIO, null, IbPortfolio.COMPLETE, true);
+        requests.onNext(RequestRepository.Type.EVENT_PORTFOLIO, null, IbPortfolio.COMPLETE, true);
     }
 
     @Override
@@ -319,26 +319,26 @@ public class Wrapper implements EWrapper {
     }
 
     private void publishNewTick(int tickerId, IbTick result) {
-        subscriptions.onNext(SubscriptionsRepository.Type.EVENT_MARKET_DATA, tickerId, result, false);
+        requests.onNext(RequestRepository.Type.EVENT_MARKET_DATA, tickerId, result, false);
     }
 
     private void publishNoData(int tickerId) {
-        subscriptions.onError(SubscriptionsRepository.Type.EVENT_MARKET_DATA, tickerId, new IbExceptions.NoTicks());
+        requests.onError(RequestRepository.Type.EVENT_MARKET_DATA, tickerId, new IbExceptions.NoTicks());
     }
 
     @Override
     public void contractDetails(final int reqId, final ContractDetails contractDetails) {
-        subscriptions.onNext(SubscriptionsRepository.Type.REQ_CONTRACT_DETAIL, reqId, contractDetails, true);
+        requests.onNext(RequestRepository.Type.REQ_CONTRACT_DETAIL, reqId, contractDetails, true);
     }
 
     @Override
     public void contractDetailsEnd(final int reqId) {
-        subscriptions.onComplete(SubscriptionsRepository.Type.REQ_CONTRACT_DETAIL, reqId, true);
+        requests.onComplete(RequestRepository.Type.REQ_CONTRACT_DETAIL, reqId, true);
     }
 
     @Override
     public void currentTime(final long time) {
-        subscriptions.onNextAndComplete(SubscriptionsRepository.Type.REQ_CURRENT_TIME, null, time, true);
+        requests.onNextAndComplete(RequestRepository.Type.REQ_CURRENT_TIME, null, time, true);
     }
 
     @Override
@@ -360,12 +360,12 @@ public class Wrapper implements EWrapper {
         IbPosition position = new IbPosition(account, contract, pos, avgCost);
         cache.updatePosition(position);
 
-        subscriptions.onNext(SubscriptionsRepository.Type.EVENT_POSITION_MULTI, reqId, position, true);
+        requests.onNext(RequestRepository.Type.EVENT_POSITION_MULTI, reqId, position, true);
     }
 
     @Override
     public void positionMultiEnd(final int reqId) {
-        subscriptions.onNext(SubscriptionsRepository.Type.EVENT_POSITION_MULTI, reqId, IbPosition.COMPLETE, true);
+        requests.onNext(RequestRepository.Type.EVENT_POSITION_MULTI, reqId, IbPosition.COMPLETE, true);
     }
 
     @Override

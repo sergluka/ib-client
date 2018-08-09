@@ -12,7 +12,7 @@ import com.finplant.ib.impl.IbReader;
 import com.finplant.ib.impl.Wrapper;
 import com.finplant.ib.impl.cache.CacheRepository;
 import com.finplant.ib.impl.connection.ConnectionMonitor;
-import com.finplant.ib.impl.subscription.SubscriptionsRepository;
+import com.finplant.ib.impl.request.RequestRepository;
 import com.finplant.ib.impl.types.IbOrder;
 import com.finplant.ib.impl.types.IbOrderStatus;
 import com.finplant.ib.impl.types.IbPnl;
@@ -32,18 +32,18 @@ import io.reactivex.Single;
 public class IbClient implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(IbClient.class);
+
     private IbReader reader;
     private Wrapper wrapper;
     private EClientSocket socket;
     private CacheRepository cache;
     private ConnectionMonitor connectionMonitor;
     private IdGenerator idGenerator;
-    private SubscriptionsRepository subscriptions;
+    private RequestRepository requests;
 
     public IbClient() {
-        super();
         idGenerator = new IdGenerator();
-        subscriptions = new SubscriptionsRepository(this, idGenerator);
+        requests = new RequestRepository(this, idGenerator);
     }
 
     @Override
@@ -94,18 +94,16 @@ public class IbClient implements AutoCloseable {
                 @Override
                 protected void afterConnect() {
                     socket.setServerLogLevel(IbClient.LogLevel.DETAIL.ordinal());
-
-                    subscriptions.resubscribe();
                     emitter.onComplete();
                 }
 
                 @Override
                 protected void onConnectStatusChange(Boolean status) {
-                    subscriptions.onNext(SubscriptionsRepository.Type.EVENT_CONNECTION_STATUS, null, status, false);
+                    requests.onNext(RequestRepository.Type.EVENT_CONNECTION_STATUS, null, status, false);
                 }
             };
 
-            wrapper = new Wrapper(connectionMonitor, cache, subscriptions, idGenerator);
+            wrapper = new Wrapper(connectionMonitor, cache, requests, idGenerator);
 
             connectionMonitor.start();
             connectionMonitor.connect();
@@ -114,7 +112,7 @@ public class IbClient implements AutoCloseable {
 
     public void disconnect() {
         log.debug("Disconnecting...");
-        subscriptions.close();
+        requests.close();
         connectionMonitor.close();
         log.info("Disconnected");
     }
@@ -131,21 +129,21 @@ public class IbClient implements AutoCloseable {
 
     @NotNull
     public Observable<IbOrderStatus> subscribeOnOrderNewStatus() {
-        return subscriptions.addSubscriptionWithoutId(SubscriptionsRepository.Type.EVENT_ORDER_STATUS, null, null);
+        return requests.addRequestWithoutId(RequestRepository.Type.EVENT_ORDER_STATUS, null, null);
     }
 
     public Observable<IbPosition> subscribeOnPositionChange() {
-        return subscriptions.addSubscriptionWithoutId(
-              SubscriptionsRepository.Type.EVENT_POSITION,
+        return requests.addRequestWithoutId(
+              RequestRepository.Type.EVENT_POSITION,
               (unused) -> socket.reqPositions(),
               (unused) -> socket.cancelPositions());
     }
 
     public synchronized Observable<IbPosition> subscribeOnPositionChange(String account) {
 
-        return subscriptions.addSubscriptionWithId(SubscriptionsRepository.Type.EVENT_POSITION_MULTI,
-                                                   (id) -> socket.reqPositionsMulti(id, account, ""),
-                                                   (id) -> socket.cancelPositionsMulti(id));
+        return requests.addRequestWithId(RequestRepository.Type.EVENT_POSITION_MULTI,
+                                              (id) -> socket.reqPositionsMulti(id, account, ""),
+                                              (id) -> socket.cancelPositionsMulti(id));
     }
 
     public synchronized void setMarketDataType(MarketDataType type) {
@@ -154,21 +152,21 @@ public class IbClient implements AutoCloseable {
 
     public Single<IbTick> reqMktData(Contract contract) {
 
-        return subscriptions.<IbTick>addSubscriptionWithId(SubscriptionsRepository.Type.REQ_MARKET_DATA,
-                                                           (id) -> socket.reqMktData(id, contract, "", true, false, null),
-                                                           (id) -> socket.cancelPositionsMulti(id)).firstOrError();
+        return requests.<IbTick>addRequestWithId(RequestRepository.Type.REQ_MARKET_DATA,
+                                                      (id) -> socket.reqMktData(id, contract, "", true, false, null),
+                                                      (id) -> socket.cancelPositionsMulti(id)).firstOrError();
     }
 
     public synchronized Observable<IbTick> subscribeOnMarketData(Contract contract) {
-        return subscriptions.addSubscriptionWithId(SubscriptionsRepository.Type.EVENT_MARKET_DATA,
-                                                   (id) -> socket.reqMktData(id, contract, "", false, false, null),
-                                                   (id) -> socket.cancelMktData(id));
+        return requests.addRequestWithId(RequestRepository.Type.EVENT_MARKET_DATA,
+                                              (id) -> socket.reqMktData(id, contract, "", false, false, null),
+                                              (id) -> socket.cancelMktData(id));
     }
 
     public synchronized Observable<IbPnl> subscribeOnContractPnl(int contractId, String account) {
-        return subscriptions.addSubscriptionWithId(SubscriptionsRepository.Type.EVENT_CONTRACT_PNL,
-                                                   (id) -> socket.reqPnLSingle(id, account, "", contractId),
-                                                   (id) -> socket.cancelPnLSingle(id));
+        return requests.addRequestWithId(RequestRepository.Type.EVENT_CONTRACT_PNL,
+                                              (id) -> socket.reqPnLSingle(id, account, "", contractId),
+                                              (id) -> socket.cancelPnLSingle(id));
     }
 
     public synchronized Observable<IbPnl> subscribeOnAccountPnl(@NotNull String account) {
@@ -178,9 +176,9 @@ public class IbClient implements AutoCloseable {
             throw new IllegalArgumentException("'account' parameter is empty");
         }
 
-        return subscriptions.addSubscriptionWithId(SubscriptionsRepository.Type.EVENT_ACCOUNT_PNL,
-                                                   (id) -> socket.reqPnL(id, account, ""),
-                                                   (id) -> socket.cancelPnL(id));
+        return requests.addRequestWithId(RequestRepository.Type.EVENT_ACCOUNT_PNL,
+                                              (id) -> socket.reqPnL(id, account, ""),
+                                              (id) -> socket.cancelPnL(id));
     }
 
     public synchronized Observable<IbPortfolio> subscribeOnAccountPortfolio(@NotNull String account) {
@@ -190,14 +188,14 @@ public class IbClient implements AutoCloseable {
             throw new IllegalArgumentException("'account' parameter is empty");
         }
 
-        return subscriptions.addSubscriptionWithoutId(SubscriptionsRepository.Type.EVENT_PORTFOLIO,
-                                                      (unused) -> socket.reqAccountUpdates(true, account),
-                                                      (unused) -> socket.reqAccountUpdates(false, account));
+        return requests.addRequestWithoutId(RequestRepository.Type.EVENT_PORTFOLIO,
+                                                 (unused) -> socket.reqAccountUpdates(true, account),
+                                                 (unused) -> socket.reqAccountUpdates(false, account));
     }
 
     public synchronized Observable<Boolean> status() {
-        return subscriptions.addSubscriptionWithoutId(SubscriptionsRepository.Type.EVENT_CONNECTION_STATUS,
-                                                      null, null);
+        return requests.addRequestWithoutId(RequestRepository.Type.EVENT_CONNECTION_STATUS,
+                                                 null, null);
     }
 
     public synchronized int nextOrderId() {
@@ -206,8 +204,8 @@ public class IbClient implements AutoCloseable {
 
     @NotNull
     public synchronized Single<Long> getCurrentTime() {
-        return subscriptions.<Long>addSubscriptionWithoutId(SubscriptionsRepository.Type.REQ_CURRENT_TIME,
-                                                            (unused) -> socket.reqCurrentTime(), null).firstOrError();
+        return requests.<Long>addRequestWithoutId(RequestRepository.Type.REQ_CURRENT_TIME,
+                                                       (unused) -> socket.reqCurrentTime(), null).firstOrError();
     }
 
     @NotNull
@@ -216,10 +214,10 @@ public class IbClient implements AutoCloseable {
             order.orderId(idGenerator.nextOrderId());
         }
 
-        return subscriptions.<IbOrder>addSubscription(SubscriptionsRepository.Type.REQ_ORDER_PLACE,
-                                                      order.orderId(),
-                                                      (unused) -> socket.placeOrder(order.orderId(), contract, order),
-                                                      null).firstOrError();
+        return requests.<IbOrder>addRequest(RequestRepository.Type.REQ_ORDER_PLACE,
+                                                 order.orderId(),
+                                                 (unused) -> socket.placeOrder(order.orderId(), contract, order),
+                                                 null).firstOrError();
     }
 
     public synchronized void cancelOrder(int orderId) {
@@ -237,18 +235,18 @@ public class IbClient implements AutoCloseable {
 
     @NotNull
     public synchronized Single<Map<Integer, IbOrder>> reqAllOpenOrders() {
-        return subscriptions.<Map<Integer, IbOrder>>addSubscriptionWithoutId(SubscriptionsRepository.Type.REQ_ORDER_LIST,
-                                                                             (unused) -> socket.reqAllOpenOrders(),
-                                                                             null).firstOrError();
+        return requests.<Map<Integer, IbOrder>>addRequestWithoutId(RequestRepository.Type.REQ_ORDER_LIST,
+                                                                        (unused) -> socket.reqAllOpenOrders(),
+                                                                        null).firstOrError();
     }
 
     @NotNull
     public Observable<ContractDetails> reqContractDetails(@NotNull Contract contract) {
         Objects.requireNonNull(contract);
 
-        return subscriptions.addSubscriptionWithId(SubscriptionsRepository.Type.REQ_CONTRACT_DETAIL,
-                                                   (id) -> socket.reqContractDetails(id, contract),
-                                                   null);
+        return requests.addRequestWithId(RequestRepository.Type.REQ_CONTRACT_DETAIL,
+                                              (id) -> socket.reqContractDetails(id, contract),
+                                              null);
     }
 
     private void shouldBeConnected() {

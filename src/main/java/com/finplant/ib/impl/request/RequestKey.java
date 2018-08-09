@@ -1,18 +1,18 @@
-package com.finplant.ib.impl.subscription;//package com.finplant.ib.impl.sender;
+package com.finplant.ib.impl.request;
 
 import java.util.Objects;
 
 // TODO: test
-public class SubscriptionKey {
-    private final SubscriptionsRepository.Type type;
+public class RequestKey {
+    private final RequestRepository.Type type;
     private final Integer id;
 
-    SubscriptionKey(SubscriptionsRepository.Type type, Integer id) {
+    RequestKey(RequestRepository.Type type, Integer id) {
         this.type = type;
         this.id = id;
     }
 
-    public SubscriptionsRepository.Type getType() {
+    public RequestRepository.Type getType() {
         return type;
     }
 
@@ -30,7 +30,7 @@ public class SubscriptionKey {
             return false;
         }
 
-        SubscriptionKey typeKey = (SubscriptionKey) obj;
+        RequestKey typeKey = (RequestKey) obj;
         return Objects.equals(id, typeKey.id) || type == typeKey.type;
     }
 
