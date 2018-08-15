@@ -119,13 +119,13 @@ public class IbOrderStatus implements Comparable<IbOrderStatus> {
 
         IbOrderStatus that = (IbOrderStatus) obj;
         return orderId == that.orderId &&
+                permId == that.permId &&
+                parentId == that.parentId &&
+                clientId == that.clientId &&
                 Precision.equals(that.filled, filled, EPSILON) &&
                 Precision.equals(that.remaining, remaining, EPSILON) &&
                 Precision.equals(that.avgFillPrice, avgFillPrice, EPSILON) &&
-                permId == that.permId &&
-                parentId == that.parentId &&
                 Precision.equals(that.lastFillPrice, lastFillPrice, EPSILON) &&
-                clientId == that.clientId &&
                 Precision.equals(that.mktCapPrice, mktCapPrice, EPSILON) &&
                 Objects.equals(status, that.status) &&
                 Objects.equals(whyHeld, that.whyHeld);
@@ -142,7 +142,6 @@ public class IbOrderStatus implements Comparable<IbOrderStatus> {
     public int compareTo(IbOrderStatus rhs) {
         return ComparisonChain.start()
                               .compare(orderId, rhs.orderId)
-                              .compare(status, rhs.status, Ordering.natural().nullsFirst())
                               .compare(filled, rhs.filled)
                               .compare(remaining, rhs.remaining)
                               .compare(avgFillPrice, rhs.avgFillPrice)
@@ -150,8 +149,9 @@ public class IbOrderStatus implements Comparable<IbOrderStatus> {
                               .compare(parentId, rhs.parentId)
                               .compare(lastFillPrice, rhs.lastFillPrice)
                               .compare(clientId, rhs.clientId)
-                              .compare(whyHeld, rhs.whyHeld, Ordering.natural().nullsFirst())
                               .compare(mktCapPrice, rhs.mktCapPrice)
+                              .compare(status, rhs.status, Ordering.natural().nullsFirst())
+                              .compare(whyHeld, rhs.whyHeld, Ordering.natural().nullsFirst())
                               .result();
 
     }

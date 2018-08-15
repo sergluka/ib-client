@@ -15,7 +15,7 @@ public class IdGenerator {
 
     public int nextOrderId() {
         if (orderId.get() == INVALID_ID) {
-            throw new IllegalStateException("Has no request ID from TWS"); // TODO: Wait until we got one
+            throw new IllegalStateException("Has no request ID from TWS");
         }
 
         return orderId.getAndIncrement();

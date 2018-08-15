@@ -29,6 +29,8 @@ import io.reactivex.Completable;
 import io.reactivex.Observable;
 import io.reactivex.Single;
 
+import static org.assertj.core.api.Assertions.*;
+
 public class IbClient implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(IbClient.class);
@@ -55,7 +57,11 @@ public class IbClient implements AutoCloseable {
         return cache;
     }
 
-    public Completable connect(final @NotNull String ip, final int port, final int connId) {
+    public Completable connect(String ip, int port, int connId) {
+        assertThat(ip).as("IP address should be defined").isNotBlank();
+        assertThat(port).isPositive();
+        assertThat(connId).isGreaterThanOrEqualTo(0);
+
         log.debug("Connecting to {}:{}, id={} ...", ip, port, connId);
 
         return Completable.create(emitter -> {
@@ -132,6 +138,7 @@ public class IbClient implements AutoCloseable {
         return requests.addRequestWithoutId(RequestRepository.Type.EVENT_ORDER_STATUS, null, null);
     }
 
+    // TODO: Add test
     public Observable<IbPosition> subscribeOnPositionChange() {
         return requests.addRequestWithoutId(
               RequestRepository.Type.EVENT_POSITION,
@@ -140,62 +147,63 @@ public class IbClient implements AutoCloseable {
     }
 
     public synchronized Observable<IbPosition> subscribeOnPositionChange(String account) {
+        assertThat(account).as("Account should be defined").isNotBlank();
 
         return requests.addRequestWithId(RequestRepository.Type.EVENT_POSITION_MULTI,
-                                              (id) -> socket.reqPositionsMulti(id, account, ""),
-                                              (id) -> socket.cancelPositionsMulti(id));
+                                         (id) -> socket.reqPositionsMulti(id, account, ""),
+                                         (id) -> socket.cancelPositionsMulti(id));
     }
 
     public synchronized void setMarketDataType(MarketDataType type) {
+        assertThat(type).as("Type should be defined").isNotNull();
+
         socket.reqMarketDataType(type.getValue());
     }
 
     public Single<IbTick> reqMktData(Contract contract) {
+        assertThat(contract).as("Contract should be defined").isNotNull();
 
         return requests.<IbTick>addRequestWithId(RequestRepository.Type.REQ_MARKET_DATA,
-                                                      (id) -> socket.reqMktData(id, contract, "", true, false, null),
-                                                      (id) -> socket.cancelPositionsMulti(id)).firstOrError();
+                                                 (id) -> socket.reqMktData(id, contract, "", true, false, null),
+                                                 (id) -> socket.cancelPositionsMulti(id)).firstOrError();
     }
 
     public synchronized Observable<IbTick> subscribeOnMarketData(Contract contract) {
+        assertThat(contract).as("Contract ID should be defined").isNotNull();
+
         return requests.addRequestWithId(RequestRepository.Type.EVENT_MARKET_DATA,
-                                              (id) -> socket.reqMktData(id, contract, "", false, false, null),
-                                              (id) -> socket.cancelMktData(id));
+                                         (id) -> socket.reqMktData(id, contract, "", false, false, null),
+                                         (id) -> socket.cancelMktData(id));
     }
 
     public synchronized Observable<IbPnl> subscribeOnContractPnl(int contractId, String account) {
+        assertThat(contractId).as("Contract ID should be positive").isPositive();
+        assertThat(account).as("Account should be defined").isNotBlank();
+
         return requests.addRequestWithId(RequestRepository.Type.EVENT_CONTRACT_PNL,
-                                              (id) -> socket.reqPnLSingle(id, account, "", contractId),
-                                              (id) -> socket.cancelPnLSingle(id));
+                                         (id) -> socket.reqPnLSingle(id, account, "", contractId),
+                                         (id) -> socket.cancelPnLSingle(id));
     }
 
     public synchronized Observable<IbPnl> subscribeOnAccountPnl(@NotNull String account) {
-        // TODO: Validate parameters for all funcs (use apache validator?)
-        Objects.requireNonNull(account, "'account' parameter is null");
-        if (account.isEmpty()) {
-            throw new IllegalArgumentException("'account' parameter is empty");
-        }
+        assertThat(account).as("Account should be defined").isNotBlank();
 
         return requests.addRequestWithId(RequestRepository.Type.EVENT_ACCOUNT_PNL,
-                                              (id) -> socket.reqPnL(id, account, ""),
-                                              (id) -> socket.cancelPnL(id));
+                                         (id) -> socket.reqPnL(id, account, ""),
+                                         (id) -> socket.cancelPnL(id));
     }
 
-    public synchronized Observable<IbPortfolio> subscribeOnAccountPortfolio(@NotNull String account) {
-
-        Objects.requireNonNull(account, "'account' parameter is null");
-        if (account.isEmpty()) {
-            throw new IllegalArgumentException("'account' parameter is empty");
-        }
+    public synchronized Observable<IbPortfolio> subscribeOnAccountPortfolio(String account) {
+        assertThat(account).as("Account should be defined").isNotBlank();
 
         return requests.addRequestWithoutId(RequestRepository.Type.EVENT_PORTFOLIO,
-                                                 (unused) -> socket.reqAccountUpdates(true, account),
-                                                 (unused) -> socket.reqAccountUpdates(false, account));
+                                            (unused) -> socket.reqAccountUpdates(true, account),
+                                            (unused) -> socket.reqAccountUpdates(false, account));
     }
 
     public synchronized Observable<Boolean> status() {
         return requests.addRequestWithoutId(RequestRepository.Type.EVENT_CONNECTION_STATUS,
-                                                 null, null);
+                                            null, null);
     }
 
     public synchronized int nextOrderId() {
@@ -205,22 +213,27 @@ public class IbClient implements AutoCloseable {
     @NotNull
     public synchronized Single<Long> getCurrentTime() {
         return requests.<Long>addRequestWithoutId(RequestRepository.Type.REQ_CURRENT_TIME,
-                                                       (unused) -> socket.reqCurrentTime(), null).firstOrError();
+                                                  (unused) -> socket.reqCurrentTime(), null).firstOrError();
     }
 
     @NotNull
-    public synchronized Single<IbOrder> placeOrder(@NotNull Contract contract, @NotNull Order order) {
+    public synchronized Single<IbOrder> placeOrder(Contract contract, Order order) {
+        assertThat(contract).as("Contract should be defined").isNotNull();
+        assertThat(order).as("Order should be defined").isNotNull();
+
         if (order.orderId() == 0) {
             order.orderId(idGenerator.nextOrderId());
         }
 
         return requests.<IbOrder>addRequest(RequestRepository.Type.REQ_ORDER_PLACE,
-                                                 order.orderId(),
-                                                 (unused) -> socket.placeOrder(order.orderId(), contract, order),
-                                                 null).firstOrError();
+                                            order.orderId(),
+                                            (unused) -> socket.placeOrder(order.orderId(), contract, order),
+                                            null).firstOrError();
     }
 
     public synchronized void cancelOrder(int orderId) {
+        assertThat(orderId).isGreaterThanOrEqualTo(0);
+
         // TODO: Check for order canceled status and return Completable
 
         log.info("Canceling order {}", orderId);
@@ -236,17 +249,17 @@ public class IbClient implements AutoCloseable {
     @NotNull
     public synchronized Single<Map<Integer, IbOrder>> reqAllOpenOrders() {
         return requests.<Map<Integer, IbOrder>>addRequestWithoutId(RequestRepository.Type.REQ_ORDER_LIST,
-                                                                        (unused) -> socket.reqAllOpenOrders(),
-                                                                        null).firstOrError();
+                                                                   (unused) -> socket.reqAllOpenOrders(),
+                                                                   null).firstOrError();
     }
 
     @NotNull
-    public Observable<ContractDetails> reqContractDetails(@NotNull Contract contract) {
-        Objects.requireNonNull(contract);
+    public Observable<ContractDetails> reqContractDetails(Contract contract) {
+        assertThat(contract).as("Contract should be defined").isNotNull();
 
         return requests.addRequestWithId(RequestRepository.Type.REQ_CONTRACT_DETAIL,
-                                              (id) -> socket.reqContractDetails(id, contract),
-                                              null);
+                                         (id) -> socket.reqContractDetails(id, contract),
+                                         null);
     }
 
     private void shouldBeConnected() {
