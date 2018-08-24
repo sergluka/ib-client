@@ -150,4 +150,15 @@ public class CacheRepository {
             return value;
         });
     }
+
+    public void clear() {
+        orders.clear();
+        positions.clear();
+        ticks.clear();
+        portfolioContracts.clear();
+        orderBooks.clear();
+        statuses.clear();
+
+        log.debug("Cache is cleared");
+    }
 }

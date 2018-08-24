@@ -23,7 +23,8 @@ public class PrettyPrinters {
         double UNDEFINED_DBL = 1.7976931348623157E308D;
 
         final StringBuilder buffer = new StringBuilder("{");
-        buffer.append("action=").append(order.action());
+        buffer.append("id=").append(order.orderId());
+        buffer.append(", action=").append(order.action());
 
         if (order.orderType() != null) {
             buffer.append(", orderType=").append(order.orderType());

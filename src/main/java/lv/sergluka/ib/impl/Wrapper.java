@@ -330,6 +330,7 @@ public class Wrapper implements EWrapper {
     @Override
     public void nextValidId(int id) {
         log.debug("New request ID: {}", id);
+        cache.clear();
         idGenerator.setOrderId(id);
     }
 
