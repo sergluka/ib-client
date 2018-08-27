@@ -330,8 +330,9 @@ public class Wrapper implements EWrapper {
     @Override
     public void nextValidId(int id) {
         log.debug("New request ID: {}", id);
-        cache.clear();
-        idGenerator.setOrderId(id);
+        if (idGenerator.setOrderId(id)) {
+            cache.clear();
+        }
     }
 
     private void publishNewTick(int tickerId, IbTick result) {

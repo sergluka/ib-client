@@ -14,12 +14,18 @@ public class IdGenerator {
     private AtomicInteger orderId = new AtomicInteger(INVALID_ID);
     private AtomicInteger requestId = new AtomicInteger(100_000_000);
 
-    public void setOrderId(Integer newValue) {
+    /**
+     * @return true if TWS resets its ID
+     */
+    public boolean setOrderId(Integer newValue) {
         int oldValue = orderId.getAndSet(newValue);
 
         if (newValue < oldValue) {
             log.warn("TWS resets request ID: {} => {}", oldValue, newValue);
+            return true;
         }
+
+        return false;
     }
 
     public int nextOrderId() {
