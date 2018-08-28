@@ -29,15 +29,17 @@ abstract class TerminalErrorHandler {
     public void handle(final int id, final int code, final String message) {
         ErrorType severity;
         switch (code) {
-            case 2104:
-            case 2106:
-            case 2108:
             case 202: // Order canceled
             case 2100: // API client has been unsubscribed from account data..
+            case 2104: // Market data farm connection is OK
+            case 2106: // A historical data farm is connected.
+            case 2107: // A historical data farm connection has become inactive but should be available upon demand.
+            case 2108: // A market data farm connection has become inactive but should be available upon demand.
                 severity = ErrorType.INFO;
                 break;
             case 201: // Order rejected
             case 399: // Order message error
+            case 2105: // A historical data farm is disconnected.
             case 2109: // Order Event Warning: Attribute "Outside Regular Trading Hours" is ignored based on the order type and destination. PlaceOrder is now processed.
             case 10147: // OrderId ... that needs to be cancelled is not found
             case 10148: // OrderId ... that needs to be cancelled can not be cancelled
