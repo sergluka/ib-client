@@ -1,4 +1,4 @@
-package lv.sergluka;
+package com.finplant.ib;
 
 import com.ib.client.Contract;
 

@@ -15,16 +15,19 @@ public class Request<T> {
     private final RequestKey key;
     private final Consumer<Integer> registrationFn;
     private final Consumer<Integer> unregistrationFn;
+    private Object userData;
 
     Request(ObservableEmitter<T> emitter,
             RequestKey key,
             Consumer<Integer> registrationFn,
-            Consumer<Integer> unregistrationFn) {
+            Consumer<Integer> unregistrationFn,
+            Object userData) {
 
         this.emitter = emitter;
         this.key = key;
         this.registrationFn = registrationFn;
         this.unregistrationFn = unregistrationFn;
+        this.userData = userData;
     }
 
     @Override
@@ -67,5 +70,9 @@ public class Request<T> {
 
     public void onError(Throwable throwable) {
         emitter.onError(throwable);
+    }
+
+    public Object getUserData() {
+        return userData;
     }
 }

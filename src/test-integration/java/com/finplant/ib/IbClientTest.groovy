@@ -1,12 +1,14 @@
 package com.finplant.ib
 
+import com.finplant.ib.impl.types.IbMarketDepth
+import com.finplant.ib.impl.types.IbPnl
+import com.finplant.ib.impl.types.IbPortfolio
+import com.finplant.ib.impl.types.IbPosition
 import com.ib.client.*
 import io.reactivex.functions.Predicate
 import io.reactivex.observers.BaseTestConsumer
 import io.reactivex.observers.TestObserver
-import com.finplant.ib.impl.types.IbPnl
-import com.finplant.ib.impl.types.IbPortfolio
-import com.finplant.ib.impl.types.IbPosition
+import spock.lang.Ignore
 import spock.lang.Specification
 
 import java.util.concurrent.TimeUnit
@@ -230,6 +232,95 @@ class IbClientTest extends Specification {
         testObserver.assertValueAt 0, { it.closePrice > 0 } as Predicate
     }
 
+    def "Get market depth"() {
+        given:
+        def contract = createContractEUR()
+
+        when:
+        def observer = client.getMarketDepth(contract, 2).test()
+
+        then:
+        observer.awaitCount(4, BaseTestConsumer.TestWaitStrategy.SLEEP_100MS, 5000)
+        observer.assertNoErrors()
+        observer.assertValueAt 0, { IbMarketDepth level ->
+            level.position == 0
+            level.side == IbMarketDepth.Side.BUY
+            level.price > 0.0
+            level.size > 0
+        } as Predicate
+
+        observer.assertValueAt 1, { IbMarketDepth level ->
+            level.position == 1
+            level.side == IbMarketDepth.Side.BUY
+            level.price > 0.0
+            level.size > 0
+        } as Predicate
+
+        observer.assertValueAt 0, { IbMarketDepth level ->
+            level.position == 0
+            level.side == IbMarketDepth.Side.SELL
+            level.price > 0.0
+            level.size > 0
+        } as Predicate
+
+        observer.assertValueAt 1, { IbMarketDepth level ->
+            level.position == 1
+            level.side == IbMarketDepth.Side.SELL
+            level.price > 0.0
+            level.size > 0
+        } as Predicate
+    }
+
+    @Ignore("To check contracts with L2 paid subscription is need and opened trading session. Use this test for respective account and run manually")
+    def "Get market depth L2"() {
+        given:
+        def contract = createContractARRY_L2()
+
+        when:
+        def observer = client.getMarketDepth(contract, 2).test()
+
+        then:
+        observer.awaitCount(4, BaseTestConsumer.TestWaitStrategy.SLEEP_100MS, 5000)
+        observer.assertNoErrors()
+        observer.assertValueAt 0, { IbMarketDepth level ->
+            level.position == 0
+            level.side == IbMarketDepth.Side.BUY
+            level.price > 0.0
+            level.size > 0
+        } as Predicate
+
+        observer.assertValueAt 1, { IbMarketDepth level ->
+            level.position == 1
+            level.side == IbMarketDepth.Side.BUY
+            level.price > 0.0
+            level.size > 0
+        } as Predicate
+
+        observer.assertValueAt 0, { IbMarketDepth level ->
+            level.position == 0
+            level.side == IbMarketDepth.Side.SELL
+            level.price > 0.0
+            level.size > 0
+        } as Predicate
+
+        observer.assertValueAt 1, { IbMarketDepth level ->
+            level.position == 1
+            level.side == IbMarketDepth.Side.SELL
+            level.price > 0.0
+            level.size > 0
+        } as Predicate
+    }
+
+    def "Request market depth information about exchanges"() {
+        when:
+        def observer = client.reqMktDepthExchanges().test()
+
+        then:
+        observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
+        observer.assertNoErrors()
+        observer.awaitCount(1)
+    }
+
     def "Request orders and place orders shouldn't interfere each other"() {
         given:
         def contract = createContractEUR()
@@ -291,7 +382,7 @@ class IbClientTest extends Specification {
 
     def "Get contract snapshot"() {
         when:
-        def future = client.reqMktData(createContractEUR())
+        def future = client.reqMktData(createContractEUR()) // TODO Use .test()
         def tick = future.timeout(10, TimeUnit.SECONDS).blockingGet()
 
         then:
@@ -351,5 +442,15 @@ class IbClientTest extends Specification {
         order.auxPrice(1.0f)
         order.totalQuantity(1.0f)
         return order
+    }
+
+    private static def createContractARRY_L2() {
+        def contract = new Contract()
+        contract.conid(10831568)
+        contract.symbol("ARRY")
+        contract.currency("USD")
+        contract.exchange("ISLAND")
+        contract.secType(Types.SecType.STK)
+        return contract
     }
 }

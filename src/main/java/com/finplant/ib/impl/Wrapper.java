@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +16,7 @@ import com.finplant.ib.IdGenerator;
 import com.finplant.ib.impl.cache.CacheRepository;
 import com.finplant.ib.impl.connection.ConnectionMonitor;
 import com.finplant.ib.impl.request.RequestRepository;
+import com.finplant.ib.impl.types.IbMarketDepth;
 import com.finplant.ib.impl.types.IbOrder;
 import com.finplant.ib.impl.types.IbOrderStatus;
 import com.finplant.ib.impl.types.IbPnl;
@@ -22,6 +24,7 @@ import com.finplant.ib.impl.types.IbPortfolio;
 import com.finplant.ib.impl.types.IbPosition;
 import com.finplant.ib.impl.types.IbTick;
 import com.google.common.base.Splitter;
+import com.google.common.collect.Lists;
 import com.ib.client.Bar;
 import com.ib.client.CommissionReport;
 import com.ib.client.Contract;
@@ -43,6 +46,8 @@ import com.ib.client.OrderState;
 import com.ib.client.PriceIncrement;
 import com.ib.client.SoftDollarTier;
 import com.ib.client.TickAttr;
+
+import com.finplant.ib.impl.types.IbDepthMktDataDescription;
 
 public class Wrapper implements EWrapper {
 
@@ -244,6 +249,45 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
+    public void mktDepthExchanges(DepthMktDataDescription[] depthMktDataDescriptions) {
+        List<IbDepthMktDataDescription> result =
+              Lists.newArrayList(depthMktDataDescriptions).stream()
+                   .map(IbDepthMktDataDescription::new)
+                   .collect(Collectors.toList());
+        log.debug("mktDepthExchanges: {}", result);
+
+        requests.onNextAndComplete(RequestRepository.Type.REQ_MARKET_DEPTH_EXCHANGES, null, result, true);
+    }
+
+    @Override
+    public void updateMktDepth(final int tickerId,
+                               final int position,
+                               final int operation,
+                               final int side,
+                               final double price,
+                               final int size) {
+        log.debug("updateMktDepth: tickerId = {}, position = {}, operation = {}, side = {}, price = {}, size = {}",
+                  tickerId,  position, operation, side, price, size);
+
+        handleUpdateMktDepth(tickerId, position, null, operation, side, price, size);
+    }
+
+    @Override
+    public void updateMktDepthL2(final int tickerId,
+                                 final int position,
+                                 final String marketMaker,
+                                 final int operation,
+                                 final int side,
+                                 final double price,
+                                 final int size) {
+
+        log.debug("updateMktDepthL2: tickerId = {}, position = {}, marketMaker = {}, operation = {}, side = {}, " +
+                  "price = {}, size = {}", tickerId, position, marketMaker, operation, side, price, size);
+
+        handleUpdateMktDepth(tickerId, position, marketMaker, operation, side, price, size);
+    }
+
+    @Override
     public void updatePortfolio(Contract contract,
                                 double position,
                                 double marketPrice,
@@ -315,7 +359,9 @@ public class Wrapper implements EWrapper {
     @Override
     public void nextValidId(int id) {
         log.debug("New request ID: {}", id);
-        idGenerator.setOrderId(id);
+        if (idGenerator.setOrderId(id)) {
+            cache.clear();
+        }
     }
 
     private void publishNewTick(int tickerId, IbTick result) {
@@ -421,27 +467,6 @@ public class Wrapper implements EWrapper {
     @Override
     public void execDetailsEnd(final int reqId) {
         log.debug("execDetailsEnd: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void updateMktDepth(final int tickerId,
-                               final int position,
-                               final int operation,
-                               final int side,
-                               final double price,
-                               final int size) {
-        log.debug("updateMktDepth: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void updateMktDepthL2(final int tickerId,
-                                 final int position,
-                                 final String marketMaker,
-                                 final int operation,
-                                 final int side,
-                                 final double price,
-                                 final int size) {
-        log.debug("updateMktDepthL2: NOT IMPLEMENTED");
     }
 
     @Override
@@ -617,11 +642,6 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
-    public void mktDepthExchanges(DepthMktDataDescription[] depthMktDataDescriptions) {
-        log.debug("mktDepthExchanges: NOT IMPLEMENTED");
-    }
-
-    @Override
     public void tickNews(int tickerId,
                          long timeStamp,
                          String providerCode,
@@ -708,6 +728,18 @@ public class Wrapper implements EWrapper {
 
     public Set<String> getManagedAccounts() {
         return managedAccounts;
+    }
+
+    private void handleUpdateMktDepth(int tickerId, int position, String marketMaker, int operation, int side,
+                                      double price, int size) {
+
+        Contract contract = (Contract) requests.getUserData(RequestRepository.Type.EVENT_MARKET_DATA_LVL2, tickerId);
+        Objects.requireNonNull(contract);
+
+        IbMarketDepth orderBookDepth = new IbMarketDepth(contract, position, side, price, size, marketMaker);
+        cache.addMarketDepth(contract, orderBookDepth, IbMarketDepth.Operation.values()[operation]);
+
+        requests.onNext(RequestRepository.Type.EVENT_MARKET_DATA_LVL2, tickerId, orderBookDepth, true);
     }
 
     /**

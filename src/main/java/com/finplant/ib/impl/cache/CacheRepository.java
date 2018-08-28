@@ -1,24 +1,31 @@
 package com.finplant.ib.impl.cache;
 
-import com.finplant.ib.impl.types.IbOrder;
-import com.finplant.ib.impl.types.IbOrderStatus;
-import com.finplant.ib.impl.types.IbPortfolio;
-import com.finplant.ib.impl.types.IbPosition;
-import com.finplant.ib.impl.types.IbTick;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.ib.client.Contract;
-import com.finplant.ib.impl.types.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
+import com.finplant.ib.impl.types.IbOrder;
+import com.finplant.ib.impl.types.IbOrderStatus;
+import com.finplant.ib.impl.types.IbPortfolio;
+import com.finplant.ib.impl.types.IbPosition;
+import com.finplant.ib.impl.types.IbTick;
+import com.google.common.collect.ImmutableMap;
+import com.ib.client.Contract;
+
+import com.finplant.ib.impl.types.IbMarketDepth;
 
 // TODO: some entries can remain forever. We have to cleanup expired entries.
 // TODO: Expose repository interface to hide `add` functions
@@ -30,6 +37,9 @@ public class CacheRepository {
     private final ConcurrentHashMap<PositionKey, IbPosition> positions = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, IbTick> ticks = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, IbPortfolio> portfolioContracts = new ConcurrentHashMap<>();
+
+    private final ConcurrentHashMap<Integer, Map<IbMarketDepth.Key, IbMarketDepth>> orderBooks =
+          new ConcurrentHashMap<>();
 
     // After order placing, some statuses goes first, before `openOrder` callback, so storing then separately
     private final LinkedHashMap<Integer, Set<IbOrderStatus>> statuses = new LinkedHashMap<>();
@@ -89,16 +99,25 @@ public class CacheRepository {
         return tick;
     }
 
+    public Map<IbMarketDepth.Key, IbMarketDepth> getOrderBook(Contract contract) {
+        Objects.requireNonNull(contract, "'contract' parameter is null");
+        if (contract.conid() == 0) {
+            throw new IllegalArgumentException("contract ID is missing");
+        }
+
+        return orderBooks.get(contract.conid());
+    }
+
     public IbTick getTick(int tickerId) {
         return ticks.get(tickerId);
     }
 
-    public ImmutableSet<IbPosition> getPositions() {
-        return ImmutableSet.copyOf(positions.values());
+    public Collection<IbPosition> getPositions() {
+        return Collections.unmodifiableCollection(positions.values());
     }
 
-    public ImmutableSet<IbPortfolio> getPortfolio() {
-        return ImmutableSet.copyOf(portfolioContracts.values());
+    public Collection<IbPortfolio> getPortfolio() {
+        return Collections.unmodifiableCollection(portfolioContracts.values());
     }
 
     @Nullable
@@ -118,5 +137,42 @@ public class CacheRepository {
             throw new IllegalArgumentException("Contract has a id 0");
         }
         return portfolioContracts.get(contract.conid());
+    }
+
+    public void addMarketDepth(Contract contract, IbMarketDepth marketDepth, IbMarketDepth.Operation operation) {
+
+        orderBooks.compute(contract.conid(), (key, value) -> {
+            if (value == null) {
+                value = new HashMap<>();
+            }
+
+            switch (operation) {
+                case INSERT:
+                    log.trace("Market depth is added: {}", marketDepth);
+                    value.put(marketDepth.key(), marketDepth);
+                    break;
+                case UPDATE:
+                    log.trace("Market depth is updated: {}", marketDepth);
+                    value.put(marketDepth.key(), marketDepth);
+                    break;
+                case REMOVE:
+                    log.trace("Market depth is removed: {}", marketDepth);
+                    value.remove(marketDepth.key());
+                    break;
+            }
+
+            return value;
+        });
+    }
+
+    public void clear() {
+        orders.clear();
+        positions.clear();
+        ticks.clear();
+        portfolioContracts.clear();
+        orderBooks.clear();
+        statuses.clear();
+
+        log.debug("Cache is cleared");
     }
 }

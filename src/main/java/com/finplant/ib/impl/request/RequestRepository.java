@@ -38,9 +38,18 @@ public class RequestRepository implements AutoCloseable {
     @NotNull
     public <RetResult> Observable<RetResult> addRequestWithId(@NotNull Type type,
                                                               @Nullable Consumer<Integer> register,
+                                                              @Nullable Consumer<Integer> unregister,
+                                                              Object userData) {
+        int id = idGenerator.nextRequestId();
+        return addRequest(type, id, register, unregister, userData);
+    }
+
+    @NotNull
+    public <RetResult> Observable<RetResult> addRequestWithId(@NotNull Type type,
+                                                              @Nullable Consumer<Integer> register,
                                                               @Nullable Consumer<Integer> unregister) {
         int id = idGenerator.nextRequestId();
-        return addRequest(type, id, register, unregister);
+        return addRequest(type, id, register, unregister, null);
     }
 
     @NotNull
@@ -50,11 +59,27 @@ public class RequestRepository implements AutoCloseable {
         return addRequest(type, null, register, unregister);
     }
 
+    // TODO: Too many similar methods - create request builder
+    @NotNull
+    public <RetResult> Observable<RetResult> addRequestWithoutId(@NotNull Type type,
+                                                                 @Nullable Consumer<Integer> register) {
+        return addRequest(type, null, register, null, null);
+    }
+
     @NotNull
     public <RetResult> Observable<RetResult> addRequest(@NotNull Type type,
                                                         @Nullable Integer id,
                                                         @Nullable Consumer<Integer> register,
                                                         @Nullable Consumer<Integer> unregister) {
+        return addRequest(type, id, register, unregister, null);
+    }
+
+    @NotNull
+    public <RetResult> Observable<RetResult> addRequest(@NotNull Type type,
+                                                        @Nullable Integer id,
+                                                        @Nullable Consumer<Integer> register,
+                                                        @Nullable Consumer<Integer> unregister,
+                                                        Object userData) {
 
         Observable<RetResult> observable = Observable.create(emitter -> {
 
@@ -63,7 +88,7 @@ public class RequestRepository implements AutoCloseable {
             }
 
             RequestKey key = new RequestKey(type, id);
-            Request request = new Request<>(emitter, key, register, unregister);
+            Request request = new Request<>(emitter, key, register, unregister, userData);
 
             Request old = requests.putIfAbsent(key, request);
             if (old != null) {
@@ -125,6 +150,10 @@ public class RequestRepository implements AutoCloseable {
         requests.remove(key);
     }
 
+    public Object getUserData(Type type, int reqId) {
+        return get(type, reqId, true).map(Request::getUserData).orElse(null);
+    }
+
     public enum Type {
         EVENT_CONTRACT_PNL,
         EVENT_ACCOUNT_PNL,
@@ -132,9 +161,11 @@ public class RequestRepository implements AutoCloseable {
         EVENT_POSITION_MULTI,
         EVENT_ORDER_STATUS,
         EVENT_MARKET_DATA,
+        EVENT_MARKET_DATA_LVL2,
         EVENT_PORTFOLIO,
         EVENT_CONNECTION_STATUS,
         REQ_MARKET_DATA,
+        REQ_MARKET_DEPTH_EXCHANGES,
         REQ_CURRENT_TIME,
         REQ_ORDER_PLACE,
         REQ_ORDER_LIST,

@@ -1,5 +1,6 @@
 package com.finplant.ib;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -12,6 +13,8 @@ import com.finplant.ib.impl.Wrapper;
 import com.finplant.ib.impl.cache.CacheRepository;
 import com.finplant.ib.impl.connection.ConnectionMonitor;
 import com.finplant.ib.impl.request.RequestRepository;
+import com.finplant.ib.impl.types.IbDepthMktDataDescription;
+import com.finplant.ib.impl.types.IbMarketDepth;
 import com.finplant.ib.impl.types.IbOrder;
 import com.finplant.ib.impl.types.IbOrderStatus;
 import com.finplant.ib.impl.types.IbPnl;
@@ -27,7 +30,6 @@ import com.ib.client.Order;
 import io.reactivex.Completable;
 import io.reactivex.Observable;
 import io.reactivex.Single;
-import lv.sergluka.Validators;
 
 public class IbClient implements AutoCloseable {
 
@@ -58,7 +60,7 @@ public class IbClient implements AutoCloseable {
     public Completable connect(String ip, int port, int connId) {
         Validators.stringShouldNotBeEmpty(ip, "Hostname should be defined");
         Validators.intShouldBePositive(port, "Port should be positive");
-        Validators.intShouldBePositiveOrZero(connId, "Contract ID should be positive or 0");
+        Validators.intShouldBePositiveOrZero(connId, "Connection ID should be positive or 0");
 
         log.debug("Connecting to {}:{}, id={} ...", ip, port, connId);
 
@@ -93,6 +95,9 @@ public class IbClient implements AutoCloseable {
                 protected void disconnectRequest(boolean reconnect) {
                     socket.eDisconnect();
                     reader.close();
+                    if (!reconnect) {
+                        cache.clear();
+                    }
                 }
 
                 @Override
@@ -166,6 +171,31 @@ public class IbClient implements AutoCloseable {
                                                  (id) -> socket.cancelPositionsMulti(id)).firstOrError();
     }
 
+    public synchronized Observable<IbDepthMktDataDescription> reqMktDepthExchanges() {
+        return requests.<List<IbDepthMktDataDescription>>addRequestWithoutId(
+              RequestRepository.Type.REQ_MARKET_DEPTH_EXCHANGES,
+              (unused) -> socket.reqMktDepthExchanges()).flatMap(Observable::fromIterable);
+    }
+
+    /**
+     * Get current order book snapshot.
+     *
+     * Since there doesn't exist single request function in IB API for recent data receiving only, we subscribe to
+     * order book (aka market data lvl 2) update stream, and as soon full book is received, stop subscription
+     *
+     * @param contract IB contract
+     * @param numRows Order book max depth
+     */
+    public synchronized Observable<IbMarketDepth> getMarketDepth(Contract contract, int numRows) {
+        Validators.contractWithIdShouldExist(contract);
+        Validators.intShouldBePositive(numRows, "Number of rows should be positive");
+
+        return requests.addRequestWithId(RequestRepository.Type.EVENT_MARKET_DATA_LVL2,
+                                         (id) -> socket.reqMktDepth(id, contract, numRows, null),
+                                         (id) -> socket.cancelMktDepth(id),
+                                         contract);
+    }
+
     public synchronized Observable<IbTick> subscribeOnMarketData(Contract contract) {
         Validators.contractWithIdShouldExist(contract);
 
@@ -199,7 +229,7 @@ public class IbClient implements AutoCloseable {
                                             (unused) -> socket.reqAccountUpdates(false, account));
     }
 
-    public synchronized Observable<Boolean> status() {
+    public synchronized Observable<Boolean> status() { // TODO Rename to `connectionStatus`
         return requests.addRequestWithoutId(RequestRepository.Type.EVENT_CONNECTION_STATUS,
                                             null, null);
     }
@@ -208,13 +238,11 @@ public class IbClient implements AutoCloseable {
         return idGenerator.nextOrderId();
     }
 
-    @NotNull
     public synchronized Single<Long> getCurrentTime() {
         return requests.<Long>addRequestWithoutId(RequestRepository.Type.REQ_CURRENT_TIME,
                                                   (unused) -> socket.reqCurrentTime(), null).firstOrError();
     }
 
-    @NotNull
     public synchronized Single<IbOrder> placeOrder(Contract contract, Order order) {
         Validators.shouldNotBeNull(contract, "Contract should be defined");
         Validators.shouldNotBeNull(order, "Order should be defined");
@@ -244,7 +272,7 @@ public class IbClient implements AutoCloseable {
         socket.reqGlobalCancel();
     }
 
-    @NotNull
+    // TODO: Check, do we need synhronised
     public synchronized Single<Map<Integer, IbOrder>> reqAllOpenOrders() {
         return requests.<Map<Integer, IbOrder>>addRequestWithoutId(RequestRepository.Type.REQ_ORDER_LIST,
                                                                    (unused) -> socket.reqAllOpenOrders(),
