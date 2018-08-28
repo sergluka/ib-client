@@ -302,6 +302,7 @@ class IbClientTest extends Specification {
 
     private static def createContractEUR() {
         def contract = new Contract()
+        contract.conid(12087792)
         contract.symbol("EUR")
         contract.currency("USD")
         contract.exchange("IDEALPRO")

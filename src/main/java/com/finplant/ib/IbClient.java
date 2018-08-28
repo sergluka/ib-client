@@ -1,7 +1,6 @@
 package com.finplant.ib;
 
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 import org.jetbrains.annotations.NotNull;
@@ -28,8 +27,7 @@ import com.ib.client.Order;
 import io.reactivex.Completable;
 import io.reactivex.Observable;
 import io.reactivex.Single;
-
-import static org.assertj.core.api.Assertions.*;
+import lv.sergluka.Validators;
 
 public class IbClient implements AutoCloseable {
 
@@ -58,9 +56,9 @@ public class IbClient implements AutoCloseable {
     }
 
     public Completable connect(String ip, int port, int connId) {
-        assertThat(ip).as("IP address should be defined").isNotBlank();
-        assertThat(port).isPositive();
-        assertThat(connId).isGreaterThanOrEqualTo(0);
+        Validators.stringShouldNotBeEmpty(ip, "Hostname should be defined");
+        Validators.intShouldBePositive(port, "Port should be positive");
+        Validators.intShouldBePositiveOrZero(connId, "Contract ID should be positive or 0");
 
         log.debug("Connecting to {}:{}, id={} ...", ip, port, connId);
 
@@ -147,7 +145,7 @@ public class IbClient implements AutoCloseable {
     }
 
     public synchronized Observable<IbPosition> subscribeOnPositionChange(String account) {
-        assertThat(account).as("Account should be defined").isNotBlank();
+        Validators.stringShouldNotBeEmpty(account, "Account should be defined");
 
         return requests.addRequestWithId(RequestRepository.Type.EVENT_POSITION_MULTI,
                                          (id) -> socket.reqPositionsMulti(id, account, ""),
@@ -155,13 +153,13 @@ public class IbClient implements AutoCloseable {
     }
 
     public synchronized void setMarketDataType(MarketDataType type) {
-        assertThat(type).as("Type should be defined").isNotNull();
+        Validators.shouldNotBeNull(type, "Type should be defined");
 
         socket.reqMarketDataType(type.getValue());
     }
 
     public Single<IbTick> reqMktData(Contract contract) {
-        assertThat(contract).as("Contract should be defined").isNotNull();
+        Validators.shouldNotBeNull(contract, "Contract should be defined");
 
         return requests.<IbTick>addRequestWithId(RequestRepository.Type.REQ_MARKET_DATA,
                                                  (id) -> socket.reqMktData(id, contract, "", true, false, null),
@@ -169,7 +167,7 @@ public class IbClient implements AutoCloseable {
     }
 
     public synchronized Observable<IbTick> subscribeOnMarketData(Contract contract) {
-        assertThat(contract).as("Contract ID should be defined").isNotNull();
+        Validators.contractWithIdShouldExist(contract);
 
         return requests.addRequestWithId(RequestRepository.Type.EVENT_MARKET_DATA,
                                          (id) -> socket.reqMktData(id, contract, "", false, false, null),
@@ -177,16 +175,16 @@ public class IbClient implements AutoCloseable {
     }
 
     public synchronized Observable<IbPnl> subscribeOnContractPnl(int contractId, String account) {
-        assertThat(contractId).as("Contract ID should be positive").isPositive();
-        assertThat(account).as("Account should be defined").isNotBlank();
+        Validators.intShouldBePositive(contractId, "Contract ID should be positive");
+        Validators.stringShouldNotBeEmpty(account, "Account should be defined");
 
         return requests.addRequestWithId(RequestRepository.Type.EVENT_CONTRACT_PNL,
                                          (id) -> socket.reqPnLSingle(id, account, "", contractId),
                                          (id) -> socket.cancelPnLSingle(id));
     }
 
-    public synchronized Observable<IbPnl> subscribeOnAccountPnl(@NotNull String account) {
-        assertThat(account).as("Account should be defined").isNotBlank();
+    public synchronized Observable<IbPnl> subscribeOnAccountPnl(String account) {
+        Validators.stringShouldNotBeEmpty(account, "Account should be defined");
 
         return requests.addRequestWithId(RequestRepository.Type.EVENT_ACCOUNT_PNL,
                                          (id) -> socket.reqPnL(id, account, ""),
@@ -194,7 +192,7 @@ public class IbClient implements AutoCloseable {
     }
 
     public synchronized Observable<IbPortfolio> subscribeOnAccountPortfolio(String account) {
-        assertThat(account).as("Account should be defined").isNotBlank();
+        Validators.stringShouldNotBeEmpty(account, "Account should be defined");
 
         return requests.addRequestWithoutId(RequestRepository.Type.EVENT_PORTFOLIO,
                                             (unused) -> socket.reqAccountUpdates(true, account),
@@ -218,8 +216,8 @@ public class IbClient implements AutoCloseable {
 
     @NotNull
     public synchronized Single<IbOrder> placeOrder(Contract contract, Order order) {
-        assertThat(contract).as("Contract should be defined").isNotNull();
-        assertThat(order).as("Order should be defined").isNotNull();
+        Validators.shouldNotBeNull(contract, "Contract should be defined");
+        Validators.shouldNotBeNull(order, "Order should be defined");
 
         if (order.orderId() == 0) {
             order.orderId(idGenerator.nextOrderId());
@@ -232,7 +230,7 @@ public class IbClient implements AutoCloseable {
     }
 
     public synchronized void cancelOrder(int orderId) {
-        assertThat(orderId).isGreaterThanOrEqualTo(0);
+        Validators.intShouldBePositive(orderId, "Order ID should be positive");
 
         // TODO: Check for order canceled status and return Completable
 
@@ -255,7 +253,7 @@ public class IbClient implements AutoCloseable {
 
     @NotNull
     public Observable<ContractDetails> reqContractDetails(Contract contract) {
-        assertThat(contract).as("Contract should be defined").isNotNull();
+        Validators.shouldNotBeNull(contract, "Contract should be defined");
 
         return requests.addRequestWithId(RequestRepository.Type.REQ_CONTRACT_DETAIL,
                                          (id) -> socket.reqContractDetails(id, contract),
