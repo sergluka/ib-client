@@ -5,7 +5,7 @@ import spock.lang.Specification
 
 class CacheRepositoryTest extends Specification {
 
-    def cache = new CacheRepository()
+    def cache = new CacheRepositoryImpl()
 
     def "Getting absent position should return null"() {
         given:

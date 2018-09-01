@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import com.finplant.ib.IbExceptions;
 import com.finplant.ib.IdGenerator;
-import com.finplant.ib.impl.cache.CacheRepository;
+import com.finplant.ib.impl.cache.CacheRepositoryImpl;
 import com.finplant.ib.impl.connection.ConnectionMonitor;
 import com.finplant.ib.impl.request.RequestRepository;
 import com.finplant.ib.impl.types.IbMarketDepth;
@@ -59,13 +59,13 @@ public class Wrapper implements EWrapper {
 
     private final ConnectionMonitor connectionMonitor;
 
-    private final CacheRepository cache;
+    private final CacheRepositoryImpl cache;
     private final RequestRepository requests;
     private final IdGenerator idGenerator;
     private EClientSocket socket;
 
     public Wrapper(ConnectionMonitor connectionMonitor,
-                   CacheRepository cache,
+                   CacheRepositoryImpl cache,
                    RequestRepository requests,
                    IdGenerator idGenerator) {
 

@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import com.finplant.ib.impl.IbReader;
 import com.finplant.ib.impl.Wrapper;
 import com.finplant.ib.impl.cache.CacheRepository;
+import com.finplant.ib.impl.cache.CacheRepositoryImpl;
 import com.finplant.ib.impl.connection.ConnectionMonitor;
 import com.finplant.ib.impl.request.RequestRepository;
 import com.finplant.ib.impl.types.IbDepthMktDataDescription;
@@ -38,7 +39,7 @@ public class IbClient implements AutoCloseable {
     private IbReader reader;
     private Wrapper wrapper;
     private EClientSocket socket;
-    private CacheRepository cache;
+    private CacheRepositoryImpl cache;
     private ConnectionMonitor connectionMonitor;
     private IdGenerator idGenerator;
     private RequestRepository requests;
@@ -72,7 +73,7 @@ public class IbClient implements AutoCloseable {
                 return;
             }
 
-            cache = new CacheRepository();
+            cache = new CacheRepositoryImpl();
 
             connectionMonitor = new ConnectionMonitor() {
 
