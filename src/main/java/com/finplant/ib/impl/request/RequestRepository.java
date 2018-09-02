@@ -6,16 +6,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import io.reactivex.Observable;
-import io.reactivex.schedulers.Schedulers;
 
 import com.finplant.ib.IbClient;
 import com.finplant.ib.IbExceptions;
 import com.finplant.ib.IdGenerator;
+
+import io.reactivex.Observable;
+import io.reactivex.schedulers.Schedulers;
 
 public class RequestRepository implements AutoCloseable {
 
@@ -23,6 +22,7 @@ public class RequestRepository implements AutoCloseable {
     private final IbClient client;
     private final IdGenerator idGenerator;
     private final Map<RequestKey, Request> requests = new ConcurrentHashMap<>();
+
     public RequestRepository(@NotNull IbClient client, IdGenerator idGenerator) {
         this.client = client;
         this.idGenerator = idGenerator;
@@ -35,81 +35,8 @@ public class RequestRepository implements AutoCloseable {
         log.debug("RequestRepository is closed");
     }
 
-    @NotNull
-    public <RetResult> Observable<RetResult> addRequestWithId(@NotNull Type type,
-                                                              @Nullable Consumer<Integer> register,
-                                                              @Nullable Consumer<Integer> unregister,
-                                                              Object userData) {
-        int id = idGenerator.nextRequestId();
-        return addRequest(type, id, register, unregister, userData);
-    }
-
-    @NotNull
-    public <RetResult> Observable<RetResult> addRequestWithId(@NotNull Type type,
-                                                              @Nullable Consumer<Integer> register,
-                                                              @Nullable Consumer<Integer> unregister) {
-        int id = idGenerator.nextRequestId();
-        return addRequest(type, id, register, unregister, null);
-    }
-
-    @NotNull
-    public <RetResult> Observable<RetResult> addRequestWithoutId(@NotNull Type type,
-                                                                 @Nullable Consumer<Integer> register,
-                                                                 @Nullable Consumer<Integer> unregister) {
-        return addRequest(type, null, register, unregister);
-    }
-
-    // TODO: Too many similar methods - create request builder
-    @NotNull
-    public <RetResult> Observable<RetResult> addRequestWithoutId(@NotNull Type type,
-                                                                 @Nullable Consumer<Integer> register) {
-        return addRequest(type, null, register, null, null);
-    }
-
-    @NotNull
-    public <RetResult> Observable<RetResult> addRequest(@NotNull Type type,
-                                                        @Nullable Integer id,
-                                                        @Nullable Consumer<Integer> register,
-                                                        @Nullable Consumer<Integer> unregister) {
-        return addRequest(type, id, register, unregister, null);
-    }
-
-    @NotNull
-    public <RetResult> Observable<RetResult> addRequest(@NotNull Type type,
-                                                        @Nullable Integer id,
-                                                        @Nullable Consumer<Integer> register,
-                                                        @Nullable Consumer<Integer> unregister,
-                                                        Object userData) {
-
-        Observable<RetResult> observable = Observable.create(emitter -> {
-
-            if (!client.isConnected()) {
-                throw new IbExceptions.NotConnected();
-            }
-
-            RequestKey key = new RequestKey(type, id);
-            Request request = new Request<>(emitter, key, register, unregister, userData);
-
-            Request old = requests.putIfAbsent(key, request);
-            if (old != null) {
-                log.error("Duplicated request: {}", key);
-                throw new IbExceptions.DuplicatedRequest(key);
-            }
-
-            emitter.setCancellable(() -> {
-                if (client.isConnected()) {
-                    request.unregister();
-                } else {
-                    log.warn("Have no connection at unregister of {}", key);
-                }
-                remove(key);
-            });
-
-            request.register();
-            log.info("Register to {}", request);
-        });
-
-        return observable.observeOn(Schedulers.io());
+    public <T> RequestBuilder<T> builder() {
+        return new RequestBuilder<>();
     }
 
     public <Param> void onNext(Type type, Integer reqId, Param data, Boolean shouldExists) {
@@ -170,5 +97,88 @@ public class RequestRepository implements AutoCloseable {
         REQ_ORDER_PLACE,
         REQ_ORDER_LIST,
         REQ_CONTRACT_DETAIL
+    }
+
+    public class RequestBuilder<T> {
+        private RequestRepository.Type type;
+        private Consumer<Integer> register;
+        private Consumer<Integer> unregister;
+        private Object userData;
+        private boolean withId = false;
+        private Integer id;
+
+        public RequestBuilder<T> type(RequestRepository.Type type) {
+            this.type = type;
+            return this;
+        }
+
+        public RequestBuilder<T> register(Consumer<Integer> register) {
+            this.register = register;
+            withId = true;
+            return this;
+        }
+
+        public RequestBuilder<T> register(Runnable register) {
+            this.register = unused -> register.run();
+            return this;
+        }
+
+        public RequestBuilder<T> unregister(Consumer<Integer> unregister) {
+            this.unregister = unregister;
+            withId = true;
+            return this;
+        }
+
+        public RequestBuilder<T> unregister(Runnable unregister) {
+            this.unregister = unused -> unregister.run();
+            return this;
+        }
+
+        public RequestBuilder<T> userData(Object userData) {
+            this.userData = userData;
+            return this;
+        }
+
+        public RequestBuilder<T> id(int id) {
+            this.id = id;
+            withId = true;
+            return this;
+        }
+
+        public Observable<T> build() {
+            Observable<T> observable = Observable.create(emitter -> {
+
+                if (withId && id == null) {
+                    id = idGenerator.nextRequestId();
+                }
+
+                RequestKey key = new RequestKey(type, id);
+                Request<T> request = new Request<>(emitter, key, register, unregister, userData);
+
+                if (!client.isConnected()) {
+                    throw new IbExceptions.NotConnected();
+                }
+
+                Request old = requests.putIfAbsent(key, request);
+                if (old != null) {
+                    log.error("Duplicated request: {}", key);
+                    throw new IbExceptions.DuplicatedRequest(key);
+                }
+
+                emitter.setCancellable(() -> {
+                    if (client.isConnected()) {
+                        request.unregister();
+                    } else {
+                        log.warn("Have no connection at unregister of {}", key);
+                    }
+                    remove(key);
+                });
+
+                request.register();
+                log.info("Register to {}", request);
+            });
+
+            return observable.observeOn(Schedulers.io());
+        }
     }
 }
