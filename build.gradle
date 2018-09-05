@@ -1,26 +1,25 @@
-
 buildscript {
     repositories {
         jcenter()
     }
 
     dependencies {
-        classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.4'
+        classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.4'
     }
 }
 
 plugins {
+    id 'java'
+    id 'groovy'
+    id 'maven-publish'
+
+    id 'org.ajoberstar.grgit' version '1.7.2'
+    id 'com.github.johnrengelman.shadow' version '2.0.4'
     id 'org.unbroken-dome.test-sets' version '1.4.5'
 }
 
-apply plugin: 'com.github.johnrengelman.shadow'
-
-apply plugin: 'idea'
-apply plugin: 'java'
-apply plugin: 'groovy'
-
-group 'com.finplant'
-version '2.0.0'
+group 'com.finplant.ib'
+version '2.0.0-SNAPSHOT'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
@@ -31,8 +30,8 @@ repositories {
 
 dependencies {
     implementation files('libs/TwsApi_debug.jar')
+
     implementation 'org.slf4j:slf4j-api:1.7.+'
-    implementation 'ch.qos.logback:logback-classic:1.2.+'
     implementation 'io.reactivex.rxjava2:rxjava:2.1.14'
     implementation 'org.jetbrains:annotations-java5:15.0'
     implementation 'com.google.guava:guava:23.5-jre'
@@ -40,10 +39,43 @@ dependencies {
 
     testImplementation 'org.codehaus.groovy:groovy-all:2.4.12'
     testImplementation 'org.spockframework:spock-core:1.1+'
+    testImplementation 'ch.qos.logback:logback-classic:1.2.+'
 }
 
 testSets {
     integrationTest {
         dirName = 'test-integration'
+    }
+}
+
+shadowJar {
+    baseName = 'ib_client'
+    classifier = null
+}
+
+task packageJavadoc(type: Jar, dependsOn: 'javadoc') {
+    from javadoc.destinationDir
+    classifier = 'javadoc'
+}
+
+publishing {
+    publications {
+        shadow(MavenPublication) { publication ->
+            project.shadow.component(publication)
+            artifact packageJavadoc
+        }
+    }
+    repositories {
+        maven {
+            def releasesRepoUrl = 'gcs://finplant-maven-repo/releases'
+            def snapshotsRepoUrl = 'gcs://finplant-maven-repo/snapshots'
+            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+        }
+    }
+}
+
+test {
+    testLogging {
+        events 'passed', 'skipped', 'failed'
     }
 }
