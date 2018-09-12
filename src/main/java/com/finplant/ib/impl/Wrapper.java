@@ -207,8 +207,9 @@ public class Wrapper implements EWrapper {
             return;
         }
 
-        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setIntValue(field, value));
-        publishNewTick(tickerId, result);
+        IbTick tick = new IbTick();
+        tick.setIntValue(field, value);
+        publishNewTick(tickerId, tick);
     }
 
     @Override
@@ -218,34 +219,29 @@ public class Wrapper implements EWrapper {
             return;
         }
 
-        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setPriceValue(field, value, attrib));
-        publishNewTick(tickerId, result);
+        IbTick tick = new IbTick();
+        tick.setPriceValue(field, value, attrib);
+        publishNewTick(tickerId, tick);
     }
 
     @Override
     public void tickString(int tickerId, int field, String value) {
-        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setStringValue(field, value));
-        publishNewTick(tickerId, result);
+        IbTick tick = new IbTick();
+        tick.setStringValue(field, value);
+        publishNewTick(tickerId, tick);
     }
 
     @Override
     public void tickGeneric(int tickerId, int field, double value) {
-        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setGenericValue(field, value));
-            publishNewTick(tickerId, result);
+        IbTick tick = new IbTick();
+        tick.setGenericValue(field, value);
+        publishNewTick(tickerId, tick);
     }
 
     @Override
     public void tickSnapshotEnd(final int tickerId) {
         log.trace("tickSnapshotEnd({})", tickerId);
-
-        IbTick tick = cache.getTick(tickerId);
-        if (tick == null) {
-            log.info("No ticks for ticker {}", tickerId);
-            requests.onError(tickerId, new IbExceptions.NoTicks());
-            return;
-        }
-
-        requests.onNextAndComplete(RequestRepository.Type.REQ_MARKET_DATA, tickerId, tick, true);
+        requests.onComplete(RequestRepository.Type.REQ_MARKET_DATA, tickerId, true);
     }
 
     @Override

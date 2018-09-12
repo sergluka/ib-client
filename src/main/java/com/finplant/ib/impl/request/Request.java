@@ -33,8 +33,10 @@ public class Request<T> {
     @Override
     public String toString() {
         final StringBuffer buffer = new StringBuffer("{");
-        buffer.append("id=").append(key.getId());
-        buffer.append(", type=").append(key.getType());
+        if (key.getId() != null) {
+            buffer.append("id=").append(key.getId()).append(", ");
+        }
+        buffer.append("type=").append(key.getType());
         buffer.append('}');
         return buffer.toString();
     }

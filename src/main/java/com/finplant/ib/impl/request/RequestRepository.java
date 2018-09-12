@@ -23,7 +23,7 @@ public class RequestRepository implements AutoCloseable {
     private final IdGenerator idGenerator;
     private final Map<RequestKey, Request> requests = new ConcurrentHashMap<>();
 
-    public RequestRepository(@NotNull IbClient client, IdGenerator idGenerator) {
+    public RequestRepository(IbClient client, IdGenerator idGenerator) {
         this.client = client;
         this.idGenerator = idGenerator;
     }
@@ -146,6 +146,14 @@ public class RequestRepository implements AutoCloseable {
         }
 
         public Observable<T> build() {
+
+            if (register == null) {
+                throw new IllegalArgumentException("Registration function is mandatory");
+            }
+            if (type == null) {
+                throw new IllegalArgumentException("Request type is mandatory");
+            }
+
             Observable<T> observable = Observable.create(emitter -> {
 
                 if (withId && id == null) {

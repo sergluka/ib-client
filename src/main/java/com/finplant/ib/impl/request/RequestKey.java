@@ -2,7 +2,6 @@ package com.finplant.ib.impl.request;
 
 import java.util.Objects;
 
-// TODO: test
 public class RequestKey {
     private final RequestRepository.Type type;
     private final Integer id;

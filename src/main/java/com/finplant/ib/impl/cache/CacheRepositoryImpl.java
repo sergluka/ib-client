@@ -33,7 +33,6 @@ public class CacheRepositoryImpl implements CacheRepository {
 
     private final ConcurrentHashMap<Integer, IbOrder> orders = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<PositionKey, IbPosition> positions = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Integer, IbTick> ticks = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, IbPortfolio> portfolioContracts = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<Integer, Map<IbMarketDepth.Key, IbMarketDepth>> orderBooks =
@@ -92,12 +91,6 @@ public class CacheRepositoryImpl implements CacheRepository {
         portfolioContracts.put(portfolio.getContract().conid(), portfolio);
     }
 
-    public IbTick updateTick(int tickerId, Consumer<IbTick> consumer) {
-        IbTick tick = ticks.computeIfAbsent(tickerId, (key) -> new IbTick()) ;
-        consumer.accept(tick);
-        return tick;
-    }
-
     @Override
     public Map<IbMarketDepth.Key, IbMarketDepth> getOrderBook(Contract contract) {
         Objects.requireNonNull(contract, "'contract' parameter is null");
@@ -106,11 +99,6 @@ public class CacheRepositoryImpl implements CacheRepository {
         }
 
         return orderBooks.get(contract.conid());
-    }
-
-    @Override
-    public IbTick getTick(int tickerId) {
-        return ticks.get(tickerId);
     }
 
     @Override
@@ -174,7 +162,6 @@ public class CacheRepositoryImpl implements CacheRepository {
     public void clear() {
         orders.clear();
         positions.clear();
-        ticks.clear();
         portfolioContracts.clear();
         orderBooks.clear();
         statuses.clear();
