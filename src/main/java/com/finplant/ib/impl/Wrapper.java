@@ -75,7 +75,7 @@ public class Wrapper implements EWrapper {
             void onError() {
                 ConnectionMonitor.Status status = connectionMonitor.status();
                 if (status == ConnectionMonitor.Status.DISCONNECTING ||
-                        status == ConnectionMonitor.Status.DISCONNECTED) {
+                    status == ConnectionMonitor.Status.DISCONNECTED) {
                     log.warn("Got error at disconnect. Ignoring");
                     return;
                 }
@@ -207,9 +207,8 @@ public class Wrapper implements EWrapper {
             return;
         }
 
-        IbTick tick = new IbTick();
-        tick.setIntValue(field, value);
-        publishNewTick(tickerId, tick);
+        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setIntValue(field, value));
+        publishNewTick(tickerId, result);
     }
 
     @Override
@@ -219,29 +218,34 @@ public class Wrapper implements EWrapper {
             return;
         }
 
-        IbTick tick = new IbTick();
-        tick.setPriceValue(field, value, attrib);
-        publishNewTick(tickerId, tick);
+        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setPriceValue(field, value, attrib));
+        publishNewTick(tickerId, result);
     }
 
     @Override
     public void tickString(int tickerId, int field, String value) {
-        IbTick tick = new IbTick();
-        tick.setStringValue(field, value);
-        publishNewTick(tickerId, tick);
+        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setStringValue(field, value));
+        publishNewTick(tickerId, result);
     }
 
     @Override
     public void tickGeneric(int tickerId, int field, double value) {
-        IbTick tick = new IbTick();
-        tick.setGenericValue(field, value);
-        publishNewTick(tickerId, tick);
+        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setGenericValue(field, value));
+        publishNewTick(tickerId, result);
     }
 
     @Override
     public void tickSnapshotEnd(final int tickerId) {
         log.trace("tickSnapshotEnd({})", tickerId);
-        requests.onComplete(RequestRepository.Type.REQ_MARKET_DATA, tickerId, true);
+
+        IbTick tick = cache.getTick(tickerId);
+        if (tick == null) {
+            log.info("No ticks for ticker {}", tickerId);
+            requests.onError(tickerId, new IbExceptions.NoTicks());
+            return;
+        }
+
+        requests.onNextAndComplete(RequestRepository.Type.REQ_MARKET_DATA, tickerId, tick, true);
     }
 
     @Override
@@ -301,7 +305,7 @@ public class Wrapper implements EWrapper {
         Double realizedPNLObj = doubleToDouble("realizedPNL", realizedPNL);
 
         log.debug("updatePortfolio: contract={}, position={}, marketPrice={}, marketValue={}, averageCost={}, " +
-                          "unrealizedPNL={}, realizedPNL={}, accountName={}",
+                  "unrealizedPNL={}, realizedPNL={}, accountName={}",
                   contract, position, marketPrice, marketValue, averageCost, unrealizedPNL, realizedPNL, accountName);
 
         IbPortfolio portfolio = new IbPortfolio(contract, positionObj, marketPriceObj, marketValueObj, averageCostObj,
@@ -323,7 +327,7 @@ public class Wrapper implements EWrapper {
             final ConnectionMonitor.Status connectionStatus = connectionMonitor.status();
 
             if (connectionStatus == ConnectionMonitor.Status.DISCONNECTING ||
-                    connectionStatus == ConnectionMonitor.Status.DISCONNECTED) {
+                connectionStatus == ConnectionMonitor.Status.DISCONNECTED) {
 
                 log.debug("Socket has been closed at shutdown");
                 return;
@@ -592,7 +596,7 @@ public class Wrapper implements EWrapper {
 
 
         log.debug("accountUpdateMulti (NOT IMPLEMENTED): " +
-                          "reqId={}, account={}, modelCode={}, key={}, value={}, currency={}",
+                  "reqId={}, account={}, modelCode={}, key={}, value={}, currency={}",
                   reqId, account, modelCode, key, value, currency);
     }
 

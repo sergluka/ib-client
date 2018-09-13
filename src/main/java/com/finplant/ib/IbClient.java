@@ -141,6 +141,7 @@ public class IbClient implements AutoCloseable {
     public Observable<IbOrderStatus> subscribeOnOrderNewStatus() {
         return requests.<IbOrderStatus>builder()
               .type(RequestRepository.Type.EVENT_ORDER_STATUS)
+              .register(() -> {}) // statuses are received without registration
               .build();
     }
 

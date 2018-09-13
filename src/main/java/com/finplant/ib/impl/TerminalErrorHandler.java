@@ -27,7 +27,10 @@ abstract class TerminalErrorHandler {
     abstract void onError();
     abstract void onFatalError();
 
-    public void handle(final int id, final int code, final String message) {
+    public void handle(int id, int code, String message) {
+
+        log.trace("Message from IB client: id={}, code={}, message={}", id, code, message);
+
         ErrorType severity;
         switch (code) {
             case 202: // Order canceled

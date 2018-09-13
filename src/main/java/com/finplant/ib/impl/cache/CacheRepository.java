@@ -17,6 +17,8 @@ public interface CacheRepository {
 
     Map<IbMarketDepth.Key, IbMarketDepth> getOrderBook(Contract contract);
 
+    IbTick getTick(int tickerId);
+
     Collection<IbPortfolio> getPortfolio();
 
     Collection<IbPosition> getPositions();

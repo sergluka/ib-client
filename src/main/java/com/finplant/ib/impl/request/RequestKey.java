@@ -30,7 +30,7 @@ public class RequestKey {
         }
 
         RequestKey typeKey = (RequestKey) obj;
-        return Objects.equals(id, typeKey.id) || type == typeKey.type;
+        return (type == null || type == typeKey.type) && Objects.equals(id, typeKey.id);
     }
 
     @Override

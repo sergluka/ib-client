@@ -22,6 +22,7 @@ import com.finplant.ib.impl.types.IbOrderStatus;
 import com.finplant.ib.impl.types.IbPortfolio;
 import com.finplant.ib.impl.types.IbPosition;
 import com.finplant.ib.impl.types.IbTick;
+import com.finplant.ib.impl.types.IbTickImpl;
 import com.google.common.collect.ImmutableMap;
 import com.ib.client.Contract;
 
@@ -33,6 +34,7 @@ public class CacheRepositoryImpl implements CacheRepository {
 
     private final ConcurrentHashMap<Integer, IbOrder> orders = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<PositionKey, IbPosition> positions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, IbTickImpl> ticks = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, IbPortfolio> portfolioContracts = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<Integer, Map<IbMarketDepth.Key, IbMarketDepth>> orderBooks =
@@ -91,6 +93,13 @@ public class CacheRepositoryImpl implements CacheRepository {
         portfolioContracts.put(portfolio.getContract().conid(), portfolio);
     }
 
+    public IbTick updateTick(int tickerId, Consumer<IbTickImpl> consumer) {
+        IbTickImpl tick = ticks.computeIfAbsent(tickerId, (key) -> new IbTickImpl()) ;
+        tick.refreshUpdateTime();
+        consumer.accept(tick);
+        return tick;
+    }
+
     @Override
     public Map<IbMarketDepth.Key, IbMarketDepth> getOrderBook(Contract contract) {
         Objects.requireNonNull(contract, "'contract' parameter is null");
@@ -99,6 +108,11 @@ public class CacheRepositoryImpl implements CacheRepository {
         }
 
         return orderBooks.get(contract.conid());
+    }
+
+    @Override
+    public IbTick getTick(int tickerId) {
+        return ticks.get(tickerId);
     }
 
     @Override
@@ -162,6 +176,7 @@ public class CacheRepositoryImpl implements CacheRepository {
     public void clear() {
         orders.clear();
         positions.clear();
+        ticks.clear();
         portfolioContracts.clear();
         orderBooks.clear();
         statuses.clear();

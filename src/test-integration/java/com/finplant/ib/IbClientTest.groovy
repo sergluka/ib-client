@@ -73,6 +73,19 @@ class IbClientTest extends Specification {
         single.assertValueAt 0, { it.orderId > 0 } as Predicate
     }
 
+    def "Call placeOrder with wrong data should raise error"() {
+        given:
+        def contract = new Contract()
+        def order = new Order()
+
+        when:
+        def single = client.placeOrder(contract, order).test()
+
+        then:
+        single.awaitTerminalEvent(10, TimeUnit.SECONDS)
+        single.assertError(IbExceptions.TerminalError.class)
+    }
+
     def "Few placeOrder shouldn't interfere"() {
         given:
         def contract = createContractEUR()
@@ -382,13 +395,18 @@ class IbClientTest extends Specification {
 
     def "Get contract snapshot"() {
         when:
-        def future = client.reqMktData(createContractEUR()) // TODO Use .test()
-        def tick = future.timeout(10, TimeUnit.SECONDS).blockingGet()
+        def observer = client.reqMktData(createContractEUR()).test()
 
         then:
-        tick.getBid() != 0.0
-        tick.getAsk() != 0.0
-        tick.getClosePrice() != 0.0
+        observer.awaitDone(10, TimeUnit.SECONDS)
+        observer.assertValueCount(1)
+        observer.assertNoErrors()
+        observer.assertValueAt 0, { tick ->
+            assert tick.getBid() != null
+            assert tick.getAsk() != null
+            assert tick.getClosePrice() != null
+            true
+        } as Predicate
     }
 
     private static def createContractEUR() {
@@ -401,29 +419,7 @@ class IbClientTest extends Specification {
         return contract
     }
 
-    private static def createContractFB() {
-        def contract = new Contract()
-        contract.symbol("FB")
-        contract.currency("USD")
-        contract.exchange("SMART")
-        contract.secType(Types.SecType.STK)
-        return contract
-    }
-
-    private static def createContractXAUUSD() {
-        def contract = new Contract()
-        contract.symbol("XAUUSD")
-        contract.currency("USD")
-        contract.exchange("SMART")
-        contract.secType(Types.SecType.CMDTY)
-        return contract
-    }
-
-    private def createOrderEUR() {
-        return createOrderEUR(client.nextOrderId())
-    }
-
-    private static def createOrderEUR(int id) {
+    private static def createOrderEUR(int id = 0) {
         def order = new Order()
         order.orderId(id)
         order.action("BUY")
@@ -431,16 +427,6 @@ class IbClientTest extends Specification {
         order.auxPrice(1.0f)
         order.tif("GTC")
         order.totalQuantity(20000.0f)
-        return order
-    }
-
-    private static def createOrderXAUUSD(int id) {
-        def order = new Order()
-        order.orderId(id)
-        order.action("BUY")
-        order.orderType("MKT")
-        order.auxPrice(1.0f)
-        order.totalQuantity(1.0f)
         return order
     }
 
