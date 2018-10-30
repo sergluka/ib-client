@@ -132,6 +132,10 @@ public class Wrapper implements EWrapper {
 
             log.info("New order status: {}", twsStatus);
             requests.onNext(RequestRepository.Type.EVENT_ORDER_STATUS, null, twsStatus, false);
+
+            if (twsStatus.isCanceled()) {
+                requests.onNextAndComplete(RequestRepository.Type.REQ_ORDER_CANCEL, orderId, true, false);
+            }
         }
     }
 
@@ -145,7 +149,7 @@ public class Wrapper implements EWrapper {
         if (cache.addOrder(twsOrder)) {
             log.info("New order: requestId={}, contract={}, order={}, orderState={}",
                      orderId, contract.symbol(), order.orderId(), state.status());
-            requests.onNextAndComplete(RequestRepository.Type.REQ_ORDER_PLACE, orderId, twsOrder, true);
+            requests.onNextAndComplete(RequestRepository.Type.REQ_ORDER_PLACE, orderId, twsOrder, false);
         }
     }
 

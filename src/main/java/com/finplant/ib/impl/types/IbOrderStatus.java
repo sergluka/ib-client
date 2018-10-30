@@ -137,6 +137,13 @@ public class IbOrderStatus implements Comparable<IbOrderStatus> {
                             whyHeld, mktCapPrice);
     }
 
+    public boolean isCanceled() {
+        return status == OrderStatus.ApiCancelled || status == OrderStatus.Cancelled;
+    }
+
+    public boolean isFilled() {
+        return status == OrderStatus.Filled;
+    }
 
     @Override
     public int compareTo(IbOrderStatus rhs) {

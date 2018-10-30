@@ -5,7 +5,6 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -95,6 +94,7 @@ public class RequestRepository implements AutoCloseable {
         REQ_MARKET_DEPTH_EXCHANGES,
         REQ_CURRENT_TIME,
         REQ_ORDER_PLACE,
+        REQ_ORDER_CANCEL,
         REQ_ORDER_LIST,
         REQ_CONTRACT_DETAIL
     }
@@ -145,7 +145,7 @@ public class RequestRepository implements AutoCloseable {
             return this;
         }
 
-        public Observable<T> build() {
+        public Observable<T> subscribe() {
 
             if (register == null) {
                 throw new IllegalArgumentException("Registration function is mandatory");
@@ -154,7 +154,7 @@ public class RequestRepository implements AutoCloseable {
                 throw new IllegalArgumentException("Request type is mandatory");
             }
 
-            Observable<T> observable = Observable.create(emitter -> {
+            return Observable.create(emitter -> {
 
                 if (withId && id == null) {
                     id = idGenerator.nextRequestId();
@@ -185,8 +185,6 @@ public class RequestRepository implements AutoCloseable {
                 request.register();
                 log.info("Register to {}", request);
             });
-
-            return observable.observeOn(Schedulers.io());
         }
     }
 }

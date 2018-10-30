@@ -1,6 +1,7 @@
 package com.finplant.ib
 
 import com.finplant.ib.impl.types.IbMarketDepth
+import com.finplant.ib.impl.types.IbOrder
 import com.finplant.ib.impl.types.IbPnl
 import com.finplant.ib.impl.types.IbPortfolio
 import com.finplant.ib.impl.types.IbPosition
@@ -20,12 +21,12 @@ class IbClientTest extends Specification {
     void setup() {
         client = new IbClient()
         assert client.connect("127.0.0.1", 7497, 2).blockingAwait(30, TimeUnit.SECONDS)
-        client.reqGlobalCancel()
+        client.cancelAll().blockingGet()
     }
 
     void cleanup() {
         if (client) {
-            client.reqGlobalCancel()
+            client.cancelAll().blockingGet()
             client.close()
         }
     }
@@ -85,6 +86,71 @@ class IbClientTest extends Specification {
         single.awaitTerminalEvent(10, TimeUnit.SECONDS)
         single.assertError(IbExceptions.TerminalError.class)
     }
+
+    def "Cancel request should be completed for limit order"() {
+        given:
+        def order = createOrderEUR()
+        order.auxPrice(10000)
+
+        def ibOrder = client.placeOrder(createContractEUR(), order).blockingGet()
+
+        when:
+        def observer = client.cancelOrder(ibOrder.orderId).test()
+
+        then:
+        observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
+        observer.assertNoErrors()
+    }
+
+    def "Cancel request should be completed even order was filled"() {
+        given:
+        def order = createOrderEUR()
+        client.placeOrder(createContractEUR(), order).flatMap({ ibOrder ->
+            client.subscribeOnOrderNewStatus()
+                    .filter({ status -> status.orderId == order.orderId() })
+                    .filter({ status -> status.isFilled() })
+                    .timeout(20, TimeUnit.SECONDS)
+                    .firstOrError()
+        }).blockingGet()
+
+        when:
+        def observer = client.cancelOrder(order.orderId()).test()
+
+        then:
+        observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
+        observer.assertNoErrors()
+    }
+
+    def "Cancel request should raise error if order doesn't exists"() {
+        when:
+        def observer = client.cancelOrder(1111111111).test()
+
+        then:
+        observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
+        observer.assertError(IbExceptions.TerminalError.class)
+    }
+
+    def "Cancel all should be completed for all limit order"() {
+        given:
+        def contract = createContractEUR()
+
+        client.placeOrder(contract, createOrderEUR(0, 1000.0)).timeout(1, TimeUnit.SECONDS).blockingGet()
+        client.placeOrder(contract, createOrderEUR(0, 1000.0)).timeout(1, TimeUnit.SECONDS).blockingGet()
+        client.placeOrder(contract, createOrderEUR(0, 1000.0)).timeout(1, TimeUnit.SECONDS).blockingGet()
+        client.placeOrder(contract, createOrderEUR(0, 1000.0)).timeout(1, TimeUnit.SECONDS).blockingGet()
+        client.placeOrder(contract, createOrderEUR(0, 1000.0)).timeout(1, TimeUnit.SECONDS).blockingGet()
+        client.placeOrder(contract, createOrderEUR(0, 1000.0)).timeout(1, TimeUnit.SECONDS).blockingGet()
+
+        when:
+        def observer = client.cancelAll().test()
+
+        then:
+        observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
+        observer.assertNoErrors()
+
+        client.getCache().orders.values().forEach { assert it.lastStatus.isCanceled() }
+    }
+
 
     def "Few placeOrder shouldn't interfere"() {
         given:
@@ -419,12 +485,12 @@ class IbClientTest extends Specification {
         return contract
     }
 
-    private static def createOrderEUR(int id = 0) {
+    private static def createOrderEUR(int id = 0, double auxPrice = 1.0) {
         def order = new Order()
         order.orderId(id)
         order.action("BUY")
         order.orderType(OrderType.STP)
-        order.auxPrice(1.0f)
+        order.auxPrice(auxPrice)
         order.tif("GTC")
         order.totalQuantity(20000.0f)
         return order

@@ -19,7 +19,7 @@ class RequestRepositoryTest extends Specification {
 
     def "Build request without type should raise error"() {
         when:
-        repository.builder().register({}).build()
+        repository.builder().register({}).subscribe()
 
         then:
         thrown(IllegalArgumentException)
@@ -27,7 +27,7 @@ class RequestRepositoryTest extends Specification {
 
     def "Build request without registration function should raise error"() {
         when:
-        repository.builder().type(RequestRepository.Type.EVENT_ACCOUNT_PNL).build()
+        repository.builder().type(RequestRepository.Type.EVENT_ACCOUNT_PNL).subscribe()
 
         then:
         thrown(IllegalArgumentException)
@@ -48,7 +48,7 @@ class RequestRepositoryTest extends Specification {
                 .type(RequestRepository.Type.EVENT_PORTFOLIO)
                 .register({ id -> registerCalled.evaluate { assert id == 111 } } as Consumer<Integer>)
                 .unregister({ id -> unregisterCalled.evaluate { assert id == 111 } } as Consumer<Integer>)
-                .build()
+                .subscribe()
                 .test()
         repository.onNextAndComplete(RequestRepository.Type.EVENT_PORTFOLIO, 111, "Data", true)
 
@@ -73,7 +73,7 @@ class RequestRepositoryTest extends Specification {
         def observer = repository.builder()
                 .type(RequestRepository.Type.EVENT_PORTFOLIO)
                 .register({ id -> registerCalled.evaluate { assert id == null } } as Runnable)
-                .build()
+                .subscribe()
                 .test()
         repository.onNext(RequestRepository.Type.EVENT_PORTFOLIO, null, "Data", true)
 
@@ -95,12 +95,12 @@ class RequestRepositoryTest extends Specification {
         repository.builder()
                 .type(RequestRepository.Type.EVENT_PORTFOLIO)
                 .register({})
-                .build()
+                .subscribe()
                 .test()
         def observer = repository.builder()
                 .type(RequestRepository.Type.EVENT_PORTFOLIO)
                 .register({})
-                .build()
+                .subscribe()
                 .test()
         then:
         observer.assertError(IbExceptions.DuplicatedRequest.class)
@@ -120,7 +120,7 @@ class RequestRepositoryTest extends Specification {
                 .type(RequestRepository.Type.EVENT_PORTFOLIO)
                 .register({ id -> registerCalled.evaluate { assert id == null } } as Runnable)
                 .unregister({ id -> unregisterCalled.evaluate { assert id == null } } as Runnable)
-                .build()
+                .subscribe()
                 .test()
         repository.onComplete(RequestRepository.Type.EVENT_PORTFOLIO, null, true)
 
@@ -146,7 +146,7 @@ class RequestRepositoryTest extends Specification {
                 .type(RequestRepository.Type.EVENT_PORTFOLIO)
                 .register({ id -> registerCalled.evaluate { assert id == null } } as Runnable)
                 .unregister({ id -> unregisterCalled.evaluate { assert id == null } } as Runnable)
-                .build()
+                .subscribe()
                 .test()
         repository.onError(RequestRepository.Type.EVENT_PORTFOLIO, null, new IllegalArgumentException())
 

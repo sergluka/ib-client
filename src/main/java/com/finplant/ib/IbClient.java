@@ -142,7 +142,7 @@ public class IbClient implements AutoCloseable {
         return requests.<IbOrderStatus>builder()
               .type(RequestRepository.Type.EVENT_ORDER_STATUS)
               .register(() -> {}) // statuses are received without registration
-              .build();
+              .subscribe();
     }
 
     // TODO: Add test
@@ -151,20 +151,20 @@ public class IbClient implements AutoCloseable {
               .type(RequestRepository.Type.EVENT_POSITION)
               .register(() -> socket.reqPositions())
               .unregister(() -> socket.cancelPositions())
-              .build();
+              .subscribe();
     }
 
-    public synchronized Observable<IbPosition> subscribeOnPositionChange(String account) {
+    public Observable<IbPosition> subscribeOnPositionChange(String account) {
         Validators.stringShouldNotBeEmpty(account, "Account should be defined");
 
         return requests.<IbPosition>builder()
               .type(RequestRepository.Type.EVENT_POSITION_MULTI)
               .register(id -> socket.reqPositionsMulti(id, account, ""))
               .unregister(id -> socket.cancelPositionsMulti(id))
-              .build();
+              .subscribe();
     }
 
-    public synchronized void setMarketDataType(MarketDataType type) {
+    public void setMarketDataType(MarketDataType type) {
         Validators.shouldNotBeNull(type, "Type should be defined");
 
         socket.reqMarketDataType(type.getValue());
@@ -177,16 +177,16 @@ public class IbClient implements AutoCloseable {
               .type(RequestRepository.Type.REQ_MARKET_DATA)
               .register(id -> socket.reqMktData(id, contract, "", true, false, null))
               .unregister(id -> socket.cancelPositionsMulti(id))
-              .build()
+              .subscribe()
               .firstOrError();
     }
 
-    public synchronized Observable<IbDepthMktDataDescription> reqMktDepthExchanges() {
+    public Observable<IbDepthMktDataDescription> reqMktDepthExchanges() {
 
         return requests.<List<IbDepthMktDataDescription>>builder()
               .type(RequestRepository.Type.REQ_MARKET_DEPTH_EXCHANGES)
               .register(() -> socket.reqMktDepthExchanges())
-              .build()
+              .subscribe()
               .flatMap(Observable::fromIterable);
     }
 
@@ -199,7 +199,7 @@ public class IbClient implements AutoCloseable {
      * @param contract IB contract
      * @param numRows Order book max depth
      */
-    public synchronized Observable<IbMarketDepth> getMarketDepth(Contract contract, int numRows) {
+    public Observable<IbMarketDepth> getMarketDepth(Contract contract, int numRows) {
         Validators.contractWithIdShouldExist(contract);
         Validators.intShouldBePositive(numRows, "Number of rows should be positive");
 
@@ -208,20 +208,20 @@ public class IbClient implements AutoCloseable {
               .register(id -> socket.reqMktDepth(id, contract, numRows, null))
               .unregister(id -> socket.cancelMktDepth(id))
               .userData(contract)
-              .build();
+              .subscribe();
     }
 
-    public synchronized Observable<IbTick> subscribeOnMarketData(Contract contract) {
+    public Observable<IbTick> subscribeOnMarketData(Contract contract) {
         Validators.contractWithIdShouldExist(contract);
 
         return requests.<IbTick>builder()
               .type(RequestRepository.Type.EVENT_MARKET_DATA)
               .register(id -> socket.reqMktData(id, contract, "", false, false, null))
               .unregister(id -> socket.cancelMktData(id))
-              .build();
+              .subscribe();
     }
 
-    public synchronized Observable<IbPnl> subscribeOnContractPnl(int contractId, String account) {
+    public Observable<IbPnl> subscribeOnContractPnl(int contractId, String account) {
         Validators.intShouldBePositive(contractId, "Contract ID should be positive");
         Validators.stringShouldNotBeEmpty(account, "Account should be defined");
 
@@ -229,44 +229,44 @@ public class IbClient implements AutoCloseable {
               .type(RequestRepository.Type.EVENT_CONTRACT_PNL)
               .register(id -> socket.reqPnLSingle(id, account, "", contractId))
               .unregister(id -> socket.cancelPnLSingle(id))
-              .build();
+              .subscribe();
     }
 
-    public synchronized Observable<IbPnl> subscribeOnAccountPnl(String account) {
+    public Observable<IbPnl> subscribeOnAccountPnl(String account) {
         Validators.stringShouldNotBeEmpty(account, "Account should be defined");
 
         return requests.<IbPnl>builder()
               .type(RequestRepository.Type.EVENT_ACCOUNT_PNL)
               .register(id -> socket.reqPnL(id, account, ""))
               .unregister(id -> socket.cancelPnL(id))
-              .build();
+              .subscribe();
     }
 
-    public synchronized Observable<IbPortfolio> subscribeOnAccountPortfolio(String account) {
+    public Observable<IbPortfolio> subscribeOnAccountPortfolio(String account) {
         Validators.stringShouldNotBeEmpty(account, "Account should be defined");
 
         return requests.<IbPortfolio>builder()
               .type(RequestRepository.Type.EVENT_PORTFOLIO)
               .register(() -> socket.reqAccountUpdates(true, account))
               .unregister(() -> socket.reqAccountUpdates(false, account))
-              .build();
+              .subscribe();
     }
 
-    public synchronized Observable<Boolean> connectionStatus() {
+    public Observable<Boolean> connectionStatus() {
         return requests.<Boolean>builder()
               .type(RequestRepository.Type.EVENT_CONNECTION_STATUS)
-              .build();
+              .subscribe();
     }
 
-    public synchronized Single<Long> getCurrentTime() {
+    public Single<Long> getCurrentTime() {
         return requests.<Long>builder()
               .type(RequestRepository.Type.REQ_CURRENT_TIME)
               .register(() -> socket.reqCurrentTime())
-              .build()
+              .subscribe()
               .firstOrError();
     }
 
-    public synchronized Single<IbOrder> placeOrder(Contract contract, Order order) {
+    public Single<IbOrder> placeOrder(Contract contract, Order order) {
         Validators.shouldNotBeNull(contract, "Contract should be defined");
         Validators.shouldNotBeNull(order, "Order should be defined");
 
@@ -278,31 +278,58 @@ public class IbClient implements AutoCloseable {
               .id(order.orderId())
               .type(RequestRepository.Type.REQ_ORDER_PLACE)
               .register(id -> socket.placeOrder(id, contract, order))
-              .build()
+              .subscribe()
               .firstOrError();
     }
 
-    public synchronized void cancelOrder(int orderId) {
+    public Completable cancelOrder(int orderId) {
         Validators.intShouldBePositive(orderId, "Order ID should be positive");
 
-        // TODO: Check for order canceled status and return Completable
-
         log.info("Canceling order {}", orderId);
-        socket.cancelOrder(orderId);
+
+        return requests.<Boolean>builder()
+              .id(orderId)
+              .type(RequestRepository.Type.REQ_ORDER_CANCEL)
+              .register(id -> socket.cancelOrder(id))
+              .subscribe()
+              .ignoreElements();
     }
 
-    public synchronized void reqGlobalCancel() {
-        // TODO: Check for all orders canceled status and return Completable
+    public Completable cancelAll() {
 
-        socket.reqGlobalCancel();
+        return Observable.create(emitter -> {
+            Integer sumOfOrders = reqAllOpenOrders()
+                  .flatMapObservable(map -> Observable.fromIterable(map.entrySet()))
+                  .filter(entry -> !entry.getValue().getLastStatus().isCanceled() &&
+                                   !entry.getValue().getLastStatus().isFilled())
+                  .map(Map.Entry::getKey)
+                  .reduce(0, Integer::sum)
+                  .blockingGet();
+
+            socket.reqGlobalCancel();
+
+            if (sumOfOrders == 0) {
+                emitter.onComplete();
+                return;
+            }
+
+            subscribeOnOrderNewStatus()
+                  .filter(IbOrderStatus::isCanceled)
+                  .map(IbOrderStatus::getOrderId)
+                  .scan(sumOfOrders, (a, b) -> a - b)
+                  .filter(sum -> sum == 0)
+                  .take(1)
+                  .blockingLast();
+
+            emitter.onComplete();
+        }).ignoreElements();
     }
 
-    // TODO: Check, do we need synhronised
-    public synchronized Single<Map<Integer, IbOrder>> reqAllOpenOrders() {
+    public Single<Map<Integer, IbOrder>> reqAllOpenOrders() {
         return requests.<Map<Integer, IbOrder>>builder()
               .type(RequestRepository.Type.REQ_ORDER_LIST)
               .register(() -> socket.reqAllOpenOrders())
-              .build()
+              .subscribe()
               .firstOrError();
     }
 
@@ -313,10 +340,10 @@ public class IbClient implements AutoCloseable {
         return requests.<ContractDetails>builder()
               .type(RequestRepository.Type.REQ_CONTRACT_DETAIL)
               .register(id -> socket.reqContractDetails(id, contract))
-              .build();
+              .subscribe();
     }
 
-    public synchronized int nextOrderId() {
+    public int nextOrderId() {
         return idGenerator.nextOrderId();
     }
 

@@ -13,6 +13,7 @@ abstract class TerminalErrorHandler {
     private final RequestRepository requests;
 
     private enum ErrorType {
+        CUSTOM,
         INFO,
         WARN,
         ERROR,
@@ -46,8 +47,6 @@ abstract class TerminalErrorHandler {
             case 399: // Order message error
             case 2105: // A historical data farm is disconnected.
             case 2109: // Order Event Warning: Attribute "Outside Regular Trading Hours" is ignored based on the order type and destination. PlaceOrder is now processed.
-            case 10147: // OrderId ... that needs to be cancelled is not found
-            case 10148: // OrderId ... that needs to be cancelled can not be cancelled
             case 10185: // Failed to cancel PNL (not subscribed)
             case 10186: // Failed to cancel PNL single (not subscribed)
                 severity = ErrorType.WARN;
@@ -55,6 +54,16 @@ abstract class TerminalErrorHandler {
 
             case 503: // The TWS is out of date and must be upgraded
                 severity = ErrorType.CRITICAL;
+                break;
+
+            case 10147: // OrderId ... that needs to be cancelled is not found
+                requests.onError(RequestRepository.Type.REQ_ORDER_CANCEL, id,
+                                 new IbExceptions.TerminalError(message, code));
+                severity = ErrorType.CUSTOM;
+                break;
+            case 10148: // OrderId ... that needs to be cancelled can not be cancelled
+                requests.onNextAndComplete(RequestRepository.Type.REQ_ORDER_CANCEL, id, true, true);
+                severity = ErrorType.WARN;
                 break;
 
             default:
@@ -67,6 +76,8 @@ abstract class TerminalErrorHandler {
         }
 
         switch (severity) {
+            case CUSTOM:
+                break;
             case REQUEST_ERROR:
                 requests.onError(id, new IbExceptions.TerminalError(message, code));
                 break;
