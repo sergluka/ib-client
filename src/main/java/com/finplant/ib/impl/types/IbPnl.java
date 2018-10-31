@@ -1,41 +1,24 @@
 package com.finplant.ib.impl.types;
 
+import java.math.BigDecimal;
+
 /**
- * PnL structure. Any of Double members can be null, if TWS sends MAX_DBL value.
+ * PnL structure. Any of BigDecimal members can be null, if TWS sends MAX_DBL value.
  */
 public class IbPnl {
     private final Integer positionId;
-    private final Double dailyPnL;
-    private final Double unrealizedPnL;
-    private final Double realizedPnL;
-    private final Double value;
+    private final BigDecimal dailyPnL;
+    private final BigDecimal unrealizedPnL;
+    private final BigDecimal realizedPnL;
+    private final BigDecimal value;
 
-    public IbPnl(Integer positionId, Double dailyPnL, Double unrealizedPnL, Double realizedPnL, Double value) {
+    public IbPnl(Integer positionId, BigDecimal dailyPnL, BigDecimal unrealizedPnL, BigDecimal realizedPnL,
+                 BigDecimal value) {
         this.positionId = positionId;
         this.dailyPnL = dailyPnL;
         this.unrealizedPnL = unrealizedPnL;
         this.realizedPnL = realizedPnL;
         this.value = value;
-    }
-
-    public Integer getPositionId() {
-        return positionId;
-    }
-
-    public Double getDailyPnL() {
-        return dailyPnL;
-    }
-
-    public Double getUnrealizedPnL() {
-        return unrealizedPnL;
-    }
-
-    public Double getRealizedPnL() {
-        return realizedPnL;
-    }
-
-    public Double getValue() {
-        return value;
     }
 
     @Override
@@ -48,5 +31,25 @@ public class IbPnl {
         buffer.append(", value=").append(value);
         buffer.append('}');
         return buffer.toString();
+    }
+
+    public Integer getPositionId() {
+        return positionId;
+    }
+
+    public BigDecimal getDailyPnL() {
+        return dailyPnL;
+    }
+
+    public BigDecimal getUnrealizedPnL() {
+        return unrealizedPnL;
+    }
+
+    public BigDecimal getRealizedPnL() {
+        return realizedPnL;
+    }
+
+    public BigDecimal getValue() {
+        return value;
     }
 }

@@ -1,5 +1,7 @@
 package com.finplant.ib.impl.types;
 
+import java.math.BigDecimal;
+
 import com.ib.client.Contract;
 
 public class IbPortfolio {
@@ -7,21 +9,21 @@ public class IbPortfolio {
     public static IbPortfolio COMPLETE = new IbPortfolio();
 
     private Contract contract;
-    private Double position;
-    private Double marketPrice;
-    private Double marketValue;
-    private Double averageCost;
-    private Double unrealizedPNL;
-    private Double realizedPNL;
+    private BigDecimal position;
+    private BigDecimal marketPrice;
+    private BigDecimal marketValue;
+    private BigDecimal averageCost;
+    private BigDecimal unrealizedPNL;
+    private BigDecimal realizedPNL;
     private String account;
 
     public IbPortfolio(Contract contract,
-                       Double position,
-                       Double marketPrice,
-                       Double marketValue,
-                       Double averageCost,
-                       Double unrealizedPNL,
-                       Double realizedPNL,
+                       BigDecimal position,
+                       BigDecimal marketPrice,
+                       BigDecimal marketValue,
+                       BigDecimal averageCost,
+                       BigDecimal unrealizedPNL,
+                       BigDecimal realizedPNL,
                        String account) {
         this.contract = contract;
         this.position = position;
@@ -48,27 +50,27 @@ public class IbPortfolio {
         return contract;
     }
 
-    public Double getPosition() {
+    public BigDecimal getPosition() {
         return position;
     }
 
-    public Double getMarketPrice() {
+    public BigDecimal getMarketPrice() {
         return marketPrice;
     }
 
-    public Double getMarketValue() {
+    public BigDecimal getMarketValue() {
         return marketValue;
     }
 
-    public Double getAverageCost() {
+    public BigDecimal getAverageCost() {
         return averageCost;
     }
 
-    public Double getUnrealizedPNL() {
+    public BigDecimal getUnrealizedPNL() {
         return unrealizedPNL;
     }
 
-    public Double getRealizedPNL() {
+    public BigDecimal getRealizedPNL() {
         return realizedPNL;
     }
 

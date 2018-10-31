@@ -1,5 +1,6 @@
 package com.finplant.ib.impl;
 
+import java.math.BigDecimal;
 import java.net.SocketException;
 import java.util.HashSet;
 import java.util.List;
@@ -52,16 +53,12 @@ import com.finplant.ib.impl.types.IbDepthMktDataDescription;
 public class Wrapper implements EWrapper {
 
     private static final Logger log = LoggerFactory.getLogger(Wrapper.class);
-
-    private Set<String> managedAccounts;
-
     private final TerminalErrorHandler errorHandler;
-
     private final ConnectionMonitor connectionMonitor;
-
     private final CacheRepositoryImpl cache;
     private final RequestRepository requests;
     private final IdGenerator idGenerator;
+    private Set<String> managedAccounts;
     private EClientSocket socket;
 
     public Wrapper(ConnectionMonitor connectionMonitor,
@@ -94,19 +91,66 @@ public class Wrapper implements EWrapper {
         this.idGenerator = idGenerator;
     }
 
-    public void setSocket(EClientSocket socket) {
-        this.socket = socket;
+    @Override
+    public void tickPrice(int tickerId, int field, double value, TickAttr attrib) {
+        if (value == -1) {
+            publishNoData(tickerId);
+            return;
+        }
+
+        IbTick result = cache.updateTick(tickerId, (tick) ->
+              tick.setPriceValue(field, BigDecimal.valueOf(value), attrib));
+        publishNewTick(tickerId, result);
     }
 
     @Override
-    public void connectAck() {
-        log.info("Connection is opened. version: {}", socket.serverVersion());
+    public void tickSize(int tickerId, int field, int value) {
+        if (value == -1) {
+            publishNoData(tickerId);
+            return;
+        }
+
+        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setIntValue(field, value));
+        publishNewTick(tickerId, result);
     }
 
     @Override
-    public void connectionClosed() {
-        log.error("TWS closes the connection");
-        connectionMonitor.reconnect();
+    public void tickOptionComputation(final int tickerId,
+                                      final int field,
+                                      final double impliedVol,
+                                      final double delta,
+                                      final double optPrice,
+                                      final double pvDividend,
+                                      final double gamma,
+                                      final double vega,
+                                      final double theta,
+                                      final double undPrice) {
+        log.debug("tickOptionComputation: NOT IMPLEMENTED");
+    }
+
+    @Override
+    public void tickGeneric(int tickerId, int field, double value) {
+        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setGenericValue(field, BigDecimal.valueOf(value)));
+        publishNewTick(tickerId, result);
+    }
+
+    @Override
+    public void tickString(int tickerId, int field, String value) {
+        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setStringValue(field, value));
+        publishNewTick(tickerId, result);
+    }
+
+    @Override
+    public void tickEFP(final int tickerId,
+                        final int tickType,
+                        final double basisPoints,
+                        final String formattedBasisPoints,
+                        final double impliedFuture,
+                        final int holdDays,
+                        final String futureLastTradeDate,
+                        final double dividendImpact,
+                        final double dividendsToLastTradeDate) {
+        log.debug("dividendsToLastTradeDate: NOT IMPLEMENTED");
     }
 
     @Override
@@ -116,15 +160,15 @@ public class Wrapper implements EWrapper {
 
         final IbOrderStatus twsStatus = new IbOrderStatus(orderId,
                                                           status,
-                                                          filled,
-                                                          remaining,
-                                                          avgFillPrice,
+                                                          BigDecimal.valueOf(filled),
+                                                          BigDecimal.valueOf(remaining),
+                                                          BigDecimal.valueOf(avgFillPrice),
                                                           permId,
                                                           parentId,
-                                                          lastFillPrice,
+                                                          BigDecimal.valueOf(lastFillPrice),
                                                           clientId,
                                                           whyHeld,
-                                                          mktCapPrice);
+                                                          BigDecimal.valueOf(mktCapPrice));
 
         log.debug("orderStatus: {}", twsStatus);
 
@@ -159,108 +203,82 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
-    public void position(String account, Contract contract, double pos, double avgCost) {
-        log.info("Position change: {}/{},{}/{}", account, contract.conid(), contract.localSymbol(), pos);
-
-        IbPosition position = new IbPosition(account, contract, pos, avgCost);
-        cache.updatePosition(position);
-        requests.onNext(RequestRepository.Type.EVENT_POSITION, null, position, true);
+    public void updateAccountValue(final String key,
+                                   final String value,
+                                   final String currency,
+                                   final String accountName) {
+        log.trace("updateAccountValue: NOT IMPLEMENTED");
     }
 
     @Override
-    public void positionEnd() {
-        requests.onNext(RequestRepository.Type.EVENT_POSITION, null, IbPosition.COMPLETE, true);
+    public void updatePortfolio(Contract contract,
+                                double position,
+                                double marketPrice,
+                                double marketValue,
+                                double averageCost,
+                                double unrealizedPNL,
+                                double realizedPNL,
+                                String accountName) {
+
+        BigDecimal positionObj = doubleToBigDecimal("position", position);
+        BigDecimal marketPriceObj = doubleToBigDecimal("marketPrice", marketPrice);
+        BigDecimal marketValueObj = doubleToBigDecimal("marketValue", marketValue);
+        BigDecimal averageCostObj = doubleToBigDecimal("averageCost", averageCost);
+        BigDecimal unrealizedPNLObj = doubleToBigDecimal("unrealizedPNL", unrealizedPNL);
+        BigDecimal realizedPNLObj = doubleToBigDecimal("realizedPNL", realizedPNL);
+
+        log.debug("updatePortfolio: contract={}, position={}, marketPrice={}, marketValue={}, averageCost={}, " +
+                  "unrealizedPNL={}, realizedPNL={}, accountName={}",
+                  contract, position, marketPrice, marketValue, averageCost, unrealizedPNL, realizedPNL, accountName);
+
+        IbPortfolio portfolio = new IbPortfolio(contract, positionObj, marketPriceObj, marketValueObj, averageCostObj,
+                                                unrealizedPNLObj, realizedPNLObj, accountName);
+
+        cache.updatePortfolio(portfolio);
+        requests.onNext(RequestRepository.Type.EVENT_PORTFOLIO, null, portfolio, true);
     }
 
     @Override
-    public void managedAccounts(String accountsList) {
-        // Documentation said that connection fully established after `managedAccounts` and `nextValidId` called
-        connectionMonitor.confirmConnection();
-
-        log.debug("Managed accounts are: {}", accountsList);
-        this.managedAccounts = new HashSet<>(Splitter.on(",").splitToList(accountsList));
+    public void updateAccountTime(final String timeStamp) {
+        log.debug("updateAccountTime: {}", timeStamp);
     }
 
     @Override
-    public void pnlSingle(int reqId, int pos, double dailyPnL, double unrealizedPnL, double realizedPnL, double value) {
-        log.debug("pnlSingle: reqId={}, pos={}, dailyPnL={}, unrealizedPnL={}, realizedPnL={}, value={}",
-                  reqId, pos, dailyPnL, unrealizedPnL, realizedPnL, value);
-
-        Double dailyPnLObj = doubleToDouble("dailyPnL", dailyPnL);
-        Double unrealizedPnLObj = doubleToDouble("unrealizedPnL", unrealizedPnL);
-        Double realizedPnLObj = doubleToDouble("realizedPnL", realizedPnL);
-        Double valueObj = doubleToDouble("value", value);
-
-        IbPnl pnl = new IbPnl(pos, dailyPnLObj, unrealizedPnLObj, realizedPnLObj, valueObj);
-        requests.onNext(RequestRepository.Type.EVENT_CONTRACT_PNL, reqId, pnl, true);
+    public void accountDownloadEnd(String accountName) {
+        requests.onNext(RequestRepository.Type.EVENT_PORTFOLIO, null, IbPortfolio.COMPLETE, true);
     }
 
     @Override
-    public void pnl(int reqId, double dailyPnL, double unrealizedPnL, double realizedPnL) {
-        log.trace("pnl: reqId={}, dailyPnL={}, unrealizedPnL={}, realizedPnL={}",
-                  reqId, dailyPnL, unrealizedPnL, realizedPnL);
-
-        IbPnl pnl = new IbPnl(null, dailyPnL, unrealizedPnL, realizedPnL, null);
-        requests.onNext(RequestRepository.Type.EVENT_ACCOUNT_PNL, reqId, pnl, true);
-    }
-
-    @Override
-    public void tickSize(int tickerId, int field, int value) {
-        if (value == -1) {
-            publishNoData(tickerId);
-            return;
+    public void nextValidId(int id) {
+        log.debug("New request ID: {}", id);
+        if (idGenerator.setOrderId(id)) {
+            cache.clear();
         }
-
-        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setIntValue(field, value));
-        publishNewTick(tickerId, result);
     }
 
     @Override
-    public void tickPrice(int tickerId, int field, double value, TickAttr attrib) {
-        if (value == -1) {
-            publishNoData(tickerId);
-            return;
-        }
-
-        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setPriceValue(field, value, attrib));
-        publishNewTick(tickerId, result);
+    public void contractDetails(final int reqId, final ContractDetails contractDetails) {
+        requests.onNext(RequestRepository.Type.REQ_CONTRACT_DETAIL, reqId, contractDetails, true);
     }
 
     @Override
-    public void tickString(int tickerId, int field, String value) {
-        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setStringValue(field, value));
-        publishNewTick(tickerId, result);
+    public void bondContractDetails(final int reqId, final ContractDetails contractDetails) {
+        log.debug("bondContractDetails: NOT IMPLEMENTED");
     }
 
     @Override
-    public void tickGeneric(int tickerId, int field, double value) {
-        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setGenericValue(field, value));
-        publishNewTick(tickerId, result);
+    public void contractDetailsEnd(final int reqId) {
+        requests.onComplete(RequestRepository.Type.REQ_CONTRACT_DETAIL, reqId, true);
     }
 
     @Override
-    public void tickSnapshotEnd(final int tickerId) {
-        log.trace("tickSnapshotEnd({})", tickerId);
-
-        IbTick tick = cache.getTick(tickerId);
-        if (tick == null) {
-            log.info("No ticks for ticker {}", tickerId);
-            requests.onError(tickerId, new IbExceptions.NoTicks());
-            return;
-        }
-
-        requests.onNextAndComplete(RequestRepository.Type.REQ_MARKET_DATA, tickerId, tick, true);
+    public void execDetails(final int reqId, final Contract contract, final Execution execution) {
+        log.debug("execDetails: NOT IMPLEMENTED");
     }
 
     @Override
-    public void mktDepthExchanges(DepthMktDataDescription[] depthMktDataDescriptions) {
-        List<IbDepthMktDataDescription> result =
-              Lists.newArrayList(depthMktDataDescriptions).stream()
-                   .map(IbDepthMktDataDescription::new)
-                   .collect(Collectors.toList());
-        log.debug("mktDepthExchanges: {}", result);
-
-        requests.onNextAndComplete(RequestRepository.Type.REQ_MARKET_DEPTH_EXCHANGES, null, result, true);
+    public void execDetailsEnd(final int reqId) {
+        log.debug("execDetailsEnd: NOT IMPLEMENTED");
     }
 
     @Override
@@ -271,7 +289,7 @@ public class Wrapper implements EWrapper {
                                final double price,
                                final int size) {
         log.debug("updateMktDepth: tickerId = {}, position = {}, operation = {}, side = {}, price = {}, size = {}",
-                  tickerId,  position, operation, side, price, size);
+                  tickerId, position, operation, side, price, size);
 
         handleUpdateMktDepth(tickerId, position, null, operation, side, price, size);
     }
@@ -292,193 +310,20 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
-    public void updatePortfolio(Contract contract,
-                                double position,
-                                double marketPrice,
-                                double marketValue,
-                                double averageCost,
-                                double unrealizedPNL,
-                                double realizedPNL,
-                                String accountName) {
-
-        Double positionObj = doubleToDouble("position", position);
-        Double marketPriceObj = doubleToDouble("marketPrice", marketPrice);
-        Double marketValueObj = doubleToDouble("marketValue", marketValue);
-        Double averageCostObj = doubleToDouble("averageCost", averageCost);
-        Double unrealizedPNLObj = doubleToDouble("unrealizedPNL", unrealizedPNL);
-        Double realizedPNLObj = doubleToDouble("realizedPNL", realizedPNL);
-
-        log.debug("updatePortfolio: contract={}, position={}, marketPrice={}, marketValue={}, averageCost={}, " +
-                  "unrealizedPNL={}, realizedPNL={}, accountName={}",
-                  contract, position, marketPrice, marketValue, averageCost, unrealizedPNL, realizedPNL, accountName);
-
-        IbPortfolio portfolio = new IbPortfolio(contract, positionObj, marketPriceObj, marketValueObj, averageCostObj,
-                                                unrealizedPNLObj, realizedPNLObj, accountName);
-
-        cache.updatePortfolio(portfolio);
-        requests.onNext(RequestRepository.Type.EVENT_PORTFOLIO, null, portfolio, true);
-    }
-
-    @Override
-    public void accountDownloadEnd(String accountName) {
-        requests.onNext(RequestRepository.Type.EVENT_PORTFOLIO, null, IbPortfolio.COMPLETE, true);
-    }
-
-    @Override
-    public void error(final Exception e) {
-        if (e instanceof SocketException) {
-
-            final ConnectionMonitor.Status connectionStatus = connectionMonitor.status();
-
-            if (connectionStatus == ConnectionMonitor.Status.DISCONNECTING ||
-                connectionStatus == ConnectionMonitor.Status.DISCONNECTED) {
-
-                log.debug("Socket has been closed at shutdown");
-                return;
-            }
-
-            log.warn("Connection lost");
-            connectionMonitor.reconnect();
-            return;
-        }
-        // Ugly TWS client library try to read from null stream even it doesn't created when TWS is unreachable
-        else if (e instanceof NullPointerException && e.getStackTrace().length > 0) {
-            StackTraceElement element = e.getStackTrace()[0];
-            if (Objects.equals(element.getClassName(), "com.ib.client.EClientSocket") &&
-                Objects.equals(element.getMethodName(), "readInt")) {
-
-                log.debug("Ignoring error of uninitialized stream");
-                return;
-            }
-        }
-
-        log.error("TWS exception", e);
-    }
-
-    @Override
-    public void error(final int id, final int code, final String message) {
-        errorHandler.handle(id, code, message);
-    }
-
-    @Override
-    public void nextValidId(int id) {
-        log.debug("New request ID: {}", id);
-        if (idGenerator.setOrderId(id)) {
-            cache.clear();
-        }
-    }
-
-    private void publishNewTick(int tickerId, IbTick result) {
-        requests.onNext(RequestRepository.Type.EVENT_MARKET_DATA, tickerId, result, false);
-    }
-
-    private void publishNoData(int tickerId) {
-        requests.onError(RequestRepository.Type.EVENT_MARKET_DATA, tickerId, new IbExceptions.NoTicks());
-    }
-
-    @Override
-    public void contractDetails(final int reqId, final ContractDetails contractDetails) {
-        requests.onNext(RequestRepository.Type.REQ_CONTRACT_DETAIL, reqId, contractDetails, true);
-    }
-
-    @Override
-    public void contractDetailsEnd(final int reqId) {
-        requests.onComplete(RequestRepository.Type.REQ_CONTRACT_DETAIL, reqId, true);
-    }
-
-    @Override
-    public void currentTime(final long time) {
-        requests.onNextAndComplete(RequestRepository.Type.REQ_CURRENT_TIME, null, time, true);
-    }
-
-    @Override
-    public void error(final String str) {
-        log.error("Shouldn't be there. err={}", str);
-    }
-
-    @Override
-    public void positionMulti(final int reqId,
-                              final String account,
-                              final String modelCode,
-                              final Contract contract,
-                              final double pos,
-                              final double avgCost) {
-
-        log.info("Position change for account {}, model='{}': contractId={}, symbol={}, pos={}",
-                 account, modelCode != null ? modelCode : "", contract.conid(), contract.localSymbol(), pos);
-
-        IbPosition position = new IbPosition(account, contract, pos, avgCost);
-        cache.updatePosition(position);
-
-        requests.onNext(RequestRepository.Type.EVENT_POSITION_MULTI, reqId, position, true);
-    }
-
-    @Override
-    public void positionMultiEnd(final int reqId) {
-        requests.onNext(RequestRepository.Type.EVENT_POSITION_MULTI, reqId, IbPosition.COMPLETE, true);
-    }
-
-    @Override
-    public void tickOptionComputation(final int tickerId,
-                                      final int field,
-                                      final double impliedVol,
-                                      final double delta,
-                                      final double optPrice,
-                                      final double pvDividend,
-                                      final double gamma,
-                                      final double vega,
-                                      final double theta,
-                                      final double undPrice) {
-        log.debug("tickOptionComputation: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void tickEFP(final int tickerId,
-                        final int tickType,
-                        final double basisPoints,
-                        final String formattedBasisPoints,
-                        final double impliedFuture,
-                        final int holdDays,
-                        final String futureLastTradeDate,
-                        final double dividendImpact,
-                        final double dividendsToLastTradeDate) {
-        log.debug("dividendsToLastTradeDate: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void updateAccountValue(final String key,
-                                   final String value,
-                                   final String currency,
-                                   final String accountName) {
-        log.trace("updateAccountValue: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void updateAccountTime(final String timeStamp) {
-        log.debug("updateAccountTime: {}", timeStamp);
-    }
-
-    @Override
-    public void bondContractDetails(final int reqId, final ContractDetails contractDetails) {
-        log.debug("bondContractDetails: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void execDetails(final int reqId, final Contract contract, final Execution execution) {
-        log.debug("execDetails: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void execDetailsEnd(final int reqId) {
-        log.debug("execDetailsEnd: NOT IMPLEMENTED");
-    }
-
-    @Override
     public void updateNewsBulletin(final int msgId,
                                    final int msgType,
                                    final String message,
                                    final String origExchange) {
         log.debug("updateNewsBulletin: NOT IMPLEMENTED");
+    }
+
+    @Override
+    public void managedAccounts(String accountsList) {
+        // Documentation said that connection fully established after `managedAccounts` and `nextValidId` called
+        connectionMonitor.confirmConnection();
+
+        log.debug("Managed accounts are: {}", accountsList);
+        this.managedAccounts = new HashSet<>(Splitter.on(",").splitToList(accountsList));
     }
 
     @Override
@@ -527,6 +372,11 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
+    public void currentTime(final long time) {
+        requests.onNextAndComplete(RequestRepository.Type.REQ_CURRENT_TIME, null, time, true);
+    }
+
+    @Override
     public void fundamentalData(final int reqId, final String data) {
         log.debug("fundamentalData: NOT IMPLEMENTED");
     }
@@ -537,6 +387,20 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
+    public void tickSnapshotEnd(final int tickerId) {
+        log.trace("tickSnapshotEnd({})", tickerId);
+
+        IbTick tick = cache.getTick(tickerId);
+        if (tick == null) {
+            log.info("No ticks for ticker {}", tickerId);
+            requests.onError(tickerId, new IbExceptions.NoTicks());
+            return;
+        }
+
+        requests.onNextAndComplete(RequestRepository.Type.REQ_MARKET_DATA, tickerId, tick, true);
+    }
+
+    @Override
     public void marketDataType(final int reqId, final int marketDataType) {
         log.debug("marketDataType: NOT IMPLEMENTED");
     }
@@ -544,6 +408,20 @@ public class Wrapper implements EWrapper {
     @Override
     public void commissionReport(final CommissionReport commissionReport) {
         log.debug("commissionReport: NOT IMPLEMENTED");
+    }
+
+    @Override
+    public void position(String account, Contract contract, double pos, double avgCost) {
+        log.info("Position change: {}/{},{}/{}", account, contract.conid(), contract.localSymbol(), pos);
+
+        IbPosition position = new IbPosition(account, contract, BigDecimal.valueOf(pos), BigDecimal.valueOf(avgCost));
+        cache.updatePosition(position);
+        requests.onNext(RequestRepository.Type.EVENT_POSITION, null, position, true);
+    }
+
+    @Override
+    public void positionEnd() {
+        requests.onNext(RequestRepository.Type.EVENT_POSITION, null, IbPosition.COMPLETE, true);
     }
 
     @Override
@@ -591,13 +469,86 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
+    public void error(final Exception e) {
+        if (e instanceof SocketException) {
+
+            final ConnectionMonitor.Status connectionStatus = connectionMonitor.status();
+
+            if (connectionStatus == ConnectionMonitor.Status.DISCONNECTING ||
+                connectionStatus == ConnectionMonitor.Status.DISCONNECTED) {
+
+                log.debug("Socket has been closed at shutdown");
+                return;
+            }
+
+            log.warn("Connection lost");
+            connectionMonitor.reconnect();
+            return;
+        }
+        // Ugly TWS client library try to read from null stream even it doesn't created when TWS is unreachable
+        else if (e instanceof NullPointerException && e.getStackTrace().length > 0) {
+            StackTraceElement element = e.getStackTrace()[0];
+            if (Objects.equals(element.getClassName(), "com.ib.client.EClientSocket") &&
+                Objects.equals(element.getMethodName(), "readInt")) {
+
+                log.debug("Ignoring error of uninitialized stream");
+                return;
+            }
+        }
+
+        log.error("TWS exception", e);
+    }
+
+    @Override
+    public void error(final String str) {
+        log.error("Shouldn't be there. err={}", str);
+    }
+
+    @Override
+    public void error(final int id, final int code, final String message) {
+        errorHandler.handle(id, code, message);
+    }
+
+    @Override
+    public void connectionClosed() {
+        log.error("TWS closes the connection");
+        connectionMonitor.reconnect();
+    }
+
+    @Override
+    public void connectAck() {
+        log.info("Connection is opened. version: {}", socket.serverVersion());
+    }
+
+    @Override
+    public void positionMulti(final int reqId,
+                              final String account,
+                              final String modelCode,
+                              final Contract contract,
+                              final double pos,
+                              final double avgCost) {
+
+        log.info("Position change for account {}, model='{}': contractId={}, symbol={}, pos={}",
+                 account, modelCode != null ? modelCode : "", contract.conid(), contract.localSymbol(), pos);
+
+        IbPosition position = new IbPosition(account, contract, BigDecimal.valueOf(pos), BigDecimal.valueOf(avgCost));
+        cache.updatePosition(position);
+
+        requests.onNext(RequestRepository.Type.EVENT_POSITION_MULTI, reqId, position, true);
+    }
+
+    @Override
+    public void positionMultiEnd(final int reqId) {
+        requests.onNext(RequestRepository.Type.EVENT_POSITION_MULTI, reqId, IbPosition.COMPLETE, true);
+    }
+
+    @Override
     public void accountUpdateMulti(final int reqId,
                                    final String account,
                                    final String modelCode,
                                    final String key,
                                    final String value,
                                    final String currency) {
-
 
         log.debug("accountUpdateMulti (NOT IMPLEMENTED): " +
                   "reqId={}, account={}, modelCode={}, key={}, value={}, currency={}",
@@ -643,6 +594,17 @@ public class Wrapper implements EWrapper {
     @Override
     public void historicalDataEnd(int reqId, String startDateStr, String endDateStr) {
         log.debug("historicalDataEnd: NOT IMPLEMENTED");
+    }
+
+    @Override
+    public void mktDepthExchanges(DepthMktDataDescription[] depthMktDataDescriptions) {
+        List<IbDepthMktDataDescription> result =
+              Lists.newArrayList(depthMktDataDescriptions).stream()
+                   .map(IbDepthMktDataDescription::new)
+                   .collect(Collectors.toList());
+        log.debug("mktDepthExchanges: {}", result);
+
+        requests.onNextAndComplete(RequestRepository.Type.REQ_MARKET_DEPTH_EXCHANGES, null, result, true);
     }
 
     @Override
@@ -716,6 +678,30 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
+    public void pnl(int reqId, double dailyPnL, double unrealizedPnL, double realizedPnL) {
+        log.trace("pnl: reqId={}, dailyPnL={}, unrealizedPnL={}, realizedPnL={}",
+                  reqId, dailyPnL, unrealizedPnL, realizedPnL);
+
+        IbPnl pnl = new IbPnl(null, BigDecimal.valueOf(dailyPnL), BigDecimal.valueOf(unrealizedPnL),
+                              BigDecimal.valueOf(realizedPnL), null);
+        requests.onNext(RequestRepository.Type.EVENT_ACCOUNT_PNL, reqId, pnl, true);
+    }
+
+    @Override
+    public void pnlSingle(int reqId, int pos, double dailyPnL, double unrealizedPnL, double realizedPnL, double value) {
+        log.debug("pnlSingle: reqId={}, pos={}, dailyPnL={}, unrealizedPnL={}, realizedPnL={}, value={}",
+                  reqId, pos, dailyPnL, unrealizedPnL, realizedPnL, value);
+
+        BigDecimal dailyPnLObj = doubleToBigDecimal("dailyPnL", dailyPnL);
+        BigDecimal unrealizedPnLObj = doubleToBigDecimal("unrealizedPnL", unrealizedPnL);
+        BigDecimal realizedPnLObj = doubleToBigDecimal("realizedPnL", realizedPnL);
+        BigDecimal valueObj = doubleToBigDecimal("value", value);
+
+        IbPnl pnl = new IbPnl(pos, dailyPnLObj, unrealizedPnLObj, realizedPnLObj, valueObj);
+        requests.onNext(RequestRepository.Type.EVENT_CONTRACT_PNL, reqId, pnl, true);
+    }
+
+    @Override
     public void historicalTicks(int reqId, List<HistoricalTick> ticks, boolean done) {
         log.debug("historicalTicks: NOT IMPLEMENTED");
     }
@@ -730,6 +716,18 @@ public class Wrapper implements EWrapper {
         log.debug("historicalTicksLast: NOT IMPLEMENTED");
     }
 
+    public void setSocket(EClientSocket socket) {
+        this.socket = socket;
+    }
+
+    private void publishNewTick(int tickerId, IbTick result) {
+        requests.onNext(RequestRepository.Type.EVENT_MARKET_DATA, tickerId, result, false);
+    }
+
+    private void publishNoData(int tickerId) {
+        requests.onError(RequestRepository.Type.EVENT_MARKET_DATA, tickerId, new IbExceptions.NoTicks());
+    }
+
     public Set<String> getManagedAccounts() {
         return managedAccounts;
     }
@@ -740,7 +738,8 @@ public class Wrapper implements EWrapper {
         Contract contract = (Contract) requests.getUserData(RequestRepository.Type.EVENT_MARKET_DATA_LVL2, tickerId);
         Objects.requireNonNull(contract);
 
-        IbMarketDepth orderBookDepth = new IbMarketDepth(contract, position, side, price, size, marketMaker);
+        IbMarketDepth orderBookDepth = new IbMarketDepth(contract, position, side, BigDecimal.valueOf(price),
+                                                         size, marketMaker);
         cache.addMarketDepth(contract, orderBookDepth, IbMarketDepth.Operation.values()[operation]);
 
         requests.onNext(RequestRepository.Type.EVENT_MARKET_DATA_LVL2, tickerId, orderBookDepth, true);
@@ -749,12 +748,12 @@ public class Wrapper implements EWrapper {
     /**
      * TWS API describes that double equals Double.MAX_VALUE should be threaded as unset
      */
-    private Double doubleToDouble(String name, double value) {
+    private BigDecimal doubleToBigDecimal(String name, double value) {
         if (value == Double.MAX_VALUE) {
             log.debug("Missing value for '{}'", name);
             return null;
         }
 
-        return value;
+        return BigDecimal.valueOf(value);
     }
 }

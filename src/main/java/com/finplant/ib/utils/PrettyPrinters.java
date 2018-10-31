@@ -20,8 +20,6 @@ public class PrettyPrinters {
 
     static public String orderToString(Order order) {
 
-        double UNDEFINED_DBL = 1.7976931348623157E308D;
-
         final StringBuilder buffer = new StringBuilder("{");
         buffer.append("id=").append(order.orderId());
         buffer.append(", action=").append(order.action());
@@ -29,10 +27,10 @@ public class PrettyPrinters {
         if (order.orderType() != null) {
             buffer.append(", orderType=").append(order.orderType());
         }
-        if (order.auxPrice() != UNDEFINED_DBL) {
+        if (order.auxPrice() != Double.MAX_VALUE) {
             buffer.append(", auxPrice=").append(order.auxPrice());
         }
-        if (order.lmtPrice() != UNDEFINED_DBL) {
+        if (order.lmtPrice() != Double.MAX_VALUE) {
             buffer.append(", lmtPrice=").append(order.lmtPrice());
         }
         if (order.tif() != null) {

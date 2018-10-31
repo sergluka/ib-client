@@ -1,10 +1,7 @@
 package com.finplant.ib.impl.types;
 
-import static org.apache.commons.math3.util.Precision.EPSILON;
-
+import java.math.BigDecimal;
 import java.util.Objects;
-
-import org.apache.commons.math3.util.Precision;
 
 import com.ib.client.Contract;
 
@@ -14,21 +11,14 @@ public class IbPosition {
 
     private final String account;
     private final Contract contract;
-    private final double pos; // TODO Convert all floats to BigDecimals
-    private final double avgCost;
+    private final BigDecimal pos;
+    private final BigDecimal avgCost;
 
-    public IbPosition(String account, Contract contract, double pos, double avgCost) {
+    public IbPosition(String account, Contract contract, BigDecimal pos, BigDecimal avgCost) {
         this.account = account;
         this.contract = contract;
         this.pos = pos;
         this.avgCost = avgCost;
-    }
-
-    private IbPosition() {
-        account = null;
-        contract = null;
-        pos = Double.NEGATIVE_INFINITY;
-        avgCost = Double.NEGATIVE_INFINITY;
     }
 
     public String getAccount() {
@@ -39,16 +29,37 @@ public class IbPosition {
         return contract;
     }
 
-    public double getPos() {
+    public BigDecimal getPos() {
         return pos;
     }
 
-    public double getAvgCost() {
+    public BigDecimal getAvgCost() {
         return avgCost;
     }
 
     public boolean isValid() {
         return account != null && contract != null;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(account, contract, pos, avgCost);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+
+        IbPosition that = (IbPosition) obj;
+        return that.pos.compareTo(pos) == 0 &&
+               that.avgCost.compareTo(avgCost) == 0 &&
+               Objects.equals(account, that.account) &&
+               Objects.equals(contract, that.contract);
     }
 
     @Override
@@ -62,24 +73,10 @@ public class IbPosition {
         return buffer.toString();
     }
 
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-
-        IbPosition that = (IbPosition) obj;
-        return Precision.equals(that.pos, pos, EPSILON) &&
-                Precision.equals(that.avgCost, avgCost, EPSILON) &&
-                Objects.equals(account, that.account) &&
-                Objects.equals(contract, that.contract);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(account, contract, pos, avgCost);
+    private IbPosition() {
+        account = null;
+        contract = null;
+        pos = BigDecimal.ZERO;
+        avgCost = BigDecimal.ZERO;
     }
 }

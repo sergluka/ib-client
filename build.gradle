@@ -19,7 +19,7 @@ plugins {
 }
 
 group 'com.finplant.ib'
-version '2.0.1'
+version '2.0.2-SNAPSHOT'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
@@ -35,7 +35,6 @@ dependencies {
     implementation 'io.reactivex.rxjava2:rxjava:2.1.14'
     implementation 'org.jetbrains:annotations-java5:15.0'
     implementation 'com.google.guava:guava:23.5-jre'
-    implementation 'org.apache.commons:commons-math3:3.6.1' // TODO: Migrate to BigDecimal and remove this dependency
 
     testImplementation 'org.codehaus.groovy:groovy-all:2.4.12'
     testImplementation 'org.spockframework:spock-core:1.1+'

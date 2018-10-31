@@ -1,5 +1,6 @@
 package com.finplant.ib.impl.types;
 
+import java.math.BigDecimal;
 import java.util.Objects;
 
 import com.ib.client.Contract;
@@ -62,11 +63,11 @@ public class IbMarketDepth {
 
     private final Integer position;
     private final Side side;
-    private final Double price;
+    private final BigDecimal price;
     private final Integer size;
     private final String marketMaker;
 
-    public IbMarketDepth(Contract contract, Integer position, Integer side, Double price, Integer size,
+    public IbMarketDepth(Contract contract, Integer position, Integer side, BigDecimal price, Integer size,
                          String marketMaker) {
         switch (side) {
             case 0:
@@ -102,7 +103,7 @@ public class IbMarketDepth {
         return side;
     }
 
-    public Double getPrice() {
+    public BigDecimal getPrice() {
         return price;
     }
 

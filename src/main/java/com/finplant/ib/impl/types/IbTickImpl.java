@@ -3,6 +3,7 @@ package com.finplant.ib.impl.types;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -94,7 +95,7 @@ public class IbTickImpl implements IbTick {
         }
         private Integer value;
 
-        private Types(Integer value) {
+        Types(Integer value) {
             this.value = value;
         }
 
@@ -128,38 +129,38 @@ public class IbTickImpl implements IbTick {
     private Integer delayedVolume;
     private Integer futuresOpenInterest;
 
-    private Double bid;
-    private Double ask;
-    private Double lastPrice;
-    private Double highPrice;
-    private Double lowPrice;
-    private Double closePrice;
-    private Double openTick;
-    private Double low13Weeks;
-    private Double high13Weeks;
-    private Double low26Weeks;
-    private Double high26Weeks;
-    private Double low52Weeks;
-    private Double high52Weeks;
-    private Double auctionPrice;
-    private Double markPrice;
-    private Double bidYield;
-    private Double askYield;
-    private Double lastYield;
-    private Double lastRthTrade;
-    private Double delayedBid;
-    private Double delayedAsk;
-    private Double delayedLast;
-    private Double delayedHighPrice;
-    private Double delayedLowPrice;
-    private Double delayedClose;
-    private Double delayedOpen;
-    private Double creditmanMarkPrice;
-    private Double creditmanSlowMarkPrice;
-    private Double delayedBidOption;
-    private Double delayedAskOption;
-    private Double delayedLastOption;
-    private Double delayedModelOption;
+    private BigDecimal bid;
+    private BigDecimal ask;
+    private BigDecimal lastPrice;
+    private BigDecimal highPrice;
+    private BigDecimal lowPrice;
+    private BigDecimal closePrice;
+    private BigDecimal openTick;
+    private BigDecimal low13Weeks;
+    private BigDecimal high13Weeks;
+    private BigDecimal low26Weeks;
+    private BigDecimal high26Weeks;
+    private BigDecimal low52Weeks;
+    private BigDecimal high52Weeks;
+    private BigDecimal auctionPrice;
+    private BigDecimal markPrice;
+    private BigDecimal bidYield;
+    private BigDecimal askYield;
+    private BigDecimal lastYield;
+    private BigDecimal lastRthTrade;
+    private BigDecimal delayedBid;
+    private BigDecimal delayedAsk;
+    private BigDecimal delayedLast;
+    private BigDecimal delayedHighPrice;
+    private BigDecimal delayedLowPrice;
+    private BigDecimal delayedClose;
+    private BigDecimal delayedOpen;
+    private BigDecimal creditmanMarkPrice;
+    private BigDecimal creditmanSlowMarkPrice;
+    private BigDecimal delayedBidOption;
+    private BigDecimal delayedAskOption;
+    private BigDecimal delayedLastOption;
+    private BigDecimal delayedModelOption;
 
     private String bidExchange;
     private String askExchange;
@@ -171,15 +172,15 @@ public class IbTickImpl implements IbTick {
     private String lastExchange;
     private String lastRegulatoryTime;
 
-    private Double optionHistoricalVolatility;
-    private Double optionImpliedVolatility;
-    private Double indexFuturePremium;
-    private Double shortable;
-    private Double halted;
-    private Double tradeCount;
-    private Double tradeRate;
-    private Double volumeRate;
-    private Double rtHistoricalVolatility;
+    private BigDecimal optionHistoricalVolatility;
+    private BigDecimal optionImpliedVolatility;
+    private BigDecimal indexFuturePremium;
+    private BigDecimal shortable;
+    private BigDecimal halted;
+    private BigDecimal tradeCount;
+    private BigDecimal tradeRate;
+    private BigDecimal volumeRate;
+    private BigDecimal rtHistoricalVolatility;
 
     private LocalDateTime updateTime;
 
@@ -256,7 +257,7 @@ public class IbTickImpl implements IbTick {
         log.trace("Set value: {} = {}", enumType, value);
     }
 
-    public void setPriceValue(Integer type, Double value, TickAttr attrib) {
+    public void setPriceValue(Integer type, BigDecimal value, TickAttr attrib) {
         Types enumType = Types.valueOf(type);
         switch (enumType) {
             case BID:
@@ -398,7 +399,7 @@ public class IbTickImpl implements IbTick {
         log.trace("Set value: {} = {}", enumType, value);
     }
 
-    public void setGenericValue(Integer type, Double value) {
+    public void setGenericValue(Integer type, BigDecimal value) {
         Types enumType = Types.valueOf(type);
         switch (enumType) {
             case OPTION_HISTORICAL_VOLATILITY:
@@ -539,162 +540,162 @@ public class IbTickImpl implements IbTick {
     }
 
     @Override
-    public Double getBid() {
+    public BigDecimal getBid() {
         return bid;
     }
 
     @Override
-    public Double getAsk() {
+    public BigDecimal getAsk() {
         return ask;
     }
 
     @Override
-    public Double getLastPrice() {
+    public BigDecimal getLastPrice() {
         return lastPrice;
     }
 
     @Override
-    public Double getHighPrice() {
+    public BigDecimal getHighPrice() {
         return highPrice;
     }
 
     @Override
-    public Double getLowPrice() {
+    public BigDecimal getLowPrice() {
         return lowPrice;
     }
 
     @Override
-    public Double getClosePrice() {
+    public BigDecimal getClosePrice() {
         return closePrice;
     }
 
     @Override
-    public Double getOpenTick() {
+    public BigDecimal getOpenTick() {
         return openTick;
     }
 
     @Override
-    public Double getLow13Weeks() {
+    public BigDecimal getLow13Weeks() {
         return low13Weeks;
     }
 
     @Override
-    public Double getHigh13Weeks() {
+    public BigDecimal getHigh13Weeks() {
         return high13Weeks;
     }
 
     @Override
-    public Double getLow26Weeks() {
+    public BigDecimal getLow26Weeks() {
         return low26Weeks;
     }
 
     @Override
-    public Double getHigh26Weeks() {
+    public BigDecimal getHigh26Weeks() {
         return high26Weeks;
     }
 
     @Override
-    public Double getLow52Weeks() {
+    public BigDecimal getLow52Weeks() {
         return low52Weeks;
     }
 
     @Override
-    public Double getHigh52Weeks() {
+    public BigDecimal getHigh52Weeks() {
         return high52Weeks;
     }
 
     @Override
-    public Double getAuctionPrice() {
+    public BigDecimal getAuctionPrice() {
         return auctionPrice;
     }
 
     @Override
-    public Double getMarkPrice() {
+    public BigDecimal getMarkPrice() {
         return markPrice;
     }
 
     @Override
-    public Double getBidYield() {
+    public BigDecimal getBidYield() {
         return bidYield;
     }
 
     @Override
-    public Double getAskYield() {
+    public BigDecimal getAskYield() {
         return askYield;
     }
 
     @Override
-    public Double getLastYield() {
+    public BigDecimal getLastYield() {
         return lastYield;
     }
 
     @Override
-    public Double getLastRthTrade() {
+    public BigDecimal getLastRthTrade() {
         return lastRthTrade;
     }
 
     @Override
-    public Double getDelayedBid() {
+    public BigDecimal getDelayedBid() {
         return delayedBid;
     }
 
     @Override
-    public Double getDelayedAsk() {
+    public BigDecimal getDelayedAsk() {
         return delayedAsk;
     }
 
     @Override
-    public Double getDelayedLast() {
+    public BigDecimal getDelayedLast() {
         return delayedLast;
     }
 
     @Override
-    public Double getDelayedHighPrice() {
+    public BigDecimal getDelayedHighPrice() {
         return delayedHighPrice;
     }
 
     @Override
-    public Double getDelayedLowPrice() {
+    public BigDecimal getDelayedLowPrice() {
         return delayedLowPrice;
     }
 
     @Override
-    public Double getDelayedClose() {
+    public BigDecimal getDelayedClose() {
         return delayedClose;
     }
 
     @Override
-    public Double getDelayedOpen() {
+    public BigDecimal getDelayedOpen() {
         return delayedOpen;
     }
 
     @Override
-    public Double getCreditmanMarkPrice() {
+    public BigDecimal getCreditmanMarkPrice() {
         return creditmanMarkPrice;
     }
 
     @Override
-    public Double getCreditmanSlowMarkPrice() {
+    public BigDecimal getCreditmanSlowMarkPrice() {
         return creditmanSlowMarkPrice;
     }
 
     @Override
-    public Double getDelayedBidOption() {
+    public BigDecimal getDelayedBidOption() {
         return delayedBidOption;
     }
 
     @Override
-    public Double getDelayedAskOption() {
+    public BigDecimal getDelayedAskOption() {
         return delayedAskOption;
     }
 
     @Override
-    public Double getDelayedLastOption() {
+    public BigDecimal getDelayedLastOption() {
         return delayedLastOption;
     }
 
     @Override
-    public Double getDelayedModelOption() {
+    public BigDecimal getDelayedModelOption() {
         return delayedModelOption;
     }
 
@@ -744,47 +745,47 @@ public class IbTickImpl implements IbTick {
     }
 
     @Override
-    public Double getOptionHistoricalVolatility() {
+    public BigDecimal getOptionHistoricalVolatility() {
         return optionHistoricalVolatility;
     }
 
     @Override
-    public Double getOptionImpliedVolatility() {
+    public BigDecimal getOptionImpliedVolatility() {
         return optionImpliedVolatility;
     }
 
     @Override
-    public Double getIndexFuturePremium() {
+    public BigDecimal getIndexFuturePremium() {
         return indexFuturePremium;
     }
 
     @Override
-    public Double getShortable() {
+    public BigDecimal getShortable() {
         return shortable;
     }
 
     @Override
-    public Double getHalted() {
+    public BigDecimal getHalted() {
         return halted;
     }
 
     @Override
-    public Double getTradeCount() {
+    public BigDecimal getTradeCount() {
         return tradeCount;
     }
 
     @Override
-    public Double getTradeRate() {
+    public BigDecimal getTradeRate() {
         return tradeRate;
     }
 
     @Override
-    public Double getVolumeRate() {
+    public BigDecimal getVolumeRate() {
         return volumeRate;
     }
 
     @Override
-    public Double getRtHistoricalVolatility() {
+    public BigDecimal getRtHistoricalVolatility() {
         return rtHistoricalVolatility;
     }
 

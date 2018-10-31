@@ -1,38 +1,36 @@
 package com.finplant.ib.impl.types;
 
+import java.math.BigDecimal;
+import java.util.Objects;
+
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Ordering;
 import com.ib.client.OrderStatus;
-import org.apache.commons.math3.util.Precision;
-
-import java.util.Objects;
-
-import static org.apache.commons.math3.util.Precision.EPSILON;
 
 public class IbOrderStatus implements Comparable<IbOrderStatus> {
     private final int orderId;
     private final OrderStatus status;
-    private final double filled;
-    private final double remaining;
-    private final double avgFillPrice;
+    private final BigDecimal filled;
+    private final BigDecimal remaining;
+    private final BigDecimal avgFillPrice;
     private final int permId;
     private final int parentId;
-    private final double lastFillPrice;
+    private final BigDecimal lastFillPrice;
     private final int clientId;
     private final String whyHeld;
-    private final double mktCapPrice;
+    private final BigDecimal mktCapPrice;
 
     public IbOrderStatus(final int orderId,
                          final String status,
-                         final double filled,
-                         final double remaining,
-                         final double avgFillPrice,
+                         final BigDecimal filled,
+                         final BigDecimal remaining,
+                         final BigDecimal avgFillPrice,
                          final int permId,
                          final int parentId,
-                         final double lastFillPrice,
+                         final BigDecimal lastFillPrice,
                          final int clientId,
                          final String whyHeld,
-                         final double mktCapPrice) {
+                         final BigDecimal mktCapPrice) {
         this.orderId = orderId;
         this.status = OrderStatus.get(status);
         this.filled = filled;
@@ -54,15 +52,15 @@ public class IbOrderStatus implements Comparable<IbOrderStatus> {
         return status;
     }
 
-    public double getFilled() {
+    public BigDecimal getFilled() {
         return filled;
     }
 
-    public double getRemaining() {
+    public BigDecimal getRemaining() {
         return remaining;
     }
 
-    public double getAvgFillPrice() {
+    public BigDecimal getAvgFillPrice() {
         return avgFillPrice;
     }
 
@@ -74,7 +72,7 @@ public class IbOrderStatus implements Comparable<IbOrderStatus> {
         return parentId;
     }
 
-    public double getLastFillPrice() {
+    public BigDecimal getLastFillPrice() {
         return lastFillPrice;
     }
 
@@ -86,7 +84,7 @@ public class IbOrderStatus implements Comparable<IbOrderStatus> {
         return whyHeld;
     }
 
-    public double getMktCapPrice() {
+    public BigDecimal getMktCapPrice() {
         return mktCapPrice;
     }
 
@@ -122,11 +120,11 @@ public class IbOrderStatus implements Comparable<IbOrderStatus> {
                 permId == that.permId &&
                 parentId == that.parentId &&
                 clientId == that.clientId &&
-                Precision.equals(that.filled, filled, EPSILON) &&
-                Precision.equals(that.remaining, remaining, EPSILON) &&
-                Precision.equals(that.avgFillPrice, avgFillPrice, EPSILON) &&
-                Precision.equals(that.lastFillPrice, lastFillPrice, EPSILON) &&
-                Precision.equals(that.mktCapPrice, mktCapPrice, EPSILON) &&
+                that.filled.compareTo(filled) == 0 &&
+                that.remaining.compareTo(remaining) == 0 &&
+                that.avgFillPrice.compareTo(avgFillPrice) == 0 &&
+                that.lastFillPrice.compareTo(lastFillPrice) == 0 &&
+                that.mktCapPrice.compareTo(mktCapPrice) == 0 &&
                 Objects.equals(status, that.status) &&
                 Objects.equals(whyHeld, that.whyHeld);
     }
