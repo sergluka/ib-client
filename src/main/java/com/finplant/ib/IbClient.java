@@ -145,7 +145,6 @@ public class IbClient implements AutoCloseable {
               .subscribe();
     }
 
-    // TODO: Add test
     public Observable<IbPosition> subscribeOnPositionChange() {
         return requests.<IbPosition>builder()
               .type(RequestRepository.Type.EVENT_POSITION)
