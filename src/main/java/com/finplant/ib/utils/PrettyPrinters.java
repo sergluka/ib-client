@@ -1,6 +1,7 @@
 package com.finplant.ib.utils;
 
 import com.ib.client.Contract;
+import com.ib.client.ContractDetails;
 import com.ib.client.Order;
 
 public class PrettyPrinters {
@@ -43,4 +44,12 @@ public class PrettyPrinters {
         return buffer.toString();
     }
 
+    public static String contractDetailsToString(ContractDetails details) {
+        final StringBuilder buffer = new StringBuilder("{");
+        buffer.append("contract=[").append(contractToString(details.contract())).append("]");
+        buffer.append(", conid=").append(details.conid());
+        buffer.append(", minTick=").append(details.minTick());
+        buffer.append(", validExchanges=").append(details.validExchanges());
+        return buffer.toString();
+    }
 }

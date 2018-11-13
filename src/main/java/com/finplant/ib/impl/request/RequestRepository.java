@@ -1,8 +1,9 @@
 package com.finplant.ib.impl.request;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.TreeMap;
 import java.util.function.Consumer;
 
 import org.slf4j.Logger;
@@ -156,7 +157,7 @@ public class RequestRepository implements AutoCloseable {
                 throw new IllegalArgumentException("Request type is mandatory");
             }
 
-            return Observable.create(emitter -> {
+            return Observable.<T>create(emitter -> {
 
                 if (withId && id == null) {
                     id = idGenerator.nextRequestId();
@@ -177,6 +178,7 @@ public class RequestRepository implements AutoCloseable {
 
                 emitter.setCancellable(() -> {
                     if (client.isConnected()) {
+                        log.debug("Unregister from {}", request);
                         request.unregister();
                     } else {
                         log.warn("Have no connection at unregister of {}", key);
@@ -186,7 +188,8 @@ public class RequestRepository implements AutoCloseable {
 
                 request.register();
                 log.info("Register to {}", request);
-            });
+            }).subscribeOn(Schedulers.io())
+              .observeOn(Schedulers.computation());
         }
     }
 }

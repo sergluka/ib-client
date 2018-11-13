@@ -24,6 +24,7 @@ import com.finplant.ib.impl.types.IbPnl;
 import com.finplant.ib.impl.types.IbPortfolio;
 import com.finplant.ib.impl.types.IbPosition;
 import com.finplant.ib.impl.types.IbTick;
+import com.finplant.ib.utils.PrettyPrinters;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
 import com.ib.client.Bar;
@@ -258,6 +259,8 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void contractDetails(final int reqId, final ContractDetails contractDetails) {
+        log.debug("contractDetails: reqId={}, details={}",
+                  reqId, PrettyPrinters.contractDetailsToString(contractDetails));
         requests.onNext(RequestRepository.Type.REQ_CONTRACT_DETAIL, reqId, contractDetails, true);
     }
 
@@ -421,6 +424,7 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void positionEnd() {
+        log.debug("All positions have been received");
         requests.onNext(RequestRepository.Type.EVENT_POSITION, null, IbPosition.COMPLETE, true);
     }
 

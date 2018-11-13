@@ -24,7 +24,7 @@ public class IbReader {
         this.socket = socket;
         this.signal = signal;
 
-        processor.setName("Processor");
+        processor.setName("IbReader");
         processor.setPriority(Thread.MAX_PRIORITY);
     }
 
