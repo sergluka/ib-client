@@ -20,7 +20,9 @@ public class RequestRepository implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(RequestRepository.class);
     private final IbClient client;
     private final IdGenerator idGenerator;
-    private final Map<RequestKey, Request> requests = new ConcurrentHashMap<>();
+
+    // Use tree instead of hashmap, because is hard to make hashCode for RequestKey since its comparision is complex
+    private final Map<RequestKey, Request> requests = Collections.synchronizedMap(new TreeMap<>());
 
     public RequestRepository(IbClient client, IdGenerator idGenerator) {
         this.client = client;
