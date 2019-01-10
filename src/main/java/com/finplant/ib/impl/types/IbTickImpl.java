@@ -1,5 +1,6 @@
 package com.finplant.ib.impl.types;
 
+import com.ib.client.TickAttrib;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -7,8 +8,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
-
-import com.ib.client.TickAttr;
 
 public class IbTickImpl implements IbTick {
 
@@ -102,10 +101,10 @@ public class IbTickImpl implements IbTick {
         public static Types valueOf(Integer type) {
             return map.get(type);
         }
+
         public Integer getValue() {
             return value;
         }
-
     }
 
     private Integer bidSize;
@@ -257,7 +256,7 @@ public class IbTickImpl implements IbTick {
         log.trace("Set value: {} = {}", enumType, value);
     }
 
-    public void setPriceValue(Integer type, BigDecimal value, TickAttr attrib) {
+    public void setPriceValue(Integer type, BigDecimal value, TickAttrib attrib) {
         Types enumType = Types.valueOf(type);
         switch (enumType) {
             case BID:

@@ -9,6 +9,8 @@ import io.reactivex.observers.BaseTestConsumer
 import spock.lang.Ignore
 import spock.lang.Specification
 
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
 import java.util.concurrent.TimeUnit
 
 import static org.assertj.core.api.Assertions.assertThat
@@ -504,6 +506,73 @@ class IbClientTest extends Specification {
         } as Predicate
     }
 
+    def "Get historical midpoints from last week"() {
+
+        given:
+        def from = LocalDateTime.now().minusWeeks(1)
+
+        when:
+        def observer = client.reqHistoricalMidpoints(createContractEUR(), from, null, null).test()
+
+        then:
+        observer.awaitDone(10, TimeUnit.SECONDS)
+        observer.assertNoErrors()
+        observer.assertComplete()
+        observer.valueCount() >= 1000
+        observer.assertValueAt 0, { tick ->
+            def tz = OffsetDateTime.now().getOffset();
+            assert Math.abs(from.toEpochSecond(tz) - tick.time()) < 100
+            assert tick.price() > 0.0
+            true
+        } as Predicate
+    }
+
+    def "Get historical bid and asks from last week"() {
+
+        given:
+        def from = LocalDateTime.now().minusWeeks(1)
+
+        when:
+        def observer = client.reqHistoricalBidAsks(createContractEUR(), from, null, null).test()
+
+        then:
+        observer.awaitDone(10, TimeUnit.SECONDS)
+        observer.assertNoErrors()
+        observer.assertComplete()
+        observer.valueCount() >= 1000
+        observer.assertValueAt 0, { tick ->
+            def tz = OffsetDateTime.now().getOffset();
+            assert Math.abs(from.toEpochSecond(tz) - tick.time()) < 100
+            assert tick.priceBid() > 0.0
+            assert tick.priceAsk() > 0.0
+            assert tick.sizeBid() > 0.0
+            assert tick.sizeAsk() > 0.0
+            true
+        } as Predicate
+    }
+
+    def "Get historical trades from last week"() {
+
+        given:
+        def from = LocalDateTime.now().minusWeeks(1)
+
+        when:
+        def observer = client.reqHistoricalTrades(createContractFB(), from, null, null).test()
+
+        then:
+        observer.awaitDone(10, TimeUnit.SECONDS)
+        observer.assertNoErrors()
+        observer.assertComplete()
+        observer.valueCount() >= 1000
+        observer.assertValueAt 0, { tick ->
+            def tz = OffsetDateTime.now().getOffset();
+            assert Math.abs(from.toEpochSecond(tz) - tick.time()) < 100000
+            assert tick.price() > 0.0
+            assert tick.size() > 0.0
+            true
+        } as Predicate
+    }
+
     private static def createContractEUR() {
         def contract = new Contract()
         contract.conid(12087792)
@@ -516,11 +585,21 @@ class IbClientTest extends Specification {
 
     private static def createContractGC() {
         def contract = new Contract()
-        contract.conid(119750076)
+        contract.conid(347896247)
         contract.symbol("GC")
         contract.currency("USD")
         contract.exchange("NYMEX")
         contract.secType(Types.SecType.FUT)
+        return contract
+    }
+
+    private static def createContractFB() {
+        def contract = new Contract()
+        contract.conid(107113386)
+        contract.symbol("FB")
+        contract.currency("USD")
+        contract.exchange("SMART")
+        contract.secType(Types.SecType.STK)
         return contract
     }
 

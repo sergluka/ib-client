@@ -22,9 +22,15 @@ public class Validators {
         }
     }
 
-    public static void intShouldBePositiveOrZero(int connId, String message) {
-        if (connId < 0) {
+    public static void intShouldBePositiveOrZero(int value, String message) {
+        if (value < 0) {
             throw new IllegalArgumentException(message);
+        }
+    }
+
+    public static void intShouldBeInRange(int value, int min, int max) {
+        if (value < min && value > max) {
+            throw new IllegalArgumentException(String.format("Parameter is not in range: [%d - %d]", min, max));
         }
     }
 

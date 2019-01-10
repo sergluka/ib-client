@@ -139,6 +139,10 @@ public class IbOrderStatus implements Comparable<IbOrderStatus> {
         return status == OrderStatus.ApiCancelled || status == OrderStatus.Cancelled;
     }
 
+    public boolean isInactive() {
+        return status == OrderStatus.Inactive;
+    }
+
     public boolean isFilled() {
         return status == OrderStatus.Filled;
     }

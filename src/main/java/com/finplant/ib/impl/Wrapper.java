@@ -1,55 +1,22 @@
 package com.finplant.ib.impl;
 
-import java.math.BigDecimal;
-import java.net.SocketException;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.finplant.ib.IbExceptions;
 import com.finplant.ib.IdGenerator;
 import com.finplant.ib.impl.cache.CacheRepositoryImpl;
 import com.finplant.ib.impl.connection.ConnectionMonitor;
 import com.finplant.ib.impl.request.RequestRepository;
-import com.finplant.ib.impl.types.IbMarketDepth;
-import com.finplant.ib.impl.types.IbOrder;
-import com.finplant.ib.impl.types.IbOrderStatus;
-import com.finplant.ib.impl.types.IbPnl;
-import com.finplant.ib.impl.types.IbPortfolio;
-import com.finplant.ib.impl.types.IbPosition;
-import com.finplant.ib.impl.types.IbTick;
+import com.finplant.ib.impl.types.*;
 import com.finplant.ib.utils.PrettyPrinters;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
-import com.ib.client.Bar;
-import com.ib.client.CommissionReport;
-import com.ib.client.Contract;
-import com.ib.client.ContractDescription;
-import com.ib.client.ContractDetails;
-import com.ib.client.DeltaNeutralContract;
-import com.ib.client.DepthMktDataDescription;
-import com.ib.client.EClientSocket;
-import com.ib.client.EWrapper;
-import com.ib.client.Execution;
-import com.ib.client.FamilyCode;
-import com.ib.client.HistogramEntry;
-import com.ib.client.HistoricalTick;
-import com.ib.client.HistoricalTickBidAsk;
-import com.ib.client.HistoricalTickLast;
-import com.ib.client.NewsProvider;
-import com.ib.client.Order;
-import com.ib.client.OrderState;
-import com.ib.client.PriceIncrement;
-import com.ib.client.SoftDollarTier;
-import com.ib.client.TickAttr;
+import com.ib.client.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import com.finplant.ib.impl.types.IbDepthMktDataDescription;
+import java.math.BigDecimal;
+import java.net.SocketException;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class Wrapper implements EWrapper {
 
@@ -93,14 +60,14 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
-    public void tickPrice(int tickerId, int field, double value, TickAttr attrib) {
-        if (value == -1) {
+    public void tickPrice(int tickerId, int field, double price, TickAttrib attribs) {
+        if (price == -1) {
             publishNoData(tickerId);
             return;
         }
 
         IbTick result = cache.updateTick(tickerId, (tick) ->
-              tick.setPriceValue(field, BigDecimal.valueOf(value), attrib));
+                tick.setPriceValue(field, BigDecimal.valueOf(price), attribs));
         publishNewTick(tickerId, result);
     }
 
@@ -250,6 +217,30 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
+    public void historicalTicks(int reqId, List<HistoricalTick> ticks, boolean done) {
+        requests.onNext(RequestRepository.Type.REQ_HISTORICAL_MIDPOINT_TICK, reqId, ticks, true);
+        if (done) {
+            requests.onComplete(RequestRepository.Type.REQ_HISTORICAL_MIDPOINT_TICK, reqId, true);
+        }
+    }
+
+    @Override
+    public void historicalTicksBidAsk(int reqId, List<HistoricalTickBidAsk> ticks, boolean done) {
+        requests.onNext(RequestRepository.Type.REQ_HISTORICAL_BID_ASK_TICK, reqId, ticks, true);
+        if (done) {
+            requests.onComplete(RequestRepository.Type.REQ_HISTORICAL_BID_ASK_TICK, reqId, true);
+        }
+    }
+
+    @Override
+    public void historicalTicksLast(int reqId, List<HistoricalTickLast> ticks, boolean done) {
+        requests.onNext(RequestRepository.Type.REQ_HISTORICAL_TRADE, reqId, ticks, true);
+        if (done) {
+            requests.onComplete(RequestRepository.Type.REQ_HISTORICAL_TRADE, reqId, true);
+        }
+    }
+
+    @Override
     public void nextValidId(int id) {
         log.debug("New request ID: {}", id);
         if (idGenerator.setOrderId(id)) {
@@ -297,14 +288,8 @@ public class Wrapper implements EWrapper {
         handleUpdateMktDepth(tickerId, position, null, operation, side, price, size);
     }
 
-    @Override
-    public void updateMktDepthL2(final int tickerId,
-                                 final int position,
-                                 final String marketMaker,
-                                 final int operation,
-                                 final int side,
-                                 final double price,
-                                 final int size) {
+    public void updateMktDepthL2(int tickerId, int position,
+                                 String marketMaker, int operation, int side, double price, int size, boolean isSmartDepth) {
 
         log.debug("updateMktDepthL2: tickerId = {}, position = {}, marketMaker = {}, operation = {}, side = {}, " +
                   "price = {}, size = {}", tickerId, position, marketMaker, operation, side, price, size);
@@ -681,7 +666,6 @@ public class Wrapper implements EWrapper {
         log.debug("marketRule: NOT IMPLEMENTED");
     }
 
-    @Override
     public void pnl(int reqId, double dailyPnL, double unrealizedPnL, double realizedPnL) {
         log.trace("pnl: reqId={}, dailyPnL={}, unrealizedPnL={}, realizedPnL={}",
                   reqId, dailyPnL, unrealizedPnL, realizedPnL);
@@ -706,18 +690,25 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
-    public void historicalTicks(int reqId, List<HistoricalTick> ticks, boolean done) {
-        log.debug("historicalTicks: NOT IMPLEMENTED");
+    public void tickByTickAllLast(int reqId, int tickType, long time, double price, int size,
+                                  TickAttribLast tickAttribLast, String exchange, String specialConditions) {
+        log.debug("tickByTickAllLast: NOT IMPLEMENTED");
     }
 
     @Override
-    public void historicalTicksBidAsk(int reqId, List<HistoricalTickBidAsk> ticks, boolean done) {
-        log.debug("historicalTicksBidAsk: NOT IMPLEMENTED");
+    public void tickByTickBidAsk(int reqId, long time, double bidPrice, double askPrice, int bidSize, int askSize,
+                                 TickAttribBidAsk tickAttribBidAsk) {
+        log.debug("tickByTickBidAsk: NOT IMPLEMENTED");
     }
 
     @Override
-    public void historicalTicksLast(int reqId, List<HistoricalTickLast> ticks, boolean done) {
-        log.debug("historicalTicksLast: NOT IMPLEMENTED");
+    public void tickByTickMidPoint(int reqId, long time, double midPoint) {
+        log.debug("tickByTickMidPoint: NOT IMPLEMENTED");
+    }
+
+    @Override
+    public void orderBound(long orderId, int apiClientId, int apiOrderId) {
+        log.debug("orderBound: NOT IMPLEMENTED");
     }
 
     public void setSocket(EClientSocket socket) {

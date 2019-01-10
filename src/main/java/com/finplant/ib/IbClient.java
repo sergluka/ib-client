@@ -1,36 +1,26 @@
 package com.finplant.ib;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.finplant.ib.impl.IbReader;
 import com.finplant.ib.impl.Wrapper;
 import com.finplant.ib.impl.cache.CacheRepository;
 import com.finplant.ib.impl.cache.CacheRepositoryImpl;
 import com.finplant.ib.impl.connection.ConnectionMonitor;
 import com.finplant.ib.impl.request.RequestRepository;
-import com.finplant.ib.impl.types.IbDepthMktDataDescription;
-import com.finplant.ib.impl.types.IbMarketDepth;
-import com.finplant.ib.impl.types.IbOrder;
-import com.finplant.ib.impl.types.IbOrderStatus;
-import com.finplant.ib.impl.types.IbPnl;
-import com.finplant.ib.impl.types.IbPortfolio;
-import com.finplant.ib.impl.types.IbPosition;
-import com.finplant.ib.impl.types.IbTick;
-import com.ib.client.Contract;
-import com.ib.client.ContractDetails;
-import com.ib.client.EClientSocket;
-import com.ib.client.EJavaSignal;
-import com.ib.client.Order;
-
+import com.finplant.ib.impl.types.*;
+import com.ib.client.*;
 import io.reactivex.Completable;
 import io.reactivex.Observable;
 import io.reactivex.Single;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class IbClient implements AutoCloseable {
 
@@ -43,6 +33,7 @@ public class IbClient implements AutoCloseable {
     private ConnectionMonitor connectionMonitor;
     private IdGenerator idGenerator;
     private RequestRepository requests;
+
 
     public IbClient() {
         idGenerator = new IdGenerator();
@@ -204,8 +195,8 @@ public class IbClient implements AutoCloseable {
 
         return requests.<IbMarketDepth>builder()
               .type(RequestRepository.Type.EVENT_MARKET_DATA_LVL2)
-              .register(id -> socket.reqMktDepth(id, contract, numRows, null))
-              .unregister(id -> socket.cancelMktDepth(id))
+              .register(id -> socket.reqMktDepth(id, contract, numRows, false, null))
+              .unregister(id -> socket.cancelMktDepth(id, false))
               .userData(contract)
               .subscribe();
     }
@@ -300,7 +291,8 @@ public class IbClient implements AutoCloseable {
             Integer sumOfOrders = reqAllOpenOrders()
                   .flatMapObservable(map -> Observable.fromIterable(map.entrySet()))
                   .filter(entry -> !entry.getValue().getLastStatus().isCanceled() &&
-                                   !entry.getValue().getLastStatus().isFilled())
+                                   !entry.getValue().getLastStatus().isFilled() &&
+                                   !entry.getValue().getLastStatus().isInactive())
                   .map(Map.Entry::getKey)
                   .reduce(0, Integer::sum)
                   .blockingGet();
@@ -342,6 +334,46 @@ public class IbClient implements AutoCloseable {
               .subscribe();
     }
 
+    @NotNull
+    public Observable<HistoricalTick> reqHistoricalMidpoints(@NotNull Contract contract,
+                                                             @NotNull LocalDateTime from,
+                                                             @Nullable LocalDateTime to,
+                                                             @Nullable Integer limit) {
+        return reqHistoricalTicks(contract, from, to, limit,
+                                  RequestRepository.Type.REQ_HISTORICAL_MIDPOINT_TICK, "MIDPOINT");
+    }
+
+    @NotNull
+    public Observable<HistoricalTick> reqHistoricalBidAsks(@NotNull Contract contract,
+                                                           @NotNull LocalDateTime from,
+                                                           @Nullable LocalDateTime to,
+                                                           @Nullable Integer limit) {
+        return reqHistoricalTicks(contract, from, to, limit,
+                                  RequestRepository.Type.REQ_HISTORICAL_BID_ASK_TICK, "BID_ASK");
+    }
+
+    @NotNull
+    public Observable<HistoricalTickLast> reqHistoricalTrades(@NotNull Contract contract,
+                                                              @NotNull LocalDateTime from,
+                                                              @Nullable LocalDateTime to,
+                                                              @Nullable Integer limit) {
+
+        /*
+         Calling reqHistoricalTicks() with whatToShow=TRADES and contract EUR.USD,
+         it was expected that historicalTicksLast() callback will be called, as it described in documentation.
+         Instead historicalTicks() callback is called, the same way as if to define whatToShow=MIDPOINT.
+
+         For stocks this request behaves as expected.
+         */
+
+        if (contract.secType() == Types.SecType.CASH) {
+            throw new IllegalArgumentException("IB doesn't return historical trades for FOREX constracts");
+        }
+
+        return reqHistoricalTicks(contract, from, to, limit,
+                                  RequestRepository.Type.REQ_HISTORICAL_TRADE, "TRADES");
+    }
+
     public int nextOrderId() {
         return idGenerator.nextOrderId();
     }
@@ -350,6 +382,33 @@ public class IbClient implements AutoCloseable {
         if (!isConnected()) {
             throw new IbExceptions.NotConnected();
         }
+    }
+
+    private <T> Observable<T> reqHistoricalTicks(Contract contract,
+                                                 LocalDateTime from,
+                                                 LocalDateTime to,
+                                                 Integer limit,
+                                                 RequestRepository.Type type,
+                                                 String typeStr) {
+        Validators.shouldNotBeNull(contract, "Contract should be defined");
+        Validators.shouldNotBeNull(from, "From should be defined");
+
+        final int MAX_ALLOWED_TICKS_COUNT = 1000;
+        final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd HH:mm:ss");
+
+        if (limit != null) {
+            Validators.intShouldBeInRange(limit, 1, MAX_ALLOWED_TICKS_COUNT);
+        }
+
+        return requests.<List<T>>builder()
+                .type(type)
+                .register(id -> socket.reqHistoricalTicks(id, contract,
+                                                          from.format(dateTimeFormatter),
+                                                          to != null ? to.format(dateTimeFormatter) : null,
+                                                          limit != null ? limit : MAX_ALLOWED_TICKS_COUNT,
+                                                          typeStr, 1, true, null))
+                .subscribe()
+                .flatMap(Observable::fromIterable);
     }
 
     public enum LogLevel {

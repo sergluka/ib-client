@@ -4,7 +4,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.4'
+        classpath 'com.github.jengelman.gradle.plugins:shadow:4.0.3'
     }
 }
 
@@ -14,8 +14,8 @@ plugins {
     id 'maven-publish'
 
     id 'org.ajoberstar.grgit' version '1.7.2'
-    id 'com.github.johnrengelman.shadow' version '2.0.4'
-    id 'org.unbroken-dome.test-sets' version '1.4.5'
+    id 'com.github.johnrengelman.shadow' version '4.0.3'
+    id 'org.unbroken-dome.test-sets' version '2.0.3'
 }
 
 group 'com.finplant.ib'
@@ -32,12 +32,11 @@ dependencies {
     implementation files('libs/TwsApi_debug.jar')
 
     implementation 'org.slf4j:slf4j-api:1.7.+'
-    implementation 'io.reactivex.rxjava2:rxjava:2.1.14'
+    implementation 'io.reactivex.rxjava2:rxjava:2.2.5'
     implementation 'org.jetbrains:annotations-java5:15.0'
     implementation 'com.google.guava:guava:23.5-jre'
 
-    testImplementation 'org.codehaus.groovy:groovy-all:2.4.12'
-    testImplementation 'org.spockframework:spock-core:1.1+'
+    testImplementation 'org.spockframework:spock-core:1.2-groovy-2.5'
     testImplementation 'net.bytebuddy:byte-buddy:1.8.22'
     testImplementation 'ch.qos.logback:logback-classic:1.2.+'
     testImplementation 'org.assertj:assertj-core:3.11.1'
@@ -50,13 +49,13 @@ testSets {
 }
 
 shadowJar {
-    baseName = 'ib_client'
-    classifier = null
+    archiveBaseName = 'ib_client'
+    archiveClassifier = null
 }
 
 task packageJavadoc(type: Jar, dependsOn: 'javadoc') {
     from javadoc.destinationDir
-    classifier = 'javadoc'
+    archiveClassifier = 'javadoc'
 }
 
 publishing {
