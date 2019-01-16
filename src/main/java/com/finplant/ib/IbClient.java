@@ -336,7 +336,7 @@ public class IbClient implements AutoCloseable {
 
     @NotNull
     public Observable<HistoricalTick> reqHistoricalMidpoints(@NotNull Contract contract,
-                                                             @NotNull LocalDateTime from,
+                                                             @Nullable LocalDateTime from,
                                                              @Nullable LocalDateTime to,
                                                              @Nullable Integer limit) {
         return reqHistoricalTicks(contract, from, to, limit,
@@ -345,7 +345,7 @@ public class IbClient implements AutoCloseable {
 
     @NotNull
     public Observable<HistoricalTickBidAsk> reqHistoricalBidAsks(@NotNull Contract contract,
-                                                                 @NotNull LocalDateTime from,
+                                                                 @Nullable LocalDateTime from,
                                                                  @Nullable LocalDateTime to,
                                                                  @Nullable Integer limit) {
         return reqHistoricalTicks(contract, from, to, limit,
@@ -354,7 +354,7 @@ public class IbClient implements AutoCloseable {
 
     @NotNull
     public Observable<HistoricalTickLast> reqHistoricalTrades(@NotNull Contract contract,
-                                                              @NotNull LocalDateTime from,
+                                                              @Nullable LocalDateTime from,
                                                               @Nullable LocalDateTime to,
                                                               @Nullable Integer limit) {
 
@@ -363,7 +363,7 @@ public class IbClient implements AutoCloseable {
          it was expected that historicalTicksLast() callback will be called, as it described in documentation.
          Instead historicalTicks() callback is called, the same way as if to define whatToShow=MIDPOINT.
 
-         For stocks this request behaves as expected.
+         For stocks this request behaves as expected. IB support told "it might be special case for Forex"
          */
 
         if (contract.secType() == Types.SecType.CASH) {
@@ -391,7 +391,6 @@ public class IbClient implements AutoCloseable {
                                                  RequestRepository.Type type,
                                                  String typeStr) {
         Validators.shouldNotBeNull(contract, "Contract should be defined");
-        Validators.shouldNotBeNull(from, "From should be defined");
 
         final int MAX_ALLOWED_TICKS_COUNT = 1000;
         final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd HH:mm:ss");
@@ -403,10 +402,10 @@ public class IbClient implements AutoCloseable {
         return requests.<List<T>>builder()
                 .type(type)
                 .register(id -> socket.reqHistoricalTicks(id, contract,
-                                                          from.format(dateTimeFormatter),
+                                                          from != null ? from.format(dateTimeFormatter) : null,
                                                           to != null ? to.format(dateTimeFormatter) : null,
                                                           limit != null ? limit : MAX_ALLOWED_TICKS_COUNT,
-                                                          typeStr, 1, true, null))
+                                                          typeStr, 0, true, null))
                 .subscribe()
                 .flatMap(Observable::fromIterable);
     }
