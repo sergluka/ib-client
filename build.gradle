@@ -19,7 +19,7 @@ plugins {
 }
 
 group 'com.finplant.ib'
-version '2.0.2'
+version '2.0.3-SNAPSHOT'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
@@ -49,13 +49,13 @@ testSets {
 }
 
 shadowJar {
-    archiveBaseName = 'ib_client'
-    archiveClassifier = null
+    baseName = 'ib_client'
+    classifier = null
 }
 
 task packageJavadoc(type: Jar, dependsOn: 'javadoc') {
     from javadoc.destinationDir
-    archiveClassifier = 'javadoc'
+    classifier = 'javadoc'
 }
 
 publishing {

@@ -344,10 +344,10 @@ public class IbClient implements AutoCloseable {
     }
 
     @NotNull
-    public Observable<HistoricalTick> reqHistoricalBidAsks(@NotNull Contract contract,
-                                                           @NotNull LocalDateTime from,
-                                                           @Nullable LocalDateTime to,
-                                                           @Nullable Integer limit) {
+    public Observable<HistoricalTickBidAsk> reqHistoricalBidAsks(@NotNull Contract contract,
+                                                                 @NotNull LocalDateTime from,
+                                                                 @Nullable LocalDateTime to,
+                                                                 @Nullable Integer limit) {
         return reqHistoricalTicks(contract, from, to, limit,
                                   RequestRepository.Type.REQ_HISTORICAL_BID_ASK_TICK, "BID_ASK");
     }
@@ -367,7 +367,7 @@ public class IbClient implements AutoCloseable {
          */
 
         if (contract.secType() == Types.SecType.CASH) {
-            throw new IllegalArgumentException("IB doesn't return historical trades for FOREX constracts");
+            throw new IllegalArgumentException("IB doesn't return historical trades for FOREX contracts");
         }
 
         return reqHistoricalTicks(contract, from, to, limit,
