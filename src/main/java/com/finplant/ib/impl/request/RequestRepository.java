@@ -1,9 +1,7 @@
 package com.finplant.ib.impl.request;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Optional;
-import java.util.TreeMap;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 import org.slf4j.Logger;
@@ -22,8 +20,7 @@ public class RequestRepository implements AutoCloseable {
     private final IbClient client;
     private final IdGenerator idGenerator;
 
-    // Use tree instead of hashmap, because is hard to make hashCode for RequestKey since its comparision is complex
-    private final Map<RequestKey, Request> requests = Collections.synchronizedMap(new TreeMap<>());
+    private final Map<RequestKey, Request> requests = new ConcurrentHashMap<>();
 
     public RequestRepository(IbClient client, IdGenerator idGenerator) {
         this.client = client;

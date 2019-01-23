@@ -1,13 +1,8 @@
 package com.finplant.ib.impl.request;
 
-import java.util.Comparator;
 import java.util.Objects;
 
-import org.jetbrains.annotations.NotNull;
-
-import com.google.common.collect.ComparisonChain;
-
-public class RequestKey implements Comparable<RequestKey> {
+public class RequestKey {
     private final RequestRepository.Type type;
     private final Integer id;
 
@@ -16,19 +11,12 @@ public class RequestKey implements Comparable<RequestKey> {
         this.id = id;
     }
 
-    @Override
-    public int compareTo(@NotNull RequestKey rhs) {
-        if (this == rhs) {
-            return 0;
-        }
+    public RequestRepository.Type getType() {
+        return type;
+    }
 
-        ComparisonChain chain = ComparisonChain.start();
-        if (type != null) {
-            chain = chain.compare(type, rhs.type, Comparator.nullsFirst(Comparator.naturalOrder()));
-        }
-        chain = chain.compare(id, rhs.id, Comparator.nullsFirst(Comparator.naturalOrder()));
-
-        return chain.result();
+    public Integer getId() {
+        return id;
     }
 
     @Override
@@ -46,6 +34,11 @@ public class RequestKey implements Comparable<RequestKey> {
     }
 
     @Override
+    public int hashCode() {
+        return 0;
+    }
+
+    @Override
     public String toString() {
         if (id == null && type == null) {
             return "Invalid message";
@@ -60,13 +53,5 @@ public class RequestKey implements Comparable<RequestKey> {
         }
 
         return String.format("%s,%s", type.name(), id);
-    }
-
-    public RequestRepository.Type getType() {
-        return type;
-    }
-
-    public Integer getId() {
-        return id;
     }
 }
