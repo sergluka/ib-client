@@ -45,6 +45,7 @@ abstract class TerminalErrorHandler {
             case 161: // Cancel attempted when order is not in a cancellable state
             case 201: // Order rejected
             case 399: // Order message error
+            case 2103: // Market data farm connection is broken
             case 2105: // A historical data farm is disconnected.
             case 2109: // Order Event Warning: Attribute "Outside Regular Trading Hours" is ignored based on the order type and destination. PlaceOrder is now processed.
             case 10185: // Failed to cancel PNL (not subscribed)
