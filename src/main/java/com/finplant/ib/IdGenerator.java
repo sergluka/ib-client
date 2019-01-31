@@ -14,9 +14,7 @@ public class IdGenerator {
     private AtomicInteger orderId = new AtomicInteger(INVALID_ID);
     private AtomicInteger requestId = new AtomicInteger(100_000_000);
 
-    /**
-     * @return true if TWS resets its ID
-     */
+    // Returns return true if TWS resets its ID
     public boolean setOrderId(Integer newValue) {
         int oldValue = orderId.getAndSet(newValue);
 

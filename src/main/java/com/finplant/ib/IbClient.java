@@ -108,6 +108,8 @@ public class IbClient implements AutoCloseable {
 
             connectionMonitor.start();
             connectionMonitor.connect();
+
+            emitter.setCancellable(() -> connectionMonitor.close());
         });
     }
 
@@ -188,6 +190,7 @@ public class IbClient implements AutoCloseable {
      *
      * @param contract IB contract
      * @param numRows Order book max depth
+     * @return Observable with order book levels
      */
     public Observable<IbMarketDepth> getMarketDepth(Contract contract, int numRows) {
         Validators.contractWithIdShouldExist(contract);
@@ -245,6 +248,7 @@ public class IbClient implements AutoCloseable {
     public Observable<Boolean> connectionStatus() {
         return requests.<Boolean>builder()
               .type(RequestRepository.Type.EVENT_CONNECTION_STATUS)
+              .register(() -> {}) // statuses are received without registration
               .subscribe();
     }
 
