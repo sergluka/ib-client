@@ -109,8 +109,7 @@ public class IbClient implements AutoCloseable {
             connectionMonitor.start();
             connectionMonitor.connect();
 
-            emitter.setCancellable(() -> connectionMonitor.close());
-        });
+        }).doOnError(e -> connectionMonitor.close());
     }
 
     public void disconnect() {
