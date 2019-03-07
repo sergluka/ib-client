@@ -148,6 +148,10 @@ public class Wrapper implements EWrapper {
             if (twsStatus.isCanceled()) {
                 requests.onNextAndComplete(RequestRepository.Type.REQ_ORDER_CANCEL, orderId, true, false);
             }
+            if (twsStatus.isFilled()) {
+                requests.onError(RequestRepository.Type.REQ_ORDER_CANCEL, orderId,
+                                 new Exception("Already filled"), false);
+            }
         }
     }
 

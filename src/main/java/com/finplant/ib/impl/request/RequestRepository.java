@@ -42,8 +42,12 @@ public class RequestRepository implements AutoCloseable {
         get(type, reqId, shouldExists).ifPresent(request -> request.onNext(data));
     }
 
+    public void onError(Type type, Integer reqId, Throwable throwable, Boolean shouldExists) {
+        get(type, reqId, shouldExists).ifPresent(request -> request.onError(throwable));
+    }
+
     public void onError(Type type, Integer reqId, Throwable throwable) {
-        get(type, reqId, true).ifPresent(request -> request.onError(throwable));
+        onError(type, reqId, throwable, true);
     }
 
     public void onError(Integer reqId, Throwable throwable) {
