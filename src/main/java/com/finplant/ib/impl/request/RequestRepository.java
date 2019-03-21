@@ -4,6 +4,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
+import io.reactivex.Scheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -153,6 +154,10 @@ public class RequestRepository implements AutoCloseable {
         }
 
         public Observable<T> subscribe() {
+            return subscribe(Schedulers.io());
+        }
+
+        public Observable<T> subscribe(Scheduler subscribeScheduler) {
 
             if (register == null) {
                 throw new IllegalArgumentException("Registration function is mandatory");
@@ -192,8 +197,7 @@ public class RequestRepository implements AutoCloseable {
 
                 request.register();
                 log.info("Register to {}", request);
-            }).subscribeOn(Schedulers.io())
-              .observeOn(Schedulers.computation());
+            }).subscribeOn(subscribeScheduler);
         }
     }
 }

@@ -10,7 +10,9 @@ import com.finplant.ib.impl.types.*;
 import com.ib.client.*;
 import io.reactivex.Completable;
 import io.reactivex.Observable;
+import io.reactivex.Scheduler;
 import io.reactivex.Single;
+import io.reactivex.schedulers.Schedulers;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -260,6 +262,10 @@ public class IbClient implements AutoCloseable {
     }
 
     public Single<IbOrder> placeOrder(Contract contract, Order order) {
+        return placeOrder(contract, order, Schedulers.io());
+    }
+
+    public Single<IbOrder> placeOrder(Contract contract, Order order, Scheduler subscribeScheduler) {
         Validators.shouldNotBeNull(contract, "Contract should be defined");
         Validators.shouldNotBeNull(order, "Order should be defined");
 
@@ -271,7 +277,7 @@ public class IbClient implements AutoCloseable {
               .id(order.orderId())
               .type(RequestRepository.Type.REQ_ORDER_PLACE)
               .register(id -> socket.placeOrder(id, contract, order))
-              .subscribe()
+              .subscribe(subscribeScheduler)
               .firstOrError();
     }
 
