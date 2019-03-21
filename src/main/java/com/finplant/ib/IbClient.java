@@ -286,12 +286,38 @@ public class IbClient implements AutoCloseable {
 
         log.info("Canceling order {}", orderId);
 
-        return requests.<Boolean>builder()
-              .id(orderId)
-              .type(RequestRepository.Type.REQ_ORDER_CANCEL)
-              .register(id -> socket.cancelOrder(id))
-              .subscribe()
-              .ignoreElements();
+        // Checking does order doesn't already filled or canceled
+        Completable preconditions = Completable.create(emitter -> {
+            IbOrder order = cache.getOrders().getOrDefault(orderId, null);
+            if (order == null) {
+                emitter.onComplete();
+                return;
+            }
+
+            IbOrderStatus lastStatus = order.getLastStatus();
+            if (lastStatus.isFilled()) {
+                emitter.onError(new Exception("Already filled"));
+                return;
+            }
+            if (lastStatus.isCanceled()) {
+                log.warn("Order {} already has been canceled");
+                emitter.onComplete();
+                return;
+            }
+
+            emitter.onComplete();
+        });
+
+        Completable request = Completable.defer(() -> {
+            return requests.builder()
+                    .id(orderId)
+                    .type(RequestRepository.Type.REQ_ORDER_CANCEL)
+                    .register(id -> socket.cancelOrder(id))
+                    .subscribe()
+                    .ignoreElements();
+        });
+
+        return preconditions.andThen(request);
     }
 
     public Completable cancelAll() {

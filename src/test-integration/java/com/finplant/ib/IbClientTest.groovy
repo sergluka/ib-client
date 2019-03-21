@@ -174,7 +174,7 @@ class IbClientTest extends Specification {
         observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
         observer.assertNoErrors()
 
-        client.getCache().orders.values().forEach { assert it.lastStatus.isCanceled() }
+        client.getCache().orders.values().forEach { assert it.lastStatuses.isCanceled() }
     }
 
 
