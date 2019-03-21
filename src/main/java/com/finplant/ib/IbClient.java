@@ -1,6 +1,7 @@
 package com.finplant.ib;
 
 import com.finplant.ib.impl.IbReader;
+import com.finplant.ib.impl.TerminalErrorHandler;
 import com.finplant.ib.impl.Wrapper;
 import com.finplant.ib.impl.cache.CacheRepository;
 import com.finplant.ib.impl.cache.CacheRepositoryImpl;
@@ -13,6 +14,8 @@ import io.reactivex.Observable;
 import io.reactivex.Scheduler;
 import io.reactivex.Single;
 import io.reactivex.schedulers.Schedulers;
+import io.reactivex.subjects.PublishSubject;
+import io.reactivex.subjects.Subject;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -35,6 +38,8 @@ public class IbClient implements AutoCloseable {
     private ConnectionMonitor connectionMonitor;
     private IdGenerator idGenerator;
     private RequestRepository requests;
+
+    private Subject<TerminalErrorHandler.LogRecord> logSubject = PublishSubject.create();
 
 
     public IbClient() {
@@ -106,7 +111,7 @@ public class IbClient implements AutoCloseable {
                 }
             };
 
-            wrapper = new Wrapper(connectionMonitor, cache, requests, idGenerator);
+            wrapper = new Wrapper(connectionMonitor, cache, requests, idGenerator, logSubject);
 
             connectionMonitor.start();
             connectionMonitor.connect();
@@ -251,6 +256,10 @@ public class IbClient implements AutoCloseable {
               .type(RequestRepository.Type.EVENT_CONNECTION_STATUS)
               .register(() -> {}) // statuses are received without registration
               .subscribe();
+    }
+
+    public Observable<TerminalErrorHandler.LogRecord> subscribeOnLog() {
+        return logSubject;
     }
 
     public Single<Long> getCurrentTime() {

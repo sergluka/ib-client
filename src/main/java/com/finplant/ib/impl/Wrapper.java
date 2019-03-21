@@ -10,6 +10,7 @@ import com.finplant.ib.utils.PrettyPrinters;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
 import com.ib.client.*;
+import io.reactivex.Observer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,9 +33,15 @@ public class Wrapper implements EWrapper {
     public Wrapper(ConnectionMonitor connectionMonitor,
                    CacheRepositoryImpl cache,
                    RequestRepository requests,
-                   IdGenerator idGenerator) {
+                   IdGenerator idGenerator,
+                   Observer<TerminalErrorHandler.LogRecord> logObserver) {
 
         errorHandler = new TerminalErrorHandler(requests) {
+
+            @Override
+            void onLog(LogRecord record) {
+                logObserver.onNext(record);
+            }
 
             @Override
             void onError() {
