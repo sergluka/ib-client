@@ -1,4 +1,4 @@
-package com.finplant.ib.impl.types;
+package com.finplant.ib.types;
 
 import com.ib.client.TickAttrib;
 import org.slf4j.Logger;
@@ -8,6 +8,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+
+import static com.finplant.ib.types.IbTickImpl.Types.*;
 
 public class IbTickImpl implements IbTick {
 
@@ -85,10 +87,10 @@ public class IbTickImpl implements IbTick {
         LAST_REGULATORY_TIME(85),
         FUTURES_OPEN_INTEREST(86);
 
-        private static Map<Integer, Types> map = new HashMap<>();
+        private static final Map<Integer, Types> map = new HashMap<>();
 
         static {
-            for (Types type : Types.values()) {
+            for (Types type : values()) {
                 map.put(type.value, type);
             }
         }
@@ -98,7 +100,7 @@ public class IbTickImpl implements IbTick {
             this.value = value;
         }
 
-        public static Types valueOf(Integer type) {
+        static Types valueOf(Integer type) {
             return map.get(type);
         }
 
@@ -188,7 +190,7 @@ public class IbTickImpl implements IbTick {
 
     public void setIntValue(Integer type, Integer value) {
 
-        Types enumType = Types.valueOf(type);
+        Types enumType = valueOf(type);
         switch (enumType) {
             case BID_SIZE:
                 bidSize = value;
@@ -257,7 +259,7 @@ public class IbTickImpl implements IbTick {
     }
 
     public void setPriceValue(Integer type, BigDecimal value, TickAttrib attrib) {
-        Types enumType = Types.valueOf(type);
+        Types enumType = valueOf(type);
         switch (enumType) {
             case BID:
                 bid = value;
@@ -363,7 +365,7 @@ public class IbTickImpl implements IbTick {
     }
 
     public void setStringValue(Integer type, String value) {
-        Types enumType = Types.valueOf(type);
+        Types enumType = valueOf(type);
         switch (enumType) {
             case BID_EXCHANGE:
                 bidExchange = value;
@@ -399,7 +401,7 @@ public class IbTickImpl implements IbTick {
     }
 
     public void setGenericValue(Integer type, BigDecimal value) {
-        Types enumType = Types.valueOf(type);
+        Types enumType = valueOf(type);
         switch (enumType) {
             case OPTION_HISTORICAL_VOLATILITY:
                 optionHistoricalVolatility = value;

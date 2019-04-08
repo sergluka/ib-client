@@ -1,7 +1,8 @@
-package com.finplant.ib.impl.types;
+package com.finplant.ib.types;
 
 import com.ib.client.DepthMktDataDescription;
 
+@SuppressWarnings({"WeakerAccess", "unused"})
 public class IbDepthMktDataDescription {
     private final DepthMktDataDescription parent;
 
@@ -51,7 +52,7 @@ public class IbDepthMktDataDescription {
 
     @Override
     public String toString() {
-        final StringBuffer buffer = new StringBuffer("{");
+        final StringBuilder buffer = new StringBuilder("{");
         buffer.append("exchange='").append(getExchange()).append('\'');
         buffer.append(", secType='").append(getSecType()).append('\'');
         buffer.append(", listingExch='").append(getListingExch()).append('\'');

@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory;
 
 import io.reactivex.ObservableEmitter;
 
-public class Request<T> {
+class Request<T> {
 
     private static final Logger log = LoggerFactory.getLogger(Request.class);
 
@@ -15,7 +15,18 @@ public class Request<T> {
     private final RequestKey key;
     private final Consumer<Integer> registrationFn;
     private final Consumer<Integer> unregistrationFn;
-    private Object userData;
+    private final Object userData;
+
+    @Override
+    public String toString() {
+        final StringBuilder buffer = new StringBuilder("{");
+        if (key.getId() != null) {
+            buffer.append("id=").append(key.getId()).append(", ");
+        }
+        buffer.append("type=").append(key.getType());
+        buffer.append('}');
+        return buffer.toString();
+    }
 
     Request(ObservableEmitter<T> emitter,
             RequestKey key,
@@ -30,28 +41,7 @@ public class Request<T> {
         this.userData = userData;
     }
 
-    @Override
-    public String toString() {
-        final StringBuffer buffer = new StringBuffer("{");
-        if (key.getId() != null) {
-            buffer.append("id=").append(key.getId()).append(", ");
-        }
-        buffer.append("type=").append(key.getType());
-        buffer.append('}');
-        return buffer.toString();
-    }
-
-    void register() {
-        register(key.getId());
-    }
-
-    void register(Integer id) {
-        if (registrationFn != null) {
-            registrationFn.accept(id);
-        }
-    }
-
-    public void unregister() {
+    void unregister() {
         try {
             if (unregistrationFn != null) {
                 unregistrationFn.accept(key.getId());
@@ -62,19 +52,29 @@ public class Request<T> {
         }
     }
 
-    public void onNext(T data) {
+    void onNext(T data) {
         emitter.onNext(data);
     }
 
-    public void onComplete() {
+    void onComplete() {
         emitter.onComplete();
     }
 
-    public void onError(Throwable throwable) {
+    void onError(Throwable throwable) {
         emitter.onError(throwable);
     }
 
-    public Object getUserData() {
+    Object getUserData() {
         return userData;
+    }
+
+    void register() {
+        register(key.getId());
+    }
+
+    private void register(Integer id) {
+        if (registrationFn != null) {
+            registrationFn.accept(id);
+        }
     }
 }

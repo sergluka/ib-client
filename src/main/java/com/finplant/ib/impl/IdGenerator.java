@@ -1,4 +1,4 @@
-package com.finplant.ib;
+package com.finplant.ib.impl;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -10,9 +10,10 @@ public class IdGenerator {
     private static final Logger log = LoggerFactory.getLogger(IdGenerator.class);
 
     private static final int INVALID_ID = -1;
+    private static final int REQUESTS_START_ID = 100_000_000;
 
-    private AtomicInteger orderId = new AtomicInteger(INVALID_ID);
-    private AtomicInteger requestId = new AtomicInteger(100_000_000);
+    private final AtomicInteger orderId = new AtomicInteger(INVALID_ID);
+    private final AtomicInteger requestId = new AtomicInteger(REQUESTS_START_ID);
 
     // Returns return true if TWS resets its ID
     public boolean setOrderId(Integer newValue) {

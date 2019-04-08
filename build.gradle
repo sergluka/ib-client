@@ -19,7 +19,7 @@ plugins {
 }
 
 group 'com.finplant.ib'
-version '2.0.3'
+version '2.0.4-SNAPSHOT'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
@@ -51,6 +51,17 @@ testSets {
 shadowJar {
     baseName = 'ib_client'
     classifier = null
+}
+
+javadoc {
+    excludes = ["com/finplant/ib/impl/**"]
+    options.stylesheetFile = new File(projectDir, "docs/stylesheet.css");
+
+    options.overview = new File(projectDir, "docs/overview.html");
+    options.tags = ["apiNote:a:API Note:",
+                    "implSpec:a:Implementation Requirements:",
+                    "implNote:a:Implementation Note:"]
+    options.addBooleanOption("-allow-script-in-comments", true)
 }
 
 task packageJavadoc(type: Jar, dependsOn: 'javadoc') {

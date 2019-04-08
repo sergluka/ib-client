@@ -1,8 +1,9 @@
-package com.finplant.ib.impl.types;
+package com.finplant.ib.types;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+@SuppressWarnings("unused")
 public interface IbTick {
     Integer getBidSize();
     Integer getAskSize();

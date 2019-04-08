@@ -1,10 +1,14 @@
-package com.finplant.ib.impl.types;
+package com.finplant.ib.types;
 
 import java.math.BigDecimal;
 import java.util.Objects;
 
 import com.ib.client.Contract;
 
+/**
+ * Data class for IB position data
+ */
+@SuppressWarnings("unused")
 public class IbPosition {
 
     public static final IbPosition COMPLETE = new IbPosition();

@@ -1,17 +1,18 @@
-package com.finplant.ib.impl.cache;
+package com.finplant.ib;
 
 import java.util.Collection;
 import java.util.Map;
 
 import org.jetbrains.annotations.Nullable;
 
-import com.finplant.ib.impl.types.IbMarketDepth;
-import com.finplant.ib.impl.types.IbOrder;
-import com.finplant.ib.impl.types.IbPortfolio;
-import com.finplant.ib.impl.types.IbPosition;
-import com.finplant.ib.impl.types.IbTick;
+import com.finplant.ib.types.IbMarketDepth;
+import com.finplant.ib.types.IbOrder;
+import com.finplant.ib.types.IbPortfolio;
+import com.finplant.ib.types.IbPosition;
+import com.finplant.ib.types.IbTick;
 import com.ib.client.Contract;
 
+@SuppressWarnings("unused")
 public interface CacheRepository {
     Map<Integer, IbOrder> getOrders();
 

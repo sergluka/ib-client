@@ -2,7 +2,7 @@ package com.finplant.ib.impl.request
 
 import com.finplant.ib.IbClient
 import com.finplant.ib.IbExceptions
-import com.finplant.ib.IdGenerator
+import com.finplant.ib.impl.IdGenerator
 import spock.lang.Specification
 import spock.lang.Subject
 import spock.util.concurrent.AsyncConditions
@@ -103,7 +103,7 @@ class RequestRepositoryTest extends Specification {
                 .subscribe()
                 .test()
         then:
-        observer.assertError(IbExceptions.DuplicatedRequest.class)
+        observer.assertError(IbExceptions.DuplicatedRequestError.class)
     }
 
     def "Add request without id and complete without data"() {

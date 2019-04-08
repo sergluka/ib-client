@@ -1,4 +1,4 @@
-package com.finplant.ib.impl.types;
+package com.finplant.ib.types;
 
 import java.math.BigDecimal;
 import java.util.Objects;
@@ -7,6 +7,7 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Ordering;
 import com.ib.client.OrderStatus;
 
+@SuppressWarnings("unused")
 public class IbOrderStatus implements Comparable<IbOrderStatus> {
     private final int orderId;
     private final OrderStatus status;
@@ -90,7 +91,7 @@ public class IbOrderStatus implements Comparable<IbOrderStatus> {
 
     @Override
     public String toString() {
-        final StringBuffer buffer = new StringBuffer("{");
+        final StringBuilder buffer = new StringBuilder("{");
         buffer.append("orderId=").append(orderId);
         buffer.append(", status='").append(status).append('\'');
         buffer.append(", filled=").append(filled);

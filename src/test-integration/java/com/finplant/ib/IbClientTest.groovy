@@ -1,8 +1,8 @@
 package com.finplant.ib
 
-import com.finplant.ib.impl.types.IbMarketDepth
-import com.finplant.ib.impl.types.IbPortfolio
-import com.finplant.ib.impl.types.IbPosition
+import com.finplant.ib.types.IbMarketDepth
+import com.finplant.ib.types.IbPortfolio
+import com.finplant.ib.types.IbPosition
 import com.ib.client.*
 import io.reactivex.functions.Predicate
 import io.reactivex.observers.BaseTestConsumer
@@ -30,7 +30,15 @@ class IbClientTest extends Specification {
         client.subscribeOnPositionChange()
                 .takeUntil({ it == IbPosition.COMPLETE } as Predicate)
                 .filter { it.pos != BigDecimal.ZERO }
-                .blockingSubscribe { position -> closePosition(position) }
+                .toList()
+                .blockingGet()
+                .forEach { position ->
+                    try {
+                        return closePosition(position)
+                    } catch (Exception e) {
+                        throw new Exception("Cannot close position: ${position}}", e)
+                    }
+                }
     }
 
     def closePosition(IbPosition position) {
@@ -128,7 +136,7 @@ class IbClientTest extends Specification {
         observer.assertNoErrors()
     }
 
-    def "Cancel request should be completed even order was filled"() {
+    def "Cancel request should return error if order already has been filled"() {
         given:
         def order = createOrderStp()
         client.placeOrder(createContractEUR(), order).flatMap({ ibOrder ->
@@ -144,7 +152,7 @@ class IbClientTest extends Specification {
 
         then:
         observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
-        observer.assertNoErrors()
+        observer.assertError(IbExceptions.OrderAlreadyFilledError.class)
     }
 
     def "Cancel request should raise error if order doesn't exists"() {
@@ -174,7 +182,7 @@ class IbClientTest extends Specification {
         observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
         observer.assertNoErrors()
 
-        client.getCache().orders.values().forEach { assert it.lastStatuses.isCanceled() }
+        client.getCache().orders.values().forEach { assert it.lastStatus.isCanceled() }
     }
 
 
@@ -235,16 +243,17 @@ class IbClientTest extends Specification {
         observable.blockingLast()
 
         then:
-        IbExceptions.DuplicatedRequest ex = thrown()
+        IbExceptions.DuplicatedRequestError ex = thrown()
     }
 
     def "Request orders"() {
         given:
         def contract = createContractEUR()
+        def order = createOrderStp()
 
         when:
-        client.placeOrder(contract, createOrderStp(client.nextOrderId())).blockingGet()
-        def list = client.reqAllOpenOrders().timeout(3, TimeUnit.SECONDS).blockingGet()
+        client.placeOrder(contract, order).blockingGet()
+        def list = client.reqAllOpenOrders().timeout(3, TimeUnit.SECONDS).toList().blockingGet()
 
         then:
         println list
@@ -253,7 +262,7 @@ class IbClientTest extends Specification {
 
     def "Request orders when no orders exists"() {
         when:
-        def list = client.reqAllOpenOrders().timeout(3, TimeUnit.SECONDS).blockingGet()
+        def list = client.reqAllOpenOrders().timeout(3, TimeUnit.SECONDS).toList().blockingGet()
 
         then:
         list.isEmpty()
@@ -347,7 +356,7 @@ class IbClientTest extends Specification {
         def contract = createContractEUR()
 
         when:
-        def observer = client.getMarketDepth(contract, 2).test()
+        def observer = client.subscribeOnMarketDepth(contract, 2).test()
 
         then:
         observer.awaitCount(4, BaseTestConsumer.TestWaitStrategy.SLEEP_100MS, 5000)
@@ -387,7 +396,7 @@ class IbClientTest extends Specification {
         def contract = createContractARRY_L2()
 
         when:
-        def observer = client.getMarketDepth(contract, 2).test()
+        def observer = client.subscribeOnMarketDepth(contract, 2).test()
 
         then:
         observer.awaitCount(4, BaseTestConsumer.TestWaitStrategy.SLEEP_100MS, 5000)
@@ -437,10 +446,10 @@ class IbClientTest extends Specification {
 
         when:
         def future1 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-        client.reqAllOpenOrders().timeout(10, TimeUnit.SECONDS).blockingGet()
+        client.reqAllOpenOrders().timeout(10, TimeUnit.SECONDS).blockingSubscribe()
         def future2 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
         def future3 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-        client.reqAllOpenOrders().timeout(10, TimeUnit.SECONDS).blockingGet()
+        client.reqAllOpenOrders().timeout(10, TimeUnit.SECONDS).blockingSubscribe()
         def future4 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
         def future5 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
         def future6 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
@@ -452,26 +461,36 @@ class IbClientTest extends Specification {
         def order3 = future3.timeout(10, TimeUnit.SECONDS).blockingGet()
         def order4 = future4.timeout(10, TimeUnit.SECONDS).blockingGet()
         def order5 = future5.timeout(10, TimeUnit.SECONDS).blockingGet()
-        def list1 = client.reqAllOpenOrders().timeout(10, TimeUnit.SECONDS).blockingGet()
+        def list1 = client.reqAllOpenOrders().timeout(10, TimeUnit.SECONDS).toList().blockingGet()
         def order6 = future6.timeout(10, TimeUnit.SECONDS).blockingGet()
-        def list2 = client.reqAllOpenOrders().timeout(10, TimeUnit.SECONDS).blockingGet()
+        def list2 = client.reqAllOpenOrders().timeout(10, TimeUnit.SECONDS).toList().blockingGet()
 
 
         then:
         list1.size() <= 6
-        list1.containsKey(order1.getOrderId())
-        list1.containsKey(order2.getOrderId())
-        list1.containsKey(order3.getOrderId())
-        list1.containsKey(order4.getOrderId())
-        list1.containsKey(order5.getOrderId())
+        list1.collect { it.orderId }.toList().containsAll(
+                [order1.getOrderId(),
+                 order2.getOrderId(),
+                 order3.getOrderId(),
+                 order4.getOrderId(),
+                 order5.getOrderId()])
 
         list2.size() == 6
-        list2.containsKey(order1.getOrderId())
-        list2.containsKey(order2.getOrderId())
-        list2.containsKey(order3.getOrderId())
-        list2.containsKey(order4.getOrderId())
-        list2.containsKey(order5.getOrderId())
-        list2.containsKey(order6.getOrderId())
+        list2.collect { it.orderId }.toList().containsAll(
+                [order1.getOrderId(),
+                 order2.getOrderId(),
+                 order3.getOrderId(),
+                 order4.getOrderId(),
+                 order5.getOrderId(),
+                 order6.getOrderId()])
+
+        list2.collect { it.orderId }.toList().containsAll(
+                [order1.getOrderId(),
+                 order2.getOrderId(),
+                 order3.getOrderId(),
+                 order4.getOrderId(),
+                 order5.getOrderId(),
+                 order6.getOrderId()])
     }
 
     def "Few reconnects shouldn't impact to functionality"() {
@@ -520,8 +539,6 @@ class IbClientTest extends Specification {
         observer.assertComplete()
         observer.valueCount() >= 1000
         observer.assertValueAt 0, { tick ->
-            def tz = OffsetDateTime.now().getOffset();
-            assert Math.abs(from.toEpochSecond(tz) - tick.time()) < 100
             assert tick.price() > 0.0
             true
         } as Predicate
@@ -541,8 +558,6 @@ class IbClientTest extends Specification {
         observer.assertComplete()
         observer.valueCount() >= 1000
         observer.assertValueAt 0, { tick ->
-            def tz = OffsetDateTime.now().getOffset();
-            assert Math.abs(from.toEpochSecond(tz) - tick.time()) < 100
             assert tick.priceBid() > 0.0
             assert tick.priceAsk() > 0.0
             assert tick.sizeBid() > 0.0
@@ -565,7 +580,7 @@ class IbClientTest extends Specification {
         observer.assertComplete()
         observer.valueCount() >= 1000
         observer.assertValueAt 0, { tick ->
-            def tz = OffsetDateTime.now().getOffset();
+            def tz = OffsetDateTime.now().getOffset()
             assert Math.abs(from.toEpochSecond(tz) - tick.time()) < 100000
             assert tick.price() > 0.0
             assert tick.size() > 0.0
@@ -585,7 +600,7 @@ class IbClientTest extends Specification {
 
     private static def createContractGC() {
         def contract = new Contract()
-        contract.conid(347896247)
+        contract.conid(130450913)
         contract.symbol("GC")
         contract.currency("USD")
         contract.exchange("NYMEX")

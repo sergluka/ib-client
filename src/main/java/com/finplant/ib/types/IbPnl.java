@@ -1,10 +1,13 @@
-package com.finplant.ib.impl.types;
+package com.finplant.ib.types;
 
 import java.math.BigDecimal;
 
 /**
- * PnL structure. Any of BigDecimal members can be null, if TWS sends MAX_DBL value.
+ * PnL structure.
+ *
+ * @implNote Any of BigDecimal members can be null.
  */
+@SuppressWarnings("unused")
 public class IbPnl {
     private final Integer positionId;
     private final BigDecimal dailyPnL;

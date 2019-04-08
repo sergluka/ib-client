@@ -2,12 +2,19 @@ package com.finplant.ib;
 
 import com.finplant.ib.impl.request.RequestKey;
 
+@SuppressWarnings({"WeakerAccess", "unused"})
 public class IbExceptions {
 
-    public static class TerminalError extends RuntimeException {
+    public abstract static class IbClientError extends RuntimeException {
+        IbClientError(String text) {
+            super(text);
+        }
+    }
+
+    public static class TerminalError extends IbClientError {
 
         //An attempt was made to cancel an order not currently in the system.
-        public static int CODE_CANT_FIND_ORDER = 135;
+        public static final int CODE_CANT_FIND_ORDER = 135;
 
         private final String errorMsg;
         private final int errorCode;
@@ -27,27 +34,27 @@ public class IbExceptions {
         }
     }
 
-    public static class NotConnected extends RuntimeException {
-        public NotConnected() {
+    public static class NotConnectedError extends IbClientError {
+        public NotConnectedError() {
             super("Not connected");
         }
     }
 
-    public static class ResponseTimeout extends RuntimeException {
-        public ResponseTimeout(String message) {
-            super(message);
-        }
-    }
-
-    public static class DuplicatedRequest extends RuntimeException {
-        public DuplicatedRequest(RequestKey key) {
+    public static class DuplicatedRequestError extends IbClientError {
+        public DuplicatedRequestError(RequestKey key) {
             super(String.format("Request already exists: %s", key));
         }
     }
 
-    public static class NoTicks extends RuntimeException {
-        public NoTicks() {
+    public static class NoTicksError extends IbClientError {
+        public NoTicksError() {
             super("Has no ticks");
+        }
+    }
+
+    public static class OrderAlreadyFilledError extends IbClientError {
+        OrderAlreadyFilledError(int orderId) {
+            super(String.format("Order %d already is filled", orderId));
         }
     }
 

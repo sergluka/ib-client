@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import com.finplant.ib.IbClient;
 import com.finplant.ib.IbExceptions;
-import com.finplant.ib.IdGenerator;
+import com.finplant.ib.impl.IdGenerator;
 
 import io.reactivex.Observable;
 import io.reactivex.schedulers.Schedulers;
@@ -55,17 +55,6 @@ public class RequestRepository implements AutoCloseable {
         get(null, reqId, true).ifPresent(request -> request.onError(throwable));
     }
 
-    public <T> Optional<Request<T>> get(Type type, Integer reqId, Boolean shouldExists) {
-        @SuppressWarnings("unchecked")
-        Request<T> request = requests.get(new RequestKey(type, reqId));
-        if (request == null) {
-            if (shouldExists) {
-                log.error("Got event '{}' with unknown request id {}", type, reqId);
-            }
-        }
-        return Optional.ofNullable(request);
-    }
-
     public void onComplete(Type type, Integer reqId, Boolean shouldExists) {
         get(type, reqId, shouldExists).ifPresent(Request::onComplete);
     }
@@ -77,12 +66,23 @@ public class RequestRepository implements AutoCloseable {
         });
     }
 
-    private void remove(RequestKey key) {
-        requests.remove(key);
-    }
-
     public Object getUserData(Type type, int reqId) {
         return get(type, reqId, true).map(Request::getUserData).orElse(null);
+    }
+
+    private <T> Optional<Request<T>> get(Type type, Integer reqId, Boolean shouldExists) {
+        @SuppressWarnings("unchecked")
+        Request<T> request = requests.get(new RequestKey(type, reqId));
+        if (request == null) {
+            if (shouldExists) {
+                log.error("Got event '{}' with unknown request id {}", type, reqId);
+            }
+        }
+        return Optional.ofNullable(request);
+    }
+
+    private void remove(RequestKey key) {
+        requests.remove(key);
     }
 
     public enum Type {
@@ -176,13 +176,13 @@ public class RequestRepository implements AutoCloseable {
                 Request<T> request = new Request<>(emitter, key, register, unregister, userData);
 
                 if (!client.isConnected()) {
-                    throw new IbExceptions.NotConnected();
+                    throw new IbExceptions.NotConnectedError();
                 }
 
                 Request old = requests.putIfAbsent(key, request);
                 if (old != null) {
                     log.error("Duplicated request: {}", key);
-                    throw new IbExceptions.DuplicatedRequest(key);
+                    throw new IbExceptions.DuplicatedRequestError(key);
                 }
 
                 emitter.setCancellable(() -> {

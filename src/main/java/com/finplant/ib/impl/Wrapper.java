@@ -1,11 +1,10 @@
 package com.finplant.ib.impl;
 
 import com.finplant.ib.IbExceptions;
-import com.finplant.ib.IdGenerator;
 import com.finplant.ib.impl.cache.CacheRepositoryImpl;
 import com.finplant.ib.impl.connection.ConnectionMonitor;
 import com.finplant.ib.impl.request.RequestRepository;
-import com.finplant.ib.impl.types.*;
+import com.finplant.ib.types.*;
 import com.finplant.ib.utils.PrettyPrinters;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
@@ -34,12 +33,12 @@ public class Wrapper implements EWrapper {
                    CacheRepositoryImpl cache,
                    RequestRepository requests,
                    IdGenerator idGenerator,
-                   Observer<TerminalErrorHandler.LogRecord> logObserver) {
+                   Observer<IbLogRecord> logObserver) {
 
         errorHandler = new TerminalErrorHandler(requests) {
 
             @Override
-            void onLog(LogRecord record) {
+            void onLog(IbLogRecord record) {
                 logObserver.onNext(record);
             }
 
@@ -178,7 +177,8 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void openOrderEnd() {
-        requests.onNextAndComplete(RequestRepository.Type.REQ_ORDER_LIST, null, cache.getOrders(), true);
+        requests.onNextAndComplete(RequestRepository.Type.REQ_ORDER_LIST, null,
+                                   new ArrayList<>(cache.getOrders().values()), true);
     }
 
     @Override
@@ -392,7 +392,7 @@ public class Wrapper implements EWrapper {
         IbTick tick = cache.getTick(tickerId);
         if (tick == null) {
             log.info("No ticks for ticker {}", tickerId);
-            requests.onError(tickerId, new IbExceptions.NoTicks());
+            requests.onError(tickerId, new IbExceptions.NoTicksError());
             return;
         }
 
@@ -731,7 +731,7 @@ public class Wrapper implements EWrapper {
     }
 
     private void publishNoData(int tickerId) {
-        requests.onError(RequestRepository.Type.EVENT_MARKET_DATA, tickerId, new IbExceptions.NoTicks());
+        requests.onError(RequestRepository.Type.EVENT_MARKET_DATA, tickerId, new IbExceptions.NoTicksError());
     }
 
     public Set<String> getManagedAccounts() {

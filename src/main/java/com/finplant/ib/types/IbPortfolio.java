@@ -1,21 +1,22 @@
-package com.finplant.ib.impl.types;
+package com.finplant.ib.types;
 
 import java.math.BigDecimal;
 
 import com.ib.client.Contract;
 
+@SuppressWarnings("unused")
 public class IbPortfolio {
 
-    public static IbPortfolio COMPLETE = new IbPortfolio();
+    public static final IbPortfolio COMPLETE = new IbPortfolio();
 
-    private Contract contract;
-    private BigDecimal position;
-    private BigDecimal marketPrice;
-    private BigDecimal marketValue;
-    private BigDecimal averageCost;
-    private BigDecimal unrealizedPNL;
-    private BigDecimal realizedPNL;
-    private String account;
+    private final Contract contract;
+    private final BigDecimal position;
+    private final BigDecimal marketPrice;
+    private final BigDecimal marketValue;
+    private final BigDecimal averageCost;
+    private final BigDecimal unrealizedPNL;
+    private final BigDecimal realizedPNL;
+    private final String account;
 
     public IbPortfolio(Contract contract,
                        BigDecimal position,
@@ -35,7 +36,7 @@ public class IbPortfolio {
         this.account = account;
     }
 
-    IbPortfolio() {
+    private IbPortfolio() {
         this.contract = null;
         this.position = null;
         this.marketPrice = null;

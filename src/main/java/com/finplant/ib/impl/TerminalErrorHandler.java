@@ -1,5 +1,6 @@
 package com.finplant.ib.impl;
 
+import com.finplant.ib.types.IbLogRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,20 +22,15 @@ public abstract class TerminalErrorHandler {
         CRITICAL
     }
 
-    public enum Severity {
-        INFO,
-        WARN,
-        ERROR,
-    }
-
     public TerminalErrorHandler(RequestRepository requests) {
         this.requests = requests;
     }
 
-    abstract void onLog(LogRecord record);
+    abstract void onLog(IbLogRecord record);
     abstract void onError();
     abstract void onFatalError();
 
+    @SuppressWarnings("MagicNumber")
     public void handle(int id, int code, String message) {
 
         log.trace("Message from IB client: id={}, code={}, message={}", id, code, message);
@@ -83,24 +79,24 @@ public abstract class TerminalErrorHandler {
                 break;
         }
 
-        Severity severity;
+        IbLogRecord.Severity severity;
         switch (type) {
             case CUSTOM:
             case ERROR:
             case REQUEST_ERROR:
             case CRITICAL:
-                severity = Severity.ERROR;
+                severity = IbLogRecord.Severity.ERROR;
                 break;
             case WARN:
-                severity = Severity.WARN;
+                severity = IbLogRecord.Severity.WARN;
                 break;
             case INFO:
-                severity = Severity.INFO;
+                severity = IbLogRecord.Severity.INFO;
                 break;
             default:
                 throw new IllegalStateException("Unknown message type: " + type);
         }
-        onLog(new LogRecord(severity, id, code, message));
+        onLog(new IbLogRecord(severity, id, code, message));
 
         switch (type) {
             case CUSTOM:
@@ -122,36 +118,6 @@ public abstract class TerminalErrorHandler {
                 log.error("TWS critical error - [#{}] {}. Disconnecting.", code, message);
                 onFatalError();
                 break;
-        }
-    }
-
-    public class LogRecord {
-        private final Severity severity;
-        private final int id;
-        private final int code;
-        private final String message;
-
-        public LogRecord(Severity severity, int id, int code, String message) {
-            this.severity = severity;
-            this.id = id;
-            this.code = code;
-            this.message = message;
-        }
-
-        public Severity getSeverity() {
-            return severity;
-        }
-
-        public int getId() {
-            return id;
-        }
-
-        public int getCode() {
-            return code;
-        }
-
-        public String getMessage() {
-            return message;
         }
     }
 }

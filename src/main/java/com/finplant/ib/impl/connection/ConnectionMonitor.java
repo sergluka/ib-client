@@ -30,21 +30,22 @@ public abstract class ConnectionMonitor implements AutoCloseable {
     }
 
     private static final Logger log = LoggerFactory.getLogger(ConnectionMonitor.class);
+
+    private static final int CLOSE_TIMEOUT_MS = 10_000;
     private static final long RECONNECT_DELAY = 1_000;
-
-    private Thread thread;
-
-    private AtomicReference<Status> status;
-    private AtomicReference<Command> command;
-    private boolean isConnected = false;
 
     private final Lock statusLock = new ReentrantLock();
     private final Condition statusCondition = statusLock.newCondition();
+    private final SleepTimer timer = new SleepTimer();
+
+    private boolean isConnected = false;
     private Status expectedStatus = null;
 
-    private SleepTimer timer = new SleepTimer();
+    private Thread thread;
+    private AtomicReference<Status> status;
+    private AtomicReference<Command> command;
 
-    protected abstract void connectRequest(boolean reconnect);
+    protected abstract void connectRequest();
     protected abstract void disconnectRequest(boolean reconnect);
     protected abstract void afterConnect();
     protected abstract void onConnectStatusChange(Boolean connected);
@@ -74,7 +75,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
 
         thread.interrupt();
         try {
-            thread.join(10_000);
+            thread.join(CLOSE_TIMEOUT_MS);
         } catch (InterruptedException e) {
             log.error("Current thread '{}' has been interrupted at shutdown", this);
         }
@@ -86,11 +87,6 @@ public abstract class ConnectionMonitor implements AutoCloseable {
 
     public synchronized void connect() {
         setCommand(Command.CONNECT);
-    }
-
-    public synchronized void connect(int timeout, TimeUnit unit) throws TimeoutException {
-        setCommand(Command.CONNECT);
-        waitForStatus(Status.CONNECTED, timeout, unit);
     }
 
     public synchronized void confirmConnection() {
@@ -131,7 +127,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         switch (command) {
             case CONNECT:
                 setStatus(Status.CONNECTING);
-                connectRequest(false);
+                connectRequest();
                 break;
             case RECONNECT:
                 setStatus(Status.DISCONNECTING);
@@ -140,7 +136,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
 
                 timer.start(RECONNECT_DELAY, () -> {
                     setStatus(Status.CONNECTING);
-                    connectRequest(true);
+                    connectRequest();
                 });
 
                 break;
@@ -199,10 +195,10 @@ public abstract class ConnectionMonitor implements AutoCloseable {
     private void triggerStatusOnChange(Status newStatus) {
         if (!isConnected && newStatus == Status.CONNECTED) {
             isConnected = true;
-            onConnectStatusChange(isConnected);
+            onConnectStatusChange(true);
         } else if (isConnected && newStatus != Status.CONNECTED) {
             isConnected = false;
-            onConnectStatusChange(isConnected);
+            onConnectStatusChange(false);
         }
     }
 

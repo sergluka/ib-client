@@ -1,4 +1,4 @@
-package com.finplant.ib;
+package com.finplant.ib.impl;
 
 import com.ib.client.Contract;
 

@@ -1,10 +1,11 @@
-package com.finplant.ib.impl.types;
+package com.finplant.ib.types;
 
 import java.math.BigDecimal;
 import java.util.Objects;
 
 import com.ib.client.Contract;
 
+@SuppressWarnings("unused")
 public class IbMarketDepth {
 
     private final Contract contract;
@@ -13,7 +14,7 @@ public class IbMarketDepth {
         private final Side side;
         private final Integer position;
 
-        public Key(Side side, Integer position) {
+        Key(Side side, Integer position) {
             this.side = side;
             this.position = position;
         }
@@ -44,7 +45,7 @@ public class IbMarketDepth {
 
         @Override
         public int hashCode() {
-            Integer result = side.hashCode();
+            int result = side.hashCode();
             result = 31 * result + position;
             return result;
         }
@@ -113,7 +114,7 @@ public class IbMarketDepth {
 
     @Override
     public String toString() {
-        final StringBuffer buffer = new StringBuffer("{");
+        final StringBuilder buffer = new StringBuilder("{");
         buffer.append("position=").append(position);
         buffer.append(", side=").append(side);
         buffer.append(", price=").append(price);

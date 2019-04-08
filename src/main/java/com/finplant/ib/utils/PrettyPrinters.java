@@ -4,6 +4,7 @@ import com.ib.client.Contract;
 import com.ib.client.ContractDetails;
 import com.ib.client.Order;
 
+@SuppressWarnings({"WeakerAccess", "unused"})
 public class PrettyPrinters {
 
     static public String contractToString(Contract contract) {

@@ -3,20 +3,12 @@ package com.finplant.ib.impl.cache;
 import java.util.Objects;
 
 class PositionKey {
-    private String account;
-    private int contractId;
+    private final String account;
+    private final int contractId;
 
     PositionKey(String account, int contractId) {
         this.account = account;
         this.contractId = contractId;
-    }
-
-    public String getAccount() {
-        return account;
-    }
-
-    public int getContractId() {
-        return contractId;
     }
 
     @Override
