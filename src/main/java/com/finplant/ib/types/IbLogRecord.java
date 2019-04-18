@@ -4,6 +4,7 @@ package com.finplant.ib.types;
 public class IbLogRecord {
 
     public enum Severity {
+        DEBUG,
         INFO,
         WARN,
         ERROR,

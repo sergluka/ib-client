@@ -1,5 +1,6 @@
 package com.finplant.ib
 
+import com.finplant.ib.types.IbBar
 import com.finplant.ib.types.IbMarketDepth
 import com.finplant.ib.types.IbPortfolio
 import com.finplant.ib.types.IbPosition
@@ -8,11 +9,13 @@ import io.reactivex.functions.Predicate
 import io.reactivex.observers.BaseTestConsumer
 import spock.lang.Ignore
 import spock.lang.Specification
+import spock.lang.Unroll
 
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.util.concurrent.TimeUnit
 
+import static com.finplant.ib.IbClient.BarSize.*
 import static org.assertj.core.api.Assertions.assertThat
 
 class IbClientTest extends Specification {
@@ -586,6 +589,95 @@ class IbClientTest extends Specification {
             assert tick.size() > 0.0
             true
         } as Predicate
+    }
+
+    def "Request bars"() {
+
+        given:
+        def endDateTime = LocalDateTime.of(2019, 04, 16, 12, 0, 0);
+
+        when:
+        def observer = client.reqHistoricalData(createContractFB(), endDateTime,
+                                                120, IbClient.DurationUnit.Second, _1_min,
+                                                IbClient.Type.TRADES,
+                                                IbClient.TradingHours.Within).test()
+        then:
+        observer.awaitDone(10, TimeUnit.SECONDS)
+        observer.assertNoErrors()
+        observer.assertComplete()
+        observer.valueCount() == 2
+        observer.assertValueAt 0, { IbBar bar ->
+            assert bar.time == LocalDateTime.of(2019, 4, 15, 22, 58, 0)
+            assert bar.open == 179.59
+            assert bar.high == 179.6
+            assert bar.low == 179.54
+            assert bar.close == 179.57
+            assert bar.volume == 604
+            assert bar.count == 417
+            assert bar.wap == 179.566
+            true
+        } as Predicate
+        observer.assertValueAt 1, { IbBar bar ->
+            assert bar.time == LocalDateTime.of(2019, 4, 15, 22, 59, 0)
+            assert bar.open == 179.58
+            assert bar.high == 179.77
+            assert bar.low == 179.56
+            assert bar.close == 179.66
+            assert bar.volume == 1046
+            assert bar.count == 720
+            assert bar.wap == 179.685
+            true
+        } as Predicate
+    }
+
+    @Unroll
+    def "Subscribe to unfinished bars for period #period"() {
+
+        when:
+        def observer = client.subscribeOnHistoricalData(createContractEUR(),
+                                                        30, IbClient.DurationUnit.Second,
+                                                        period,
+                                                        IbClient.Type.BID,
+                                                        IbClient.TradingHours.Within)
+                .skipWhile { it == IbBar.COMPLETE }
+                .filter { it != IbBar.COMPLETE }
+                .take(1).test()
+
+        then:
+        observer.awaitCount(1)
+        observer.assertNoErrors()
+        observer.assertComplete()
+        observer.valueCount() == 1
+        observer.assertValueAt 0, { IbBar bar ->
+            assert bar.open > 0.0
+            assert bar.high > 0.0
+            assert bar.low > 0.0
+            assert bar.close > 0.0
+            true
+        } as Predicate
+
+        where:
+        period   | _
+        _5_sec   | _
+        _10_sec  | _
+        _15_sec  | _
+        _30_sec  | _
+        _1_min   | _
+        _2_min   | _
+        _3_min   | _
+        _5_min   | _
+        _10_min  | _
+        _15_min  | _
+        _20_min  | _
+        _30_min  | _
+        _1_hour  | _
+        _2_hour  | _
+        _3_hour  | _
+        _4_hour  | _
+        _8_hour  | _
+        _1_day   | _
+        _1_week  | _
+        _1_month | _
     }
 
     def "Get all accounts summary"() {

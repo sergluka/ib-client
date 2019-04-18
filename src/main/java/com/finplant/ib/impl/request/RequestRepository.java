@@ -95,6 +95,7 @@ public class RequestRepository implements AutoCloseable {
         EVENT_MARKET_DATA_LVL2,
         EVENT_PORTFOLIO,
         EVENT_CONNECTION_STATUS,
+        EVENT_HISTORICAL_DATA,
         REQ_MARKET_DATA,
         REQ_MARKET_DEPTH_EXCHANGES,
         REQ_CURRENT_TIME,
@@ -105,6 +106,7 @@ public class RequestRepository implements AutoCloseable {
         REQ_HISTORICAL_MIDPOINT_TICK,
         REQ_HISTORICAL_BID_ASK_TICK,
         REQ_HISTORICAL_TRADE,
+        REQ_HISTORICAL_DATA,
         REQ_ACCOUNT_SUMMARY,
     }
 

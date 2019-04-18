@@ -15,6 +15,7 @@ public abstract class TerminalErrorHandler {
 
     private enum ErrorType {
         CUSTOM,
+        DEBUG,
         INFO,
         WARN,
         ERROR,
@@ -37,6 +38,7 @@ public abstract class TerminalErrorHandler {
 
         ErrorType type;
         switch (code) {
+            case 162: // API historical data query cancelled
             case 202: // Order canceled
             case 2100: // API client has been unsubscribed from account data..
             case 2104: // Market data farm connection is OK
@@ -45,6 +47,7 @@ public abstract class TerminalErrorHandler {
             case 2108: // A market data farm connection has become inactive but should be available upon demand.
                 type = ErrorType.INFO;
                 break;
+
             case 161: // Cancel attempted when order is not in a cancellable state
             case 201: // Order rejected
             case 399: // Order message error
@@ -93,6 +96,9 @@ public abstract class TerminalErrorHandler {
             case INFO:
                 severity = IbLogRecord.Severity.INFO;
                 break;
+            case DEBUG:
+                severity = IbLogRecord.Severity.DEBUG;
+                break;
             default:
                 throw new IllegalStateException("Unknown message type: " + type);
         }
@@ -103,6 +109,9 @@ public abstract class TerminalErrorHandler {
                 break;
             case REQUEST_ERROR:
                 requests.onError(id, new IbExceptions.TerminalError(message, code));
+                break;
+            case DEBUG:
+                log.debug("TWS message: [#{}] {}", code, message);
                 break;
             case INFO:
                 log.info("TWS message: [#{}] {}", code, message);

@@ -89,20 +89,6 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
-    public void tickOptionComputation(final int tickerId,
-                                      final int field,
-                                      final double impliedVol,
-                                      final double delta,
-                                      final double optPrice,
-                                      final double pvDividend,
-                                      final double gamma,
-                                      final double vega,
-                                      final double theta,
-                                      final double undPrice) {
-        log.debug("tickOptionComputation: NOT IMPLEMENTED");
-    }
-
-    @Override
     public void tickGeneric(int tickerId, int field, double value) {
         IbTick result = cache.updateTick(tickerId, (tick) -> tick.setGenericValue(field, BigDecimal.valueOf(value)));
         publishNewTick(tickerId, result);
@@ -112,19 +98,6 @@ public class Wrapper implements EWrapper {
     public void tickString(int tickerId, int field, String value) {
         IbTick result = cache.updateTick(tickerId, (tick) -> tick.setStringValue(field, value));
         publishNewTick(tickerId, result);
-    }
-
-    @Override
-    public void tickEFP(final int tickerId,
-                        final int tickType,
-                        final double basisPoints,
-                        final String formattedBasisPoints,
-                        final double impliedFuture,
-                        final int holdDays,
-                        final String futureLastTradeDate,
-                        final double dividendImpact,
-                        final double dividendsToLastTradeDate) {
-        log.debug("dividendsToLastTradeDate: NOT IMPLEMENTED");
     }
 
     @Override
@@ -144,7 +117,7 @@ public class Wrapper implements EWrapper {
                                                           whyHeld,
                                                           BigDecimal.valueOf(mktCapPrice));
 
-        log.debug("orderStatus: {}", twsStatus);
+        log.trace("orderStatus: {}", twsStatus);
 
         if (cache.addNewStatus(twsStatus)) {
 
@@ -165,12 +138,18 @@ public class Wrapper implements EWrapper {
     public void openOrder(int orderId, Contract contract, Order order, OrderState state) {
         IbOrder twsOrder = new IbOrder(orderId, contract, order, state);
 
-        log.debug("openOrder: requestId={}, contract={}, order={}, orderState={}",
+        log.trace("openOrder: requestId={}, contract={}, order={}, orderState={}",
                   orderId, contract.symbol(), order.orderId(), state.status());
 
         if (cache.addOrder(twsOrder)) {
             log.info("New order: requestId={}, contract={}, order={}, orderState={}",
                      orderId, contract.symbol(), order.orderId(), state.status());
+
+            if (!state.status().isActive()) {
+                requests.onError(RequestRepository.Type.REQ_ORDER_PLACE, orderId, new Exception("Order is rejected"));
+                return;
+            }
+
             requests.onNextAndComplete(RequestRepository.Type.REQ_ORDER_PLACE, orderId, twsOrder, false);
         }
     }
@@ -179,14 +158,6 @@ public class Wrapper implements EWrapper {
     public void openOrderEnd() {
         requests.onNextAndComplete(RequestRepository.Type.REQ_ORDER_LIST, null,
                                    new ArrayList<>(cache.getOrders().values()), true);
-    }
-
-    @Override
-    public void updateAccountValue(final String key,
-                                   final String value,
-                                   final String currency,
-                                   final String accountName) {
-        log.trace("updateAccountValue: NOT IMPLEMENTED");
     }
 
     @Override
@@ -206,7 +177,7 @@ public class Wrapper implements EWrapper {
         BigDecimal unrealizedPNLObj = doubleToBigDecimal("unrealizedPNL", unrealizedPNL);
         BigDecimal realizedPNLObj = doubleToBigDecimal("realizedPNL", realizedPNL);
 
-        log.debug("updatePortfolio: contract={}, position={}, marketPrice={}, marketValue={}, averageCost={}, " +
+        log.trace("updatePortfolio: contract={}, position={}, marketPrice={}, marketValue={}, averageCost={}, " +
                   "unrealizedPNL={}, realizedPNL={}, accountName={}",
                   contract, position, marketPrice, marketValue, averageCost, unrealizedPNL, realizedPNL, accountName);
 
@@ -219,7 +190,7 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void updateAccountTime(final String timeStamp) {
-        log.debug("updateAccountTime: {}", timeStamp);
+        log.trace("updateAccountTime: {}", timeStamp);
     }
 
     @Override
@@ -252,8 +223,30 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
+    public void historicalData(int reqId, Bar bar) {
+        IbBar ibBar = new IbBar(bar);
+        log.trace("historicalData: {}", ibBar);
+        requests.onNext(RequestRepository.Type.REQ_HISTORICAL_DATA, reqId, ibBar, false);
+        requests.onNext(RequestRepository.Type.EVENT_HISTORICAL_DATA, reqId, IbBar.COMPLETE, false);
+    }
+
+    @Override
+    public void historicalDataEnd(int reqId, String startDateStr, String endDateStr) {
+        log.trace("historicalDataEnd: startDateStr={}, endDateStr={}", startDateStr, endDateStr);
+        requests.onComplete(RequestRepository.Type.REQ_HISTORICAL_DATA, reqId, false);
+        requests.onNext(RequestRepository.Type.EVENT_HISTORICAL_DATA, reqId, IbBar.COMPLETE, false);
+    }
+
+    @Override
+    public void historicalDataUpdate(int reqId, Bar bar) {
+        IbBar ibBar = new IbBar(bar);
+        log.trace("historicalDataUpdate: {}", ibBar);
+        requests.onNext(RequestRepository.Type.EVENT_HISTORICAL_DATA, reqId, ibBar, false);
+    }
+
+    @Override
     public void nextValidId(int id) {
-        log.debug("New request ID: {}", id);
+        log.trace("New request ID: {}", id);
         if (idGenerator.setOrderId(id)) {
             cache.clear();
         }
@@ -261,19 +254,45 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void contractDetails(final int reqId, final ContractDetails contractDetails) {
-        log.debug("contractDetails: reqId={}, details={}",
+        log.trace("contractDetails: reqId={}, details={}",
                   reqId, PrettyPrinters.contractDetailsToString(contractDetails));
-        requests.onNext(RequestRepository.Type.REQ_CONTRACT_DETAIL, reqId, contractDetails, true);
-    }
-
-    @Override
-    public void bondContractDetails(final int reqId, final ContractDetails contractDetails) {
-        log.debug("bondContractDetails: NOT IMPLEMENTED");
+        requests.onNext(RequestRepository.Type.REQ_CONTRACT_DETAIL, reqId, contractDetails, false);
     }
 
     @Override
     public void contractDetailsEnd(final int reqId) {
-        requests.onComplete(RequestRepository.Type.REQ_CONTRACT_DETAIL, reqId, true);
+        requests.onComplete(RequestRepository.Type.REQ_CONTRACT_DETAIL, reqId, false);
+    }
+
+    @Override
+    public void updateMktDepth(final int tickerId,
+                               final int position,
+                               final int operation,
+                               final int side,
+                               final double price,
+                               final int size) {
+        log.trace("updateMktDepth: tickerId = {}, position = {}, operation = {}, side = {}, price = {}, size = {}",
+                  tickerId, position, operation, side, price, size);
+
+        handleUpdateMktDepth(tickerId, position, null, operation, side, price, size);
+    }
+
+    public void updateMktDepthL2(int tickerId, int position,
+                                 String marketMaker, int operation, int side, double price, int size, boolean isSmartDepth) {
+
+        log.trace("updateMktDepthL2: tickerId = {}, position = {}, marketMaker = {}, operation = {}, side = {}, " +
+                  "price = {}, size = {}", tickerId, position, marketMaker, operation, side, price, size);
+
+        handleUpdateMktDepth(tickerId, position, marketMaker, operation, side, price, size);
+    }
+
+    @Override
+    public void managedAccounts(String accountsList) {
+        // Documentation said that connection fully established after `managedAccounts` and `nextValidId` were called
+        connectionMonitor.confirmConnection();
+
+        log.trace("Managed accounts are: {}", accountsList);
+        this.managedAccounts = new HashSet<>(Splitter.on(",").splitToList(accountsList));
     }
 
     @Override
@@ -287,25 +306,43 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
-    public void updateMktDepth(final int tickerId,
-                               final int position,
-                               final int operation,
-                               final int side,
-                               final double price,
-                               final int size) {
-        log.debug("updateMktDepth: tickerId = {}, position = {}, operation = {}, side = {}, price = {}, size = {}",
-                  tickerId, position, operation, side, price, size);
-
-        handleUpdateMktDepth(tickerId, position, null, operation, side, price, size);
+    public void tickOptionComputation(final int tickerId,
+                                      final int field,
+                                      final double impliedVol,
+                                      final double delta,
+                                      final double optPrice,
+                                      final double pvDividend,
+                                      final double gamma,
+                                      final double vega,
+                                      final double theta,
+                                      final double undPrice) {
+        log.debug("tickOptionComputation: NOT IMPLEMENTED");
     }
 
-    public void updateMktDepthL2(int tickerId, int position,
-                                 String marketMaker, int operation, int side, double price, int size, boolean isSmartDepth) {
+    @Override
+    public void tickEFP(final int tickerId,
+                        final int tickType,
+                        final double basisPoints,
+                        final String formattedBasisPoints,
+                        final double impliedFuture,
+                        final int holdDays,
+                        final String futureLastTradeDate,
+                        final double dividendImpact,
+                        final double dividendsToLastTradeDate) {
+        log.debug("dividendsToLastTradeDate: NOT IMPLEMENTED");
+    }
 
-        log.debug("updateMktDepthL2: tickerId = {}, position = {}, marketMaker = {}, operation = {}, side = {}, " +
-                  "price = {}, size = {}", tickerId, position, marketMaker, operation, side, price, size);
+    @Override
+    public void updateAccountValue(final String key,
+                                   final String value,
+                                   final String currency,
+                                   final String accountName) {
+        log.debug("updateAccountValue: NOT IMPLEMENTED");
+    }
 
-        handleUpdateMktDepth(tickerId, position, marketMaker, operation, side, price, size);
+    @Override
+    public void bondContractDetails(final int reqId, final ContractDetails contractDetails) {
+        log.debug("bondContractDetails: NOT IMPLEMENTED");
     }
 
     @Override
@@ -316,23 +353,10 @@ public class Wrapper implements EWrapper {
         log.debug("updateNewsBulletin: NOT IMPLEMENTED");
     }
 
-    @Override
-    public void managedAccounts(String accountsList) {
-        // Documentation said that connection fully established after `managedAccounts` and `nextValidId` called
-        connectionMonitor.confirmConnection();
-
-        log.debug("Managed accounts are: {}", accountsList);
-        this.managedAccounts = new HashSet<>(Splitter.on(",").splitToList(accountsList));
-    }
 
     @Override
     public void receiveFA(final int faDataType, final String xml) {
         log.debug("receiveFA: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void historicalData(int reqId, Bar bar) {
-        log.debug("historicalData: NOT IMPLEMENTED");
     }
 
     @Override
@@ -420,7 +444,7 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void positionEnd() {
-        log.debug("All positions have been received");
+        log.trace("All positions have been received");
         requests.onNext(RequestRepository.Type.EVENT_POSITION, null, IbPosition.COMPLETE, true);
     }
 
@@ -431,7 +455,7 @@ public class Wrapper implements EWrapper {
                                final String value,
                                final String currency) {
 
-        log.debug("accountSummary: reqId = {}, account = {}, {} = {} {}", reqId, account, tag, value, currency);
+        log.trace("accountSummary: reqId = {}, account = {}, {} = {} {}", reqId, account, tag, value, currency);
         cache.updateAccountSummary(reqId, account, tag, value, currency);
     }
 
@@ -480,7 +504,7 @@ public class Wrapper implements EWrapper {
             if (connectionStatus == ConnectionMonitor.Status.DISCONNECTING ||
                 connectionStatus == ConnectionMonitor.Status.DISCONNECTED) {
 
-                log.debug("Socket has been closed at shutdown");
+                log.trace("Socket has been closed at shutdown");
                 return;
             }
 
@@ -494,7 +518,7 @@ public class Wrapper implements EWrapper {
             if (Objects.equals(element.getClassName(), "com.ib.client.EClientSocket") &&
                 Objects.equals(element.getMethodName(), "readInt")) {
 
-                log.debug("Ignoring error of uninitialized stream");
+                log.trace("Ignoring error of uninitialized stream");
                 return;
             }
         }
@@ -595,17 +619,12 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
-    public void historicalDataEnd(int reqId, String startDateStr, String endDateStr) {
-        log.debug("historicalDataEnd: NOT IMPLEMENTED");
-    }
-
-    @Override
     public void mktDepthExchanges(DepthMktDataDescription[] depthMktDataDescriptions) {
         List<IbDepthMktDataDescription> result =
               Lists.newArrayList(depthMktDataDescriptions).stream()
                    .map(IbDepthMktDataDescription::new)
                    .collect(Collectors.toList());
-        log.debug("mktDepthExchanges: {}", result);
+        log.trace("mktDepthExchanges: {}", result);
 
         requests.onNextAndComplete(RequestRepository.Type.REQ_MARKET_DEPTH_EXCHANGES, null, result, true);
     }
@@ -661,11 +680,6 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
-    public void historicalDataUpdate(int reqId, Bar bar) {
-        log.debug("historicalDataUpdate: NOT IMPLEMENTED");
-    }
-
-    @Override
     public void rerouteMktDataReq(int reqId, int conId, String exchange) {
         log.debug("rerouteMktDataReq: NOT IMPLEMENTED");
     }
@@ -691,7 +705,7 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void pnlSingle(int reqId, int pos, double dailyPnL, double unrealizedPnL, double realizedPnL, double value) {
-        log.debug("pnlSingle: reqId={}, pos={}, dailyPnL={}, unrealizedPnL={}, realizedPnL={}, value={}",
+        log.trace("pnlSingle: reqId={}, pos={}, dailyPnL={}, unrealizedPnL={}, realizedPnL={}, value={}",
                   reqId, pos, dailyPnL, unrealizedPnL, realizedPnL, value);
 
         BigDecimal dailyPnLObj = doubleToBigDecimal("dailyPnL", dailyPnL);
@@ -759,7 +773,7 @@ public class Wrapper implements EWrapper {
      */
     private BigDecimal doubleToBigDecimal(String name, double value) {
         if (value == Double.MAX_VALUE) {
-            log.debug("Missing value for '{}'", name);
+            log.trace("Missing value for '{}'", name);
             return null;
         }
 

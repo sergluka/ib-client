@@ -33,6 +33,7 @@ import java.util.stream.Stream;
 public class IbClient implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(IbClient.class);
+    private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd HH:mm:ss");
 
     private final Subject<IbLogRecord> logSubject = PublishSubject.create();
     private final IdGenerator idGenerator;
@@ -182,7 +183,7 @@ public class IbClient implements AutoCloseable {
      * @param ledger If "All" - relay all cash balance tags in all currencies,
      *               or specific currency
      * @return Single with account summary
-     *
+     * <p>
      * // TODO
      */
     public Single<IbAccountSummary> reqAccountSummary(String group, String ledger) {
@@ -198,7 +199,7 @@ public class IbClient implements AutoCloseable {
      *               or specific currency
      * @param tags   Set of the desired tags:
      * @return Single with account summary
-     *
+     * <p>
      * // TODO Add examples
      */
     // TODO: Make one function with parameters builder to avoid magic strings
@@ -1055,6 +1056,160 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
+     * Request for historical bars (aka candles)
+     *
+     * @param contract     IB contract
+     * @param endDateTime  End date and time
+     * @param duration     The amount of time to go back from the request's given end date and time.
+     * @param durationUnit <strong>duration</strong> unit
+     * @param size         Valid Bar Sizes
+     * @param type         The type of data to retrieve
+     * @param tradingHours Whether ({@link TradingHours#Within}) or not ({@link TradingHours#Outside}) to retrieve
+     *                     data generated only within Regular Trading Hours
+     * @return Observable with the bars. Completes as soon all data per period will be received.
+     *
+     * <pre>{@code
+     * Example:
+     *    given:
+     *    def endDateTime = LocalDateTime.of(2019, 04, 16, 12, 0, 0);
+     *
+     *    when:
+     *    def observer = client.reqHistoricalData(createContractFB(), endDateTime,
+     *                                            120, IbClient.DurationUnit.Second, _1_min,
+     *                                            IbClient.Type.TRADES,
+     *                                            IbClient.TradingHours.Within).test()
+     *    then:
+     *    observer.awaitDone(10, TimeUnit.SECONDS)
+     *    observer.assertNoErrors()
+     *    observer.assertComplete()
+     *    observer.valueCount() == 2
+     *    observer.assertValueAt 0, { IbBar bar ->
+     *        assert bar.time == LocalDateTime.of(2019, 4, 15, 22, 58, 0)
+     *        assert bar.open == 179.59
+     *        assert bar.high == 179.6
+     *        assert bar.low == 179.54
+     *        assert bar.close == 179.57
+     *        assert bar.volume == 604
+     *        assert bar.count == 417
+     *        assert bar.wap == 179.566
+     *        true
+     *    } as Predicate
+     *    observer.assertValueAt 1, { IbBar bar ->
+     *        assert bar.time == LocalDateTime.of(2019, 4, 15, 22, 59, 0)
+     *        assert bar.open == 179.58
+     *        assert bar.high == 179.77
+     *        assert bar.low == 179.56
+     *        assert bar.close == 179.66
+     *        assert bar.volume == 1046
+     *        assert bar.count == 720
+     *        assert bar.wap == 179.685
+     *        true
+     *    } as Predicate
+     * }
+     * }</pre>
+     *
+     * @see <a href="https://interactivebrokers.github.io/tws-api/historical_bars.html">
+     * TWS API: Historical Bar Data</a>
+     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a5eac5b7908b62c224985cf8577a8350c">
+     * TWS API: reqHistoricalData</a>
+     * @see #subscribeOnHistoricalData
+     */
+    public Observable<IbBar> reqHistoricalData(@NotNull Contract contract, LocalDateTime endDateTime,
+                                               int duration, DurationUnit durationUnit,
+                                               BarSize size,
+                                               Type type, TradingHours tradingHours) {
+
+        log.debug("Requesting bars: contract={}, endDateTime={}, duration={} {}, size={}, type={}, hours={}",
+                  contract.description(), endDateTime, duration, durationUnit, size, type, tradingHours);
+
+        return requests.<IbBar>builder()
+                .type(RequestRepository.Type.REQ_HISTORICAL_DATA)
+                .register(id -> {
+                    socket.reqHistoricalData(id, contract,
+                                             endDateTime != null ? endDateTime.format(dateTimeFormatter) : null,
+                                             String.format("%d %s", duration, durationUnit.toString()),
+                                             size.toString(), type.toString(),
+                                             tradingHours == TradingHours.Within ? 1 : 0, 1, false,
+                                             null);
+                })
+                .subscribe();
+    }
+
+    /**
+     * Request for historical bars (aka candles) and subscription for actual unfinished candle
+     *
+     * @param contract     IB contract
+     * @param duration     The amount of time to go back from the request's given end date and time.
+     * @param durationUnit <strong>duration</strong>
+     * @param size         Valid Bar Sizes. Must be above or equal 5 seconds.
+     * @param type         The type of data to retrieve
+     * @param tradingHours Whether ({@link IbClient.TradingHours#Within}) or not ({@link IbClient.TradingHours#Outside})
+     *                     to retrieve
+     *                     data generated only within Regular Trading Hours
+     * @return Observable with the bars. Never completes. Flow is: 1st historical bars are goes, then one
+     * {@link com.finplant.ib.types.IbBar#COMPLETE}, and then constant updates of actual candle
+     *
+     * <pre>{@code
+     * Example:
+     *    when:
+     *    def observer = client.subscribeOnHistoricalData(createContractEUR(),
+     *                                                    30, IbClient.DurationUnit.Second,
+     *                                                    period,
+     *                                                    IbClient.Type.BID,
+     *                                                    IbClient.TradingHours.Within)
+     *            .skipWhile { it == IbBar.COMPLETE }
+     *            .filter { it != IbBar.COMPLETE }
+     *            .take(1).test()
+     *
+     *    then:
+     *    observer.awaitCount(1)
+     *    observer.assertNoErrors()
+     *    observer.assertComplete()
+     *    observer.valueCount() == 1
+     *    observer.assertValueAt 0, { IbBar bar ->
+     *        assert bar.open > 0.0
+     *        assert bar.high > 0.0
+     *        assert bar.low > 0.0
+     *        assert bar.close > 0.0
+     *        true
+     *    } as Predicate
+     * }</pre>
+     *
+     * @implNote Function is similar to {@link #reqHistoricalData}, it got all historical data as
+     * {@link #reqHistoricalData} do, but then emits {@link com.finplant.ib.types.IbBar#COMPLETE} as a separator,
+     * and then continue emit actual candle updates
+     * @see <a href="https://interactivebrokers.github.io/tws-api/historical_bars.html">
+     * TWS API: Historical Bar Data</a>
+     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a5eac5b7908b62c224985cf8577a8350c">
+     * TWS API: reqHistoricalData</a>
+     * @see #reqHistoricalData
+     */
+    public Observable<IbBar> subscribeOnHistoricalData(@NotNull Contract contract,
+                                                       int duration, DurationUnit durationUnit,
+                                                       BarSize size,
+                                                       Type type, TradingHours tradingHours) {
+
+        if (size == BarSize._1_sec) {
+            return Observable.error(new Exception("Too small bar size. Can be >= 5 sec"));
+        }
+
+        log.debug("Subscribing to bars: contract={}, size={}, type={}, hours={}",
+                  contract.description(), size, type, tradingHours);
+
+        return requests.<IbBar>builder()
+                .type(RequestRepository.Type.EVENT_HISTORICAL_DATA)
+                .register(id -> {
+                    socket.reqHistoricalData(id, contract, null,
+                                             String.format("%d %s", duration, durationUnit.toString()),
+                                             size.toString(), type.toString(),
+                                             tradingHours == TradingHours.Within ? 1 : 0, 1, true,
+                                             null);
+                })
+                .unregister(id -> socket.cancelHistoricalData(id))
+                .subscribe();
+    }
+
+    /**
      * Generates new incremental order ID, if developer need to define it explicitly.
      *
      * @return incremental ID
@@ -1075,7 +1230,6 @@ public class IbClient implements AutoCloseable {
         Validators.shouldNotBeNull(contract, "Contract should be defined");
 
         final int MAX_ALLOWED_TICKS_COUNT = 1000;
-        final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd HH:mm:ss");
 
         if (limit != null) {
             Validators.intShouldBeInRange(limit, 1, MAX_ALLOWED_TICKS_COUNT);
@@ -1151,5 +1305,130 @@ public class IbClient implements AutoCloseable {
         HighestSeverity, // A measure of how close the account is to liquidation
         DayTradesRemaining, // The Number of Open/Close trades a user could put on before Pattern Day Trading is detected. A value of "-1" means that the user can put on unlimited day trades.
         Leverage, // GrossPositionValue / NetLiquidation
+    }
+
+    enum BarSize {
+        _1_sec("1 secs"),
+        _5_sec("5 secs"),
+        _10_sec("10 secs"),
+        _15_sec("15 secs"),
+        _30_sec("30 secs"),
+        _1_min("1 min"),
+        _2_min("2 mins"),
+        _3_min("3 mins"),
+        _5_min("5 mins"),
+        _10_min("10 mins"),
+        _15_min("15 mins"),
+        _20_min("20 mins"),
+        _30_min("30 mins"),
+        _1_hour("1 hour"),
+        _2_hour("2 hours"),
+        _3_hour("3 hours"),
+        _4_hour("4 hours"),
+        _8_hour("8 hours"),
+        _1_day("1 day"),
+        _1_week("1 week"),
+        _1_month("1 month");
+
+        private final String text;
+
+        BarSize(final String text) {
+            this.text = text;
+        }
+
+        @Override
+        public String toString() {
+            return text;
+        }
+
+        String toDummyDuration() {
+            switch (this) {
+                case _1_sec:
+                    return "1 S";
+                case _5_sec:
+                    return "5 S";
+                case _10_sec:
+                    return "10 S";
+                case _15_sec:
+                    return "15 S";
+                case _30_sec:
+                    return "30 S";
+                case _1_min:
+                    return "60 S";
+                case _2_min:
+                    return "120 S";
+                case _3_min:
+                    return "180 S";
+                case _5_min:
+                    return "300 S";
+                case _10_min:
+                    return "600 S";
+                case _15_min:
+                    return "900 S";
+                case _20_min:
+                    return "1200 S";
+                case _30_min:
+                    return "1800 S";
+                case _1_hour:
+                    return "1 H";
+                case _2_hour:
+                    return "2 H";
+                case _3_hour:
+                    return "3 H";
+                case _4_hour:
+                    return "4 H";
+                case _8_hour:
+                    return "8 H";
+                case _1_day:
+                    return "1 D";
+                case _1_week:
+                    return "1 W";
+                case _1_month:
+                    return "1 M";
+                default:
+                    throw new IllegalStateException("Unexpected value: " + this);
+            }
+        }
+    }
+
+    enum Type {
+        TRADES, //	First traded price
+        MIDPOINT, //	Starting midpoint price
+        BID, //	Starting bid price
+        ASK, //	Starting ask price
+        BID_ASK, //	Time average bid
+        ADJUSTED_LAST, //	Dividend-adjusted first traded price
+        HISTORICAL_VOLATILITY, //	Starting volatility	Highest volatility
+        OPTION_IMPLIED_VOLATILITY, //	Starting implied volatility
+        REBATE_RATE, //	Starting rebate rate
+        FEE_RATE, //	Starting fee rate
+        YIELD_BID, //	Starting bid yield
+        YIELD_ASK, //	Starting ask yield
+        YIELD_BID_ASK, //	Time average bid yield
+        YIELD_LAST, //	Starting last yield	Highest
+    }
+
+    enum DurationUnit {
+        Second("S"),
+        Day("D"),
+        Week("W"),
+        Month("M"),
+        Year("Y");
+
+        private final String text;
+
+        DurationUnit(final String text) {
+            this.text = text;
+        }
+
+        @Override
+        public String toString() {
+            return text;
+        }
+    }
+
+    enum TradingHours {
+        Within,
+        Outside
     }
 }
