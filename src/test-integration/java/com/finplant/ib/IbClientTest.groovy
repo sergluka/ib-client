@@ -588,6 +588,92 @@ class IbClientTest extends Specification {
         } as Predicate
     }
 
+    def "Get all accounts summary"() {
+        when:
+        def observer = client.reqAccountSummary("All", "All").test()
+
+        then:
+        observer.awaitTerminalEvent()
+        observer.assertNoErrors()
+        observer.assertValueCount(1)
+
+        def value = observer.values()[0]
+        value.accountType == "INDIVIDUAL"
+        value.netLiquidation > 0.0g
+        value.cushion > 0.0g
+        value.dayTradesRemaining == -1
+        value.lookAheadNextChange > new Date()
+        value.accruedCash > 0.0g
+        value.availableFunds > 0.0g
+        value.buyingPower > 0.0g
+        value.equityWithLoanValue > 0.0g
+        value.excessLiquidity > 0.0g
+        value.fullAvailableFunds > 0.0g
+        value.fullExcessLiquidity > 0.0g
+        value.fullInitMarginReq > 0.0g
+        value.fullMaintMarginReq > 0.0g
+        value.grossPositionValue > 0.0g
+        value.initMarginReq > 0.0g
+        value.lookAheadAvailableFunds > 0.0g
+        value.lookAheadExcessLiquidity > 0.0g
+        value.lookAheadInitMarginReq > 0.0g
+        value.lookAheadMaintMarginReq > 0.0g
+        value.maintMarginReq > 0.0g
+        value.netLiquidation > 0.0g
+        value.regTEquity > 0.0g
+        value.regTMargin > 0.0g
+        value.SMA > 0.0g
+        value.totalCashValue > 0.0g
+
+        def summaryAUD = value.details["AUD"]
+        summaryAUD.cashBalance > 0.0
+        summaryAUD.totalCashBalance >= 0.0
+        summaryAUD.accruedCash >= 0.0
+        summaryAUD.stockMarketValue >= 0.0
+        summaryAUD.optionMarketValue >= 0.0
+        summaryAUD.futureOptionValue >= 0.0
+        summaryAUD.futuresPNL >= 0.0
+        summaryAUD.netLiquidationByCurrency > 0.0
+        summaryAUD.unrealizedPnL >= 0.0
+        summaryAUD.realizedPnL >= 0.0
+        summaryAUD.exchangeRate >= 0.0
+        summaryAUD.fundValue >= 0.0
+        summaryAUD.netDividend >= 0.0
+        summaryAUD.mutualFundValue >= 0.0
+        summaryAUD.moneyMarketFundValue >= 0.0
+        summaryAUD.corporateBondValue >= 0.0
+        summaryAUD.tBondValue >= 0.0
+        summaryAUD.tBillValue >= 0.0
+        summaryAUD.warrantValue >= 0.0
+        summaryAUD.fxCashBalance >= 0.0
+        summaryAUD.accountOrGroup == "All"
+        summaryAUD.issuerOptionValue >= 0.0
+
+        def summaryEUR = value.details["EUR"]
+        summaryEUR.cashBalance > 0.0
+        summaryEUR.totalCashBalance >= 0.0
+        summaryEUR.accruedCash >= 0.0
+        summaryEUR.stockMarketValue >= 0.0
+        summaryEUR.optionMarketValue >= 0.0
+        summaryEUR.futureOptionValue >= 0.0
+        summaryEUR.futuresPNL >= 0.0
+        summaryEUR.netLiquidationByCurrency > 0.0
+        summaryEUR.unrealizedPnL >= 0.0
+        summaryEUR.realizedPnL >= 0.0
+        summaryEUR.exchangeRate >= 0.0
+        summaryEUR.fundValue >= 0.0
+        summaryEUR.netDividend >= 0.0
+        summaryEUR.mutualFundValue >= 0.0
+        summaryEUR.moneyMarketFundValue >= 0.0
+        summaryEUR.corporateBondValue >= 0.0
+        summaryEUR.tBondValue >= 0.0
+        summaryEUR.tBillValue >= 0.0
+        summaryEUR.warrantValue >= 0.0
+        summaryEUR.fxCashBalance >= 0.0
+        summaryEUR.accountOrGroup == "All"
+        summaryEUR.issuerOptionValue >= 0.0
+    }
+
     private static def createContractEUR() {
         def contract = new Contract()
         contract.conid(12087792)

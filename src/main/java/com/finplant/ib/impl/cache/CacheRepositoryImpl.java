@@ -22,6 +22,7 @@ public class CacheRepositoryImpl implements CacheRepository {
     private final ConcurrentHashMap<PositionKey, IbPosition> positions = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, IbTickImpl> ticks = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, IbPortfolio> portfolioContracts = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, IbAccountSummary> accountSummaries = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<Integer, Map<IbMarketDepth.Key, IbMarketDepth>> orderBooks =
           new ConcurrentHashMap<>();
@@ -84,6 +85,15 @@ public class CacheRepositoryImpl implements CacheRepository {
         tick.refreshUpdateTime();
         consumer.accept(tick);
         return tick;
+    }
+
+    public void updateAccountSummary(int id, String account, String tag, String value, String currency) {
+        IbAccountSummary accountSummary = accountSummaries.computeIfAbsent(id, (key) -> new IbAccountSummary()) ;
+        accountSummary.update(account, tag, value, currency);
+    }
+
+    public IbAccountSummary popAccountSummary(int id) {
+        return accountSummaries.remove(id);
     }
 
     @Override

@@ -105,6 +105,7 @@ public class RequestRepository implements AutoCloseable {
         REQ_HISTORICAL_MIDPOINT_TICK,
         REQ_HISTORICAL_BID_ASK_TICK,
         REQ_HISTORICAL_TRADE,
+        REQ_ACCOUNT_SUMMARY,
     }
 
     public class RequestBuilder<T> {

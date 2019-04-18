@@ -2,6 +2,8 @@ package com.finplant.ib.impl;
 
 import com.ib.client.Contract;
 
+import java.util.Collection;
+
 public class Validators {
 
     public static void shouldNotBeNull(Object obj, String message) {
@@ -38,6 +40,12 @@ public class Validators {
         shouldNotBeNull(contract, "Contract should be defined");
         if (contract.conid() <= 0) {
             throw new IllegalArgumentException("Contract ID should be positive");
+        }
+    }
+
+    public static void collectionShouldNotBeEmpty(Collection<?> collection, String message) {
+        if (collection.isEmpty()) {
+            throw new IllegalArgumentException(message);
         }
     }
 }

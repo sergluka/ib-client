@@ -430,12 +430,15 @@ public class Wrapper implements EWrapper {
                                final String tag,
                                final String value,
                                final String currency) {
-        log.debug("accountSummary: NOT IMPLEMENTED");
+
+        log.debug("accountSummary: reqId = {}, account = {}, {} = {} {}", reqId, account, tag, value, currency);
+        cache.updateAccountSummary(reqId, account, tag, value, currency);
     }
 
     @Override
     public void accountSummaryEnd(final int reqId) {
-        log.debug("accountSummaryEnd: NOT IMPLEMENTED");
+        requests.onNextAndComplete(RequestRepository.Type.REQ_ACCOUNT_SUMMARY, reqId,
+                                   cache.popAccountSummary(reqId), true);
     }
 
     @Override

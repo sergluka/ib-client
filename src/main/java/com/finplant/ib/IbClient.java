@@ -23,8 +23,11 @@ import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @SuppressWarnings({"WeakerAccess", "unused"})
 public class IbClient implements AutoCloseable {
@@ -172,6 +175,58 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
+     * Request for account information for all possible tags
+     *
+     * @param group  If "All" - get account summary data for all accounts,
+     *               or specific Advisor Account Group name that has already been created in TWS Global Configuration.
+     * @param ledger If "All" - relay all cash balance tags in all currencies,
+     *               or specific currency
+     * @return Single with account summary
+     *
+     * // TODO
+     */
+    public Single<IbAccountSummary> reqAccountSummary(String group, String ledger) {
+        return reqAccountSummary(group, ledger, EnumSet.allOf(AccountSummaryTags.class));
+    }
+
+    /**
+     * Request for account information data
+     *
+     * @param group  If "All" - get account summary data for all accounts,
+     *               or specific Advisor Account Group name that has already been created in TWS Global Configuration.
+     * @param ledger If "All" - relay all cash balance tags in all currencies,
+     *               or specific currency
+     * @param tags   Set of the desired tags:
+     * @return Single with account summary
+     *
+     * // TODO Add examples
+     */
+    // TODO: Make one function with parameters builder to avoid magic strings
+    public Single<IbAccountSummary> reqAccountSummary(String group, String ledger, EnumSet<AccountSummaryTags> tags) {
+
+        Validators.stringShouldNotBeEmpty(group, "Group should be defined");
+        Validators.stringShouldNotBeEmpty(ledger, "Ledger should be defined");
+        Validators.collectionShouldNotBeEmpty(tags, "Should be defined at least one tag");
+
+        String ledgerTag;
+        if (ledger.equals("All")) {
+            ledgerTag = "$LEDGER:ALL";
+        } else {
+            ledgerTag = "$LEDGER:" + ledger;
+        }
+
+        String tagsString = Stream.concat(tags.stream().map(Enum::name), Stream.of(ledgerTag))
+                                  .collect(Collectors.joining(","));
+
+
+        return requests.<IbAccountSummary>builder()
+                .type(RequestRepository.Type.REQ_ACCOUNT_SUMMARY)
+                .register(id -> socket.reqAccountSummary(id, group, tagsString))
+                .subscribe()
+                .singleOrError();
+    }
+
+    /**
      * Subscription to order statuses
      *
      * <pre>{@code
@@ -223,13 +278,14 @@ public class IbClient implements AutoCloseable {
      * }</pre>
      *
      * @return Observable that emits stream of {@link com.finplant.ib.types.IbPosition}
+     *
      * @implNote After subscription, client sends snapshot with already existing positions. Then
      * only updates will be send. To separate these two cases, special entry will be sent
      * between them - {@link com.finplant.ib.types.IbPosition#COMPLETE}
      * @see <a href="https://interactivebrokers.github.io/tws-api/positions.html#position_request">
-     *     TWS API: reqPositions</a>
+     * TWS API: reqPositions</a>
      * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#ab2159a39733d8967928317524875aa62">
-     *     TWS API: cancelPositions</a>
+     * TWS API: cancelPositions</a>
      */
     public Observable<IbPosition> subscribeOnPositionChange() {
         return requests.<IbPosition>builder()
@@ -656,8 +712,8 @@ public class IbClient implements AutoCloseable {
     /**
      * Places an order with custom schedule for `.subscribeOn`
      *
-     * @param contract IB contract
-     * @param order    IB order
+     * @param contract           IB contract
+     * @param order              IB order
      * @param subscribeScheduler RxJava2 scheduler used to replace default scheduler {@code .subscribeOn(Schedulers.io())}
      * @return Single with a IB result
      *
@@ -939,17 +995,6 @@ public class IbClient implements AutoCloseable {
     /**
      * Returns historical trades for specific time period
      *
-     * @apiNote Note that IB doesn't return trades for Forex contracts, i.e. for contracts with
-     * {@link Contract#secType()} is {@link  Types.SecType#CASH}. Calling respective IB API method
-     * {@link EClient#reqHistoricalTicks} with parameter {@code whatToShow=TRADES} and Forex contract,
-     * it was expected that {@link EWrapper#historicalTicksLast} callback will be called,
-     * as it described in documentation. Instead {@link EWrapper#historicalTicks}callback is called,
-     * the same way as if you call {@link #reqHistoricalMidpoints} with {@code whatToShow=MIDPOINT}.
-     * For stocks this request behaves as expected. IB support told "it's a special case for Forex"
-     * <p>
-     * So to make library API consistent, all Forex contracts for this method are forbidden. You still able
-     * to call {@link #reqHistoricalMidpoints} for them.
-     *
      * @param contract IB contract
      * @param from     Period start. Uses TWS timezone specified at login. Cannot be used with "<strong>to</strong>"
      * @param to       Period end. Uses TWS timezone specified at login. Cannot be used with "<strong>from</strong>"
@@ -979,6 +1024,16 @@ public class IbClient implements AutoCloseable {
      *    } as Predicate
      * }</pre>
      *
+     * @apiNote Note that IB doesn't return trades for Forex contracts, i.e. for contracts with
+     * {@link Contract#secType()} is {@link  Types.SecType#CASH}. Calling respective IB API method
+     * {@link EClient#reqHistoricalTicks} with parameter {@code whatToShow=TRADES} and Forex contract,
+     * it was expected that {@link EWrapper#historicalTicksLast} callback will be called,
+     * as it described in documentation. Instead {@link EWrapper#historicalTicks}callback is called,
+     * the same way as if you call {@link #reqHistoricalMidpoints} with {@code whatToShow=MIDPOINT}.
+     * For stocks this request behaves as expected. IB support told "it's a special case for Forex"
+     * <p>
+     * So to make library API consistent, all Forex contracts for this method are forbidden. You still able
+     * to call {@link #reqHistoricalMidpoints} for them.
      * @see <a href="https://interactivebrokers.github.io/tws-api/historical_time_and_sales.html">
      * TWS API: Historical Time and Sales Data</a>
      * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a99dbcf80c99b8f262a524de64b2f9c1e">
@@ -1002,10 +1057,9 @@ public class IbClient implements AutoCloseable {
     /**
      * Generates new incremental order ID, if developer need to define it explicitly.
      *
-     * @apiNote Thread safe.
-     *
      * @return incremental ID
      *
+     * @apiNote Thread safe.
      * @see #placeOrder(Contract, Order)
      */
     public int nextOrderId() {
@@ -1065,5 +1119,37 @@ public class IbClient implements AutoCloseable {
         int getValue() {
             return value;
         }
+    }
+
+    public enum AccountSummaryTags {
+        AccountType, // Identifies the IB account structure
+        NetLiquidation, // The basis for determining the price of the assets in your account. Total cash value + stock value + options value + bond value
+        TotalCashValue, // Total cash balance recognized at the time of trade + futures PNL
+        SettledCash, // Cash recognized at the time of settlement - purchases at the time of trade - commissions - taxes - fees
+        AccruedCash, // Total accrued cash value of stock, commodities and securities
+        BuyingPower, // Buying power serves as a measurement of the dollar value of securities that one may purchase in a securities account without depositing additional funds
+        EquityWithLoanValue, // Forms the basis for determining whether a client has the necessary assets to either initiate or maintain security positions. Cash + stocks + bonds + mutual funds
+        PreviousEquityWithLoanValue, // Marginable Equity with Loan value as of 16:00 ET the previous day
+        GrossPositionValue, // The sum of the absolute value of all stock and equity option positions
+        RegTEquity, // Regulation T equity for universal account
+        RegTMargin, // Regulation T margin for universal account
+        SMA, // Special Memorandum Account: Line of credit created when the market value of securities in a Regulation T account increase in value
+        InitMarginReq, // Initial Margin requirement of whole portfolio
+        MaintMarginReq, // Maintenance Margin requirement of whole portfolio
+        AvailableFunds, // This value tells what you have available for trading
+        ExcessLiquidity, // This value shows your margin cushion, before liquidation
+        Cushion, // Excess liquidity as a percentage of net liquidation value
+        FullInitMarginReq, // Initial Margin of whole portfolio with no discounts or intraday credits
+        FullMaintMarginReq, // Maintenance Margin of whole portfolio with no discounts or intraday credits
+        FullAvailableFunds, // Available funds of whole portfolio with no discounts or intraday credits
+        FullExcessLiquidity, // Excess liquidity of whole portfolio with no discounts or intraday credits
+        LookAheadNextChange, // Time when look-ahead values take effect
+        LookAheadInitMarginReq, // Initial Margin requirement of whole portfolio as of next period's margin change
+        LookAheadMaintMarginReq, // Maintenance Margin requirement of whole portfolio as of next period's margin change
+        LookAheadAvailableFunds, // This value reflects your available funds at the next margin change
+        LookAheadExcessLiquidity, // This value reflects your excess liquidity at the next margin change
+        HighestSeverity, // A measure of how close the account is to liquidation
+        DayTradesRemaining, // The Number of Open/Close trades a user could put on before Pattern Day Trading is detected. A value of "-1" means that the user can put on unlimited day trades.
+        Leverage, // GrossPositionValue / NetLiquidation
     }
 }
