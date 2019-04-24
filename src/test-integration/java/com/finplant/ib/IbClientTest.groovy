@@ -24,6 +24,7 @@ class IbClientTest extends Specification {
 
     void setup() {
         client = new IbClient()
+        def observer = client.connectionStatus().test()
         assert client.connect("127.0.0.1", 7497, 2).blockingAwait(30, TimeUnit.SECONDS)
         client.cancelAll().timeout(10, TimeUnit.SECONDS).blockingGet()
         closeAllPositions()
@@ -71,6 +72,23 @@ class IbClientTest extends Specification {
     def "smoke"() {
         expect:
         client.isConnected()
+    }
+
+    def "Connection status should changes according connect commands"() {
+        given:
+        def observer = client.connectionStatus().test()
+
+        when:
+        client.disconnect()
+        client.connect("127.0.0.1", 7497, 2).blockingAwait(30, TimeUnit.SECONDS)
+
+        then:
+        observer.awaitCount(2)
+        observer.assertNoErrors()
+        observer.assertNotTerminated()
+        observer.assertValueCount(2)
+        observer.assertValueAt(0, false)
+        observer.assertValueAt(0, true)
     }
 
     def "Call reqCurrentTime is OK"() {

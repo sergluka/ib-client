@@ -36,6 +36,8 @@ public class IbClient implements AutoCloseable {
     private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd HH:mm:ss");
 
     private final Subject<IbLogRecord> logSubject = PublishSubject.create();
+    private final PublishSubject<Boolean> connectionStatusSubject = PublishSubject.create();
+
     private final IdGenerator idGenerator;
     private final RequestRepository requests;
 
@@ -128,7 +130,7 @@ public class IbClient implements AutoCloseable {
 
                 @Override
                 protected void onConnectStatusChange(Boolean status) {
-                    requests.onNext(RequestRepository.Type.EVENT_CONNECTION_STATUS, null, status, false);
+                    connectionStatusSubject.onNext(status);
                 }
             };
 
@@ -612,10 +614,7 @@ public class IbClient implements AutoCloseable {
      * @return Observable with booleans
      */
     public Observable<Boolean> connectionStatus() {
-        return requests.<Boolean>builder()
-                .type(RequestRepository.Type.EVENT_CONNECTION_STATUS)
-                .register(() -> {}) // statuses are received without registration
-                .subscribe();
+        return connectionStatusSubject;
     }
 
     /**
