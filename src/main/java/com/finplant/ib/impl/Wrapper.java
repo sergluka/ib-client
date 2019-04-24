@@ -297,12 +297,12 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void execDetails(final int reqId, final Contract contract, final Execution execution) {
-        log.debug("execDetails: NOT IMPLEMENTED");
+        log.trace("execDetails: NOT IMPLEMENTED");
     }
 
     @Override
     public void execDetailsEnd(final int reqId) {
-        log.debug("execDetailsEnd: NOT IMPLEMENTED");
+        log.trace("execDetailsEnd: NOT IMPLEMENTED");
     }
 
     @Override
@@ -316,7 +316,7 @@ public class Wrapper implements EWrapper {
                                       final double vega,
                                       final double theta,
                                       final double undPrice) {
-        log.debug("tickOptionComputation: NOT IMPLEMENTED");
+        log.trace("tickOptionComputation: NOT IMPLEMENTED");
     }
 
     @Override
@@ -329,7 +329,7 @@ public class Wrapper implements EWrapper {
                         final String futureLastTradeDate,
                         final double dividendImpact,
                         final double dividendsToLastTradeDate) {
-        log.debug("dividendsToLastTradeDate: NOT IMPLEMENTED");
+        log.trace("dividendsToLastTradeDate: NOT IMPLEMENTED");
     }
 
     @Override
@@ -337,12 +337,12 @@ public class Wrapper implements EWrapper {
                                    final String value,
                                    final String currency,
                                    final String accountName) {
-        log.debug("updateAccountValue: NOT IMPLEMENTED");
+        log.trace("updateAccountValue: NOT IMPLEMENTED");
     }
 
     @Override
     public void bondContractDetails(final int reqId, final ContractDetails contractDetails) {
-        log.debug("bondContractDetails: NOT IMPLEMENTED");
+        log.trace("bondContractDetails: NOT IMPLEMENTED");
     }
 
     @Override
@@ -350,18 +350,18 @@ public class Wrapper implements EWrapper {
                                    final int msgType,
                                    final String message,
                                    final String origExchange) {
-        log.debug("updateNewsBulletin: NOT IMPLEMENTED");
+        log.trace("updateNewsBulletin: NOT IMPLEMENTED");
     }
 
 
     @Override
     public void receiveFA(final int faDataType, final String xml) {
-        log.debug("receiveFA: NOT IMPLEMENTED");
+        log.trace("receiveFA: NOT IMPLEMENTED");
     }
 
     @Override
     public void scannerParameters(final String xml) {
-        log.debug("scannerParameters: NOT IMPLEMENTED");
+        log.trace("scannerParameters: NOT IMPLEMENTED");
     }
 
     @Override
@@ -373,12 +373,12 @@ public class Wrapper implements EWrapper {
                             final String projection,
                             final String legsStr) {
 
-        log.debug("scannerData: NOT IMPLEMENTED");
+        log.trace("scannerData: NOT IMPLEMENTED");
     }
 
     @Override
     public void scannerDataEnd(final int reqId) {
-        log.debug("scannerDataEnd: NOT IMPLEMENTED");
+        log.trace("scannerDataEnd: NOT IMPLEMENTED");
     }
 
     @Override
@@ -391,7 +391,7 @@ public class Wrapper implements EWrapper {
                             final long volume,
                             final double wap,
                             final int count) {
-        log.debug("realtimeBar: NOT IMPLEMENTED");
+        log.trace("realtimeBar: NOT IMPLEMENTED");
     }
 
     @Override
@@ -401,12 +401,12 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void fundamentalData(final int reqId, final String data) {
-        log.debug("fundamentalData: NOT IMPLEMENTED");
+        log.trace("fundamentalData: NOT IMPLEMENTED");
     }
 
     @Override
     public void deltaNeutralValidation(final int reqId, final DeltaNeutralContract underComp) {
-        log.debug("deltaNeutralValidation: NOT IMPLEMENTED");
+        log.trace("deltaNeutralValidation: NOT IMPLEMENTED");
     }
 
     @Override
@@ -425,12 +425,12 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void marketDataType(final int reqId, final int marketDataType) {
-        log.debug("marketDataType: NOT IMPLEMENTED");
+        log.trace("marketDataType: NOT IMPLEMENTED");
     }
 
     @Override
     public void commissionReport(final CommissionReport commissionReport) {
-        log.debug("commissionReport: NOT IMPLEMENTED");
+        log.trace("commissionReport: NOT IMPLEMENTED");
     }
 
     @Override
@@ -467,32 +467,32 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void verifyMessageAPI(final String apiData) {
-        log.debug("verifyMessageAPI: NOT IMPLEMENTED");
+        log.trace("verifyMessageAPI: NOT IMPLEMENTED");
     }
 
     @Override
     public void verifyCompleted(final boolean isSuccessful, final String errorText) {
-        log.debug("verifyCompleted: NOT IMPLEMENTED");
+        log.trace("verifyCompleted: NOT IMPLEMENTED");
     }
 
     @Override
     public void verifyAndAuthMessageAPI(final String apiData, final String xyzChallange) {
-        log.debug("verifyAndAuthMessageAPI: NOT IMPLEMENTED");
+        log.trace("verifyAndAuthMessageAPI: NOT IMPLEMENTED");
     }
 
     @Override
     public void verifyAndAuthCompleted(final boolean isSuccessful, final String errorText) {
-        log.debug("verifyAndAuthCompleted: NOT IMPLEMENTED");
+        log.trace("verifyAndAuthCompleted: NOT IMPLEMENTED");
     }
 
     @Override
     public void displayGroupList(final int reqId, final String groups) {
-        log.debug("displayGroupList: NOT IMPLEMENTED");
+        log.trace("displayGroupList: NOT IMPLEMENTED");
     }
 
     @Override
     public void displayGroupUpdated(final int reqId, final String contractInfo) {
-        log.debug("displayGroupUpdated: NOT IMPLEMENTED");
+        log.trace("displayGroupUpdated: NOT IMPLEMENTED");
     }
 
     @Override
@@ -577,14 +577,14 @@ public class Wrapper implements EWrapper {
                                    final String value,
                                    final String currency) {
 
-        log.debug("accountUpdateMulti (NOT IMPLEMENTED): " +
+        log.trace("accountUpdateMulti (NOT IMPLEMENTED): " +
                   "reqId={}, account={}, modelCode={}, key={}, value={}, currency={}",
                   reqId, account, modelCode, key, value, currency);
     }
 
     @Override
     public void accountUpdateMultiEnd(final int reqId) {
-        log.debug("accountUpdateMultiEnd: NOT IMPLEMENTED");
+        log.trace("accountUpdateMultiEnd: NOT IMPLEMENTED");
     }
 
     @Override
@@ -595,27 +595,27 @@ public class Wrapper implements EWrapper {
                                                     final String multiplier,
                                                     final Set<String> expirations,
                                                     final Set<Double> strikes) {
-        log.debug("securityDefinitionOptionalParameter: NOT IMPLEMENTED");
+        log.trace("securityDefinitionOptionalParameter: NOT IMPLEMENTED");
     }
 
     @Override
     public void securityDefinitionOptionalParameterEnd(final int reqId) {
-        log.debug("securityDefinitionOptionalParameterEnd: NOT IMPLEMENTED");
+        log.trace("securityDefinitionOptionalParameterEnd: NOT IMPLEMENTED");
     }
 
     @Override
     public void softDollarTiers(final int reqId, final SoftDollarTier[] tiers) {
-        log.debug("softDollarTiers: NOT IMPLEMENTED");
+        log.trace("softDollarTiers: NOT IMPLEMENTED");
     }
 
     @Override
     public void familyCodes(FamilyCode[] familyCodes) {
-        log.debug("familyCodes: NOT IMPLEMENTED");
+        log.trace("familyCodes: NOT IMPLEMENTED");
     }
 
     @Override
     public void symbolSamples(int reqId, ContractDescription[] contractDescriptions) {
-        log.debug("symbolSamples: NOT IMPLEMENTED");
+        log.trace("symbolSamples: NOT IMPLEMENTED");
     }
 
     @Override
@@ -636,62 +636,62 @@ public class Wrapper implements EWrapper {
                          String articleId,
                          String headline,
                          String extraData) {
-        log.debug("tickNews: NOT IMPLEMENTED");
+        log.trace("tickNews: NOT IMPLEMENTED");
     }
 
     @Override
     public void smartComponents(int reqId, Map<Integer, Map.Entry<String, Character>> theMap) {
-        log.debug("smartComponents: NOT IMPLEMENTED");
+        log.trace("smartComponents: NOT IMPLEMENTED");
     }
 
     @Override
     public void tickReqParams(int tickerId, double minTick, String bboExchange, int snapshotPermissions) {
-        log.debug("tickReqParams: NOT IMPLEMENTED");
+        log.trace("tickReqParams: NOT IMPLEMENTED");
     }
 
     @Override
     public void newsProviders(NewsProvider[] newsProviders) {
-        log.debug("newsProviders: NOT IMPLEMENTED");
+        log.trace("newsProviders: NOT IMPLEMENTED");
     }
 
     @Override
     public void newsArticle(int requestId, int articleType, String articleText) {
-        log.debug("newsArticle: NOT IMPLEMENTED");
+        log.trace("newsArticle: NOT IMPLEMENTED");
     }
 
     @Override
     public void historicalNews(int requestId, String time, String providerCode, String articleId, String headline) {
-        log.debug("historicalNews: NOT IMPLEMENTED");
+        log.trace("historicalNews: NOT IMPLEMENTED");
     }
 
     @Override
     public void historicalNewsEnd(int requestId, boolean hasMore) {
-        log.debug("historicalNewsEnd: NOT IMPLEMENTED");
+        log.trace("historicalNewsEnd: NOT IMPLEMENTED");
     }
 
     @Override
     public void headTimestamp(int reqId, String headTimestamp) {
-        log.debug("headTimestamp: NOT IMPLEMENTED");
+        log.trace("headTimestamp: NOT IMPLEMENTED");
     }
 
     @Override
     public void histogramData(int reqId, List<HistogramEntry> items) {
-        log.debug("histogramData: NOT IMPLEMENTED");
+        log.trace("histogramData: NOT IMPLEMENTED");
     }
 
     @Override
     public void rerouteMktDataReq(int reqId, int conId, String exchange) {
-        log.debug("rerouteMktDataReq: NOT IMPLEMENTED");
+        log.trace("rerouteMktDataReq: NOT IMPLEMENTED");
     }
 
     @Override
     public void rerouteMktDepthReq(int reqId, int conId, String exchange) {
-        log.debug("rerouteMktDepthReq: NOT IMPLEMENTED");
+        log.trace("rerouteMktDepthReq: NOT IMPLEMENTED");
     }
 
     @Override
     public void marketRule(int marketRuleId, PriceIncrement[] priceIncrements) {
-        log.debug("marketRule: NOT IMPLEMENTED");
+        log.trace("marketRule: NOT IMPLEMENTED");
     }
 
     public void pnl(int reqId, double dailyPnL, double unrealizedPnL, double realizedPnL) {
@@ -720,23 +720,23 @@ public class Wrapper implements EWrapper {
     @Override
     public void tickByTickAllLast(int reqId, int tickType, long time, double price, int size,
                                   TickAttribLast tickAttribLast, String exchange, String specialConditions) {
-        log.debug("tickByTickAllLast: NOT IMPLEMENTED");
+        log.trace("tickByTickAllLast: NOT IMPLEMENTED");
     }
 
     @Override
     public void tickByTickBidAsk(int reqId, long time, double bidPrice, double askPrice, int bidSize, int askSize,
                                  TickAttribBidAsk tickAttribBidAsk) {
-        log.debug("tickByTickBidAsk: NOT IMPLEMENTED");
+        log.trace("tickByTickBidAsk: NOT IMPLEMENTED");
     }
 
     @Override
     public void tickByTickMidPoint(int reqId, long time, double midPoint) {
-        log.debug("tickByTickMidPoint: NOT IMPLEMENTED");
+        log.trace("tickByTickMidPoint: NOT IMPLEMENTED");
     }
 
     @Override
     public void orderBound(long orderId, int apiClientId, int apiOrderId) {
-        log.debug("orderBound: NOT IMPLEMENTED");
+        log.trace("orderBound: NOT IMPLEMENTED");
     }
 
     public void setSocket(EClientSocket socket) {

@@ -1141,7 +1141,7 @@ public class IbClient implements AutoCloseable {
      * @param contract     IB contract
      * @param duration     The amount of time to go back from the request's given end date and time.
      * @param durationUnit <strong>duration</strong>
-     * @param size         Valid Bar Sizes. Must be above or equal 5 seconds.
+     * @param size         Valid Bar Sizes. Must be above or equals 5 seconds.
      * @param type         The type of data to retrieve
      * @param tradingHours Whether ({@link IbClient.TradingHours#Within}) or not ({@link IbClient.TradingHours#Outside})
      *                     to retrieve
@@ -1190,7 +1190,7 @@ public class IbClient implements AutoCloseable {
                                                        Type type, TradingHours tradingHours) {
 
         if (size == BarSize._1_sec) {
-            return Observable.error(new Exception("Too small bar size. Can be >= 5 sec"));
+            return Observable.error(new Exception("Too small bar size. Must be >= 5 sec"));
         }
 
         log.debug("Subscribing to bars: contract={}, size={}, type={}, hours={}",
