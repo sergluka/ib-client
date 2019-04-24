@@ -1306,7 +1306,7 @@ public class IbClient implements AutoCloseable {
         Leverage, // GrossPositionValue / NetLiquidation
     }
 
-    enum BarSize {
+    public enum BarSize {
         _1_sec("1 secs"),
         _5_sec("5 secs"),
         _10_sec("10 secs"),
@@ -1339,58 +1339,9 @@ public class IbClient implements AutoCloseable {
         public String toString() {
             return text;
         }
-
-        String toDummyDuration() {
-            switch (this) {
-                case _1_sec:
-                    return "1 S";
-                case _5_sec:
-                    return "5 S";
-                case _10_sec:
-                    return "10 S";
-                case _15_sec:
-                    return "15 S";
-                case _30_sec:
-                    return "30 S";
-                case _1_min:
-                    return "60 S";
-                case _2_min:
-                    return "120 S";
-                case _3_min:
-                    return "180 S";
-                case _5_min:
-                    return "300 S";
-                case _10_min:
-                    return "600 S";
-                case _15_min:
-                    return "900 S";
-                case _20_min:
-                    return "1200 S";
-                case _30_min:
-                    return "1800 S";
-                case _1_hour:
-                    return "1 H";
-                case _2_hour:
-                    return "2 H";
-                case _3_hour:
-                    return "3 H";
-                case _4_hour:
-                    return "4 H";
-                case _8_hour:
-                    return "8 H";
-                case _1_day:
-                    return "1 D";
-                case _1_week:
-                    return "1 W";
-                case _1_month:
-                    return "1 M";
-                default:
-                    throw new IllegalStateException("Unexpected value: " + this);
-            }
-        }
     }
 
-    enum Type {
+    public enum Type {
         TRADES, //	First traded price
         MIDPOINT, //	Starting midpoint price
         BID, //	Starting bid price
@@ -1407,7 +1358,7 @@ public class IbClient implements AutoCloseable {
         YIELD_LAST, //	Starting last yield	Highest
     }
 
-    enum DurationUnit {
+    public enum DurationUnit {
         Second("S"),
         Day("D"),
         Week("W"),
@@ -1426,7 +1377,7 @@ public class IbClient implements AutoCloseable {
         }
     }
 
-    enum TradingHours {
+    public enum TradingHours {
         Within,
         Outside
     }
