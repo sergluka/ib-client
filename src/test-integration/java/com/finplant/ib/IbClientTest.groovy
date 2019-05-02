@@ -24,7 +24,6 @@ class IbClientTest extends Specification {
 
     void setup() {
         client = new IbClient()
-        def observer = client.connectionStatus().test()
         assert client.connect("127.0.0.1", 7497, 2).blockingAwait(30, TimeUnit.SECONDS)
         client.cancelAll().timeout(10, TimeUnit.SECONDS).blockingGet()
         closeAllPositions()
