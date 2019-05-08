@@ -277,7 +277,6 @@ public class Wrapper implements EWrapper {
         handleUpdateMktDepth(tickerId, position, null, operation, side, price, size);
     }
 
-    @Override
     public void updateMktDepthL2(int tickerId, int position,
                                  String marketMaker, int operation, int side, double price, int size, boolean isSmartDepth) {
 
