@@ -14,7 +14,7 @@ public class IbReader {
     private static final int STOP_TIMEOUT_MS = 1000;
     private static final int WAIT_TIMEOUT_MS = 100;
 
-    private final Thread processor = new Thread(this::processMessages);
+    private final Thread thread = new Thread(this::processMessages);
     private final EJavaSignal signal;
     private final EClientSocket socket;
 
@@ -24,8 +24,8 @@ public class IbReader {
         this.socket = socket;
         this.signal = signal;
 
-        processor.setName("IbReader");
-        processor.setPriority(Thread.MAX_PRIORITY);
+        thread.setName("IbReader");
+        thread.setPriority(Thread.MAX_PRIORITY);
     }
 
     public void start() {
@@ -33,16 +33,16 @@ public class IbReader {
         reader.setPriority(Thread.MAX_PRIORITY);
 
         reader.start();
-        processor.start();
+        thread.start();
     }
 
     public synchronized void close() {
-        processor.interrupt();
+        thread.interrupt();
         if (reader != null) {
             reader.interrupt();
         }
 
-        stopThread(processor);
+        stopThread(thread);
         if (reader != null) {
             stopThread(reader);
         }

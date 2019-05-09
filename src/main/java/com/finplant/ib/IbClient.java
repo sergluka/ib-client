@@ -120,6 +120,9 @@ public class IbClient implements AutoCloseable {
                     if (!reconnect) {
                         cache.clear();
                     }
+
+                    socket = null;
+                    reader = null;
                 }
 
                 @Override
