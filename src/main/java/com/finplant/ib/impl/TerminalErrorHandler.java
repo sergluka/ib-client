@@ -52,7 +52,8 @@ public abstract class TerminalErrorHandler {
             case 399: // Order message error
             case 2103: // Market data farm connection is broken
             case 2105: // A historical data farm is disconnected.
-            case 2109: // Order Event Warning: Attribute "Outside Regular Trading Hours" is ignored based on the order type and destination. PlaceOrder is now processed.
+            case 2109: // Order Event Warning: Attribute "Outside Regular Trading Hours" is ignored based on the
+                // order type and destination. PlaceOrder is now processed.
             case 10185: // Failed to cancel PNL (not subscribed)
             case 10186: // Failed to cancel PNL single (not subscribed)
                 type = ErrorType.WARN;
@@ -72,9 +73,12 @@ public abstract class TerminalErrorHandler {
                 requests.onNextAndComplete(RequestRepository.Type.REQ_ORDER_CANCEL, id, true, true);
                 type = ErrorType.WARN;
                 break;
-            case 162: // Historical data messages
-                requests.onComplete(RequestRepository.Type.REQ_HISTORICAL_DATA, id, false);
-                type = ErrorType.INFO;
+
+            /* Ugly TWS API sends all events related with historical data with the same
+             * code (162). The only way to separate error and non-error cases is to parse text message*/
+            case 162:
+                onHistoricalDataError(code, id, message);
+                type = ErrorType.DEBUG;
                 break;
 
             default:
@@ -131,6 +135,30 @@ public abstract class TerminalErrorHandler {
                 log.error("TWS critical error - [#{}] {}. Disconnecting.", code, message);
                 onFatalError();
                 break;
+        }
+    }
+
+    private void onHistoricalDataError(int code, int id, String message) {
+
+        final String HISTORICAL_DATA_MSG = "Historical Market Data Service error message";
+        final String HISTORICAL_DATA_CANCEL_MSG = "API historical data query cancelled";
+        final String HISTORICAL_DATA_NO_PERMISSIONS_MSG = "No market data permissions for";
+
+        if (!message.startsWith(HISTORICAL_DATA_MSG)) {
+            log.error("Unexpected message for REQ_HISTORICAL_DATA: {}", message);
+            requests.onError(RequestRepository.Type.REQ_HISTORICAL_DATA, id,
+                             new IbExceptions.TerminalError(message, code));
+            return;
+        }
+
+        String messageInfo = message.substring(HISTORICAL_DATA_MSG.length() + 1);
+        if (messageInfo.startsWith(HISTORICAL_DATA_CANCEL_MSG)) {
+            // Subscription canceling is not an error
+        } else if (messageInfo.startsWith(HISTORICAL_DATA_NO_PERMISSIONS_MSG)) {
+            requests.onError(RequestRepository.Type.REQ_HISTORICAL_DATA, id,
+                             new IbExceptions.NoPermissions(messageInfo), true);
+        } else {
+            requests.onError(RequestRepository.Type.REQ_HISTORICAL_DATA, id, new Exception(message), true);
         }
     }
 }

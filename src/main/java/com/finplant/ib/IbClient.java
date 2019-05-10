@@ -1073,6 +1073,8 @@ public class IbClient implements AutoCloseable {
      * @param tradingHours Whether ({@link TradingHours#Within}) or not ({@link TradingHours#Outside}) to retrieve
      *                     data generated only within Regular Trading Hours
      * @return Observable with the bars. Completes as soon all data per period will be received.
+     * Can emit errors: IbExceptions.NoPermissions on "No market data permissions" message,
+     * Exception - for possible unknown messages
      *
      * <pre>{@code
      * Example:
@@ -1153,7 +1155,8 @@ public class IbClient implements AutoCloseable {
      *                     to retrieve
      *                     data generated only within Regular Trading Hours
      * @return Observable with the bars. Never completes. Flow is: 1st historical bars are goes, then one
-     * {@link com.finplant.ib.types.IbBar#COMPLETE}, and then constant updates of actual candle
+     * {@link com.finplant.ib.types.IbBar#COMPLETE}, and then constant updates of actual candle. Can emit errors:
+     * IbExceptions.NoPermissions on "No market data permissions" message, Exception - for possible unknown messages
      *
      * <pre>{@code
      * Example:

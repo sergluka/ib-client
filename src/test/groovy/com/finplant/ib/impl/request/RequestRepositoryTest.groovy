@@ -53,6 +53,7 @@ class RequestRepositoryTest extends Specification {
         repository.onNextAndComplete(RequestRepository.Type.EVENT_PORTFOLIO, 111, "Data", true)
 
         then:
+        observer.awaitCount(1)
         observer.assertNoErrors()
         observer.assertComplete()
         observer.assertValueCount(1)

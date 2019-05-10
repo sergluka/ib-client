@@ -52,6 +52,12 @@ public class IbExceptions {
         }
     }
 
+    public static class NoPermissions extends IbClientError {
+        public NoPermissions(String message) {
+            super(message);
+        }
+    }
+
     public static class OrderAlreadyFilledError extends IbClientError {
         OrderAlreadyFilledError(int orderId) {
             super(String.format("Order %d already is filled", orderId));
