@@ -38,7 +38,6 @@ public abstract class TerminalErrorHandler {
 
         ErrorType type;
         switch (code) {
-            case 162: // API historical data query cancelled
             case 202: // Order canceled
             case 2100: // API client has been unsubscribed from account data..
             case 2104: // Market data farm connection is OK
@@ -68,9 +67,14 @@ public abstract class TerminalErrorHandler {
                                  new IbExceptions.TerminalError(message, code));
                 type = ErrorType.CUSTOM;
                 break;
+
             case 10148: // OrderId ... that needs to be cancelled can not be cancelled
                 requests.onNextAndComplete(RequestRepository.Type.REQ_ORDER_CANCEL, id, true, true);
                 type = ErrorType.WARN;
+                break;
+            case 162: // Historical data messages
+                requests.onComplete(RequestRepository.Type.REQ_HISTORICAL_DATA, id, false);
+                type = ErrorType.INFO;
                 break;
 
             default:

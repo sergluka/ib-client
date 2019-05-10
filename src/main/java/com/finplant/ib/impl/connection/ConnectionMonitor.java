@@ -32,7 +32,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(ConnectionMonitor.class);
 
     private static final int CLOSE_TIMEOUT_MS = 10_000;
-    private static final long RECONNECT_DELAY = 5_000;
+    private static final long RECONNECT_DELAY = 10_000;
 
     private final Lock statusLock = new ReentrantLock();
     private final Condition statusCondition = statusLock.newCondition();

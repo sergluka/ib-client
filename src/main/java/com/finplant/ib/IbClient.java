@@ -115,8 +115,12 @@ public class IbClient implements AutoCloseable {
 
                 @Override
                 protected void disconnectRequest(boolean reconnect) {
-                    socket.eDisconnect();
-                    reader.close();
+                    if (socket != null) {
+                        socket.eDisconnect();
+                    }
+                    if (reader != null) {
+                        reader.close();
+                    }
                     if (!reconnect) {
                         cache.clear();
                     }
