@@ -14,6 +14,7 @@ import io.reactivex.Observable;
 import io.reactivex.Scheduler;
 import io.reactivex.Single;
 import io.reactivex.schedulers.Schedulers;
+import io.reactivex.subjects.BehaviorSubject;
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
 import org.jetbrains.annotations.NotNull;
@@ -36,7 +37,7 @@ public class IbClient implements AutoCloseable {
     private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd HH:mm:ss");
 
     private final Subject<IbLogRecord> logSubject = PublishSubject.create();
-    private final PublishSubject<Boolean> connectionStatusSubject = PublishSubject.create();
+    private final BehaviorSubject<Boolean> connectionStatusSubject = BehaviorSubject.create();
 
     private final IdGenerator idGenerator;
     private final RequestRepository requests;
