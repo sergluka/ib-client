@@ -17,6 +17,7 @@ import java.math.BigDecimal;
 import java.net.SocketException;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class Wrapper implements EWrapper {
 
@@ -293,6 +294,15 @@ public class Wrapper implements EWrapper {
 
         log.trace("Managed accounts are: {}", accountsList);
         this.managedAccounts = new HashSet<>(Splitter.on(",").splitToList(accountsList));
+    }
+
+    @Override
+    public void marketRule(int marketRuleId, PriceIncrement[] priceIncrements) {
+        log.trace("marketRule: marketRuleId={}, priceIncrements={}",
+                  marketRuleId, PrettyPrinters.priceIncrementsToString(priceIncrements));
+
+        List<PriceIncrement> increments = Stream.of(priceIncrements).collect(Collectors.toList());
+        requests.onNextAndComplete(RequestRepository.Type.REQ_MARKET_RULE, marketRuleId, increments, true);
     }
 
     @Override
@@ -687,11 +697,6 @@ public class Wrapper implements EWrapper {
     @Override
     public void rerouteMktDepthReq(int reqId, int conId, String exchange) {
         log.trace("rerouteMktDepthReq: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void marketRule(int marketRuleId, PriceIncrement[] priceIncrements) {
-        log.trace("marketRule: NOT IMPLEMENTED");
     }
 
     public void pnl(int reqId, double dailyPnL, double unrealizedPnL, double realizedPnL) {

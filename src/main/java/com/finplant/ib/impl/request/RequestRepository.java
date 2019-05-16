@@ -107,6 +107,7 @@ public class RequestRepository implements AutoCloseable {
         REQ_HISTORICAL_TRADE,
         REQ_HISTORICAL_DATA,
         REQ_ACCOUNT_SUMMARY,
+        REQ_MARKET_RULE,
     }
 
     public class RequestBuilder<T> {
@@ -129,6 +130,12 @@ public class RequestRepository implements AutoCloseable {
         }
 
         public RequestBuilder<T> register(Runnable register) {
+            this.register = unused -> register.run();
+            return this;
+        }
+
+        public RequestBuilder<T> register(int id, Runnable register) {
+            this.id = id;
             this.register = unused -> register.run();
             return this;
         }

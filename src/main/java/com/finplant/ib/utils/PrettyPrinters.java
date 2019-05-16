@@ -3,6 +3,9 @@ package com.finplant.ib.utils;
 import com.ib.client.Contract;
 import com.ib.client.ContractDetails;
 import com.ib.client.Order;
+import com.ib.client.PriceIncrement;
+
+import java.util.stream.Stream;
 
 @SuppressWarnings({"WeakerAccess", "unused"})
 public class PrettyPrinters {
@@ -51,6 +54,27 @@ public class PrettyPrinters {
         buffer.append(", conid=").append(details.conid());
         buffer.append(", minTick=").append(details.minTick());
         buffer.append(", validExchanges=").append(details.validExchanges());
+        return buffer.toString();
+    }
+
+    public static String priceIncrementsToString(PriceIncrement[] increments) {
+
+        final StringBuffer buffer = new StringBuffer("{");
+
+        Stream.of(increments).forEach(inc -> {
+            buffer.append("lowEdge=").append(inc.lowEdge());
+            buffer.append(", increment=").append(inc.increment());
+            buffer.append(";");
+        });
+        buffer.append("}");
+        return buffer.toString();
+    }
+
+    public static String priceIncrementToString(PriceIncrement increment) {
+        final StringBuffer buffer = new StringBuffer("{");
+        buffer.append("lowEdge=").append(increment.lowEdge());
+        buffer.append(", increment=").append(increment.increment());
+        buffer.append('}');
         return buffer.toString();
     }
 }

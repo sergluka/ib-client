@@ -294,7 +294,8 @@ public class IbClient implements AutoCloseable {
      * between them - {@link com.finplant.ib.types.IbPosition#COMPLETE}
      * @see <a href="https://interactivebrokers.github.io/tws-api/positions.html#position_request">
      * TWS API: reqPositions</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#ab2159a39733d8967928317524875aa62">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#ab2159a39733d8967928317524875aa62">
      * TWS API: cancelPositions</a>
      */
     public Observable<IbPosition> subscribeOnPositionChange() {
@@ -331,7 +332,8 @@ public class IbClient implements AutoCloseable {
      * }</pre>
      * @see <a href=https://interactivebrokers.github.io/tws-api/positions.html#position_multi>
      * TWS API: reqPositionsMulti</a>
-     * @see <a href=https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#ae919658c15bceba6b6cf2a1336d0acbf>
+     * @see
+     * <a href=https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#ae919658c15bceba6b6cf2a1336d0acbf>
      * TWS API: cancelPositionsMulti</a>
      */
     public Observable<IbPosition> subscribeOnPositionChange(String account) {
@@ -365,9 +367,11 @@ public class IbClient implements AutoCloseable {
      *
      * @see com.finplant.ib.IbClient#setMarketDataType
      * @see <a href=https://interactivebrokers.github.io/tws-api/delayed_data.html>TWS API: Delayed Streaming Data</a>
-     * @see <a href=https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a7a19258a3a2087c07c1c57b93f659b63>TWS
+     * @see
+     * <a href=https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a7a19258a3a2087c07c1c57b93f659b63>TWS
      * API: reqMktData</a>
-     * @see <a href=https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#ae919658c15bceba6b6cf2a1336d0acbf>TWS
+     * @see
+     * <a href=https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#ae919658c15bceba6b6cf2a1336d0acbf>TWS
      * API: cancelPositionsMulti</a>
      */
     public Single<IbTick> reqMktData(Contract contract) {
@@ -389,7 +393,8 @@ public class IbClient implements AutoCloseable {
      *
      * @see <a href=https://interactivebrokers.github.io/tws-api/market_depth.html#reqmktdepthexchanges>
      * TWS API: Market Maker or Exchange</a>
-     * @see <a href=https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a5c40b7bf20ba269530807b093dc51853>
+     * @see
+     * <a href=https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a5c40b7bf20ba269530807b093dc51853>
      * TWS API: reqMktDepthExchanges</a>
      */
     public Observable<IbDepthMktDataDescription> reqMktDepthExchanges() {
@@ -397,6 +402,48 @@ public class IbClient implements AutoCloseable {
         return requests.<List<IbDepthMktDataDescription>>builder()
                 .type(RequestRepository.Type.REQ_MARKET_DEPTH_EXCHANGES)
                 .register(() -> socket.reqMktDepthExchanges())
+                .subscribe()
+                .flatMap(Observable::fromIterable);
+    }
+
+    /**
+     * Get market rule for specific ID
+     *
+     * @param marketRuleId IB contract
+     * @return Observable with PriceIncrement. Completes as soon all data will be received.
+     *
+     * <pre>{@code
+     * Example:
+     *
+     * when:
+     *     def observer = client.reqMarketRule(98).test()
+     *
+     * then:
+     *     observer.awaitTerminalEvent()
+     *     observer.assertNoErrors()
+     *     observer.assertValueCount(1)
+     *
+     *     observer.assertValueAt 0, { value ->
+     *         assert value.lowEdge() == 0.0
+     *         assert value.increment() ==  0.001
+     *         return true
+     *     } as Predicate
+     * }</pre>
+     *
+     * @see com.finplant.ib.IbClient#setMarketDataType
+     * @see
+     * <a href=https://interactivebrokers.github.io/tws-api/minimum_increment.html>TWS API: Minimum Price Increment</a>
+     * @see
+     * <a href=https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#af4e8c23a0d1e480ce84320b9e6b525dd>TWS
+     * API: reqMarketRule</a>
+     */
+    public Observable<PriceIncrement> reqMarketRule(int marketRuleId) {
+        Validators.intShouldBePositiveOrZero(marketRuleId, "ID should be defined");
+
+        return requests.<List<PriceIncrement>>builder()
+                .type(RequestRepository.Type.REQ_MARKET_RULE)
+                .register(marketRuleId, () -> socket.reqMarketRule(marketRuleId))
+                .unregister(() -> {})
                 .subscribe()
                 .flatMap(Observable::fromIterable);
     }
@@ -437,9 +484,11 @@ public class IbClient implements AutoCloseable {
      *
      * @see <a href="https://interactivebrokers.github.io/tws-api/market_depth.html">
      * TWS API: Market Depth (Level II)</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a8b1f37dfe964369f53d7f2d7ebcf17ca">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a8b1f37dfe964369f53d7f2d7ebcf17ca">
      * TWS API: reqMarketDepth</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#aee1213e04e1d22830e337c9735e995db">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#aee1213e04e1d22830e337c9735e995db">
      * TWS API: cancelMktDepth</a>
      */
     public Observable<IbMarketDepth> subscribeOnMarketDepth(Contract contract, int numRows) {
@@ -475,9 +524,11 @@ public class IbClient implements AutoCloseable {
      *
      * @see <a href="https://interactivebrokers.github.io/tws-api/top_data.html">
      * TWS API: Market Depth (Level I)</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a7a19258a3a2087c07c1c57b93f659b63">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a7a19258a3a2087c07c1c57b93f659b63">
      * TWS API: reqMktData</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#af443a1cd993aee33ce67deb7bc39e484">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#af443a1cd993aee33ce67deb7bc39e484">
      * TWS API: cancelMktData</a>
      */
     public Observable<IbTick> subscribeOnMarketData(Contract contract) {
@@ -517,9 +568,11 @@ public class IbClient implements AutoCloseable {
      *
      * @see <a href="https://interactivebrokers.github.io/tws-api/pnl.html">
      * TWS API: Profit And Loss (P&amp;L)</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a9ba0dc47f80ff9e836a235a0dea791b3">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a9ba0dc47f80ff9e836a235a0dea791b3">
      * TWS API: reqPnLSingle</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#accd383725ef440070775654a9ab4bf47">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#accd383725ef440070775654a9ab4bf47">
      * TWS API: cancelPnLSingle</a>
      * @see com.finplant.ib.IbClient#subscribeOnAccountPnl
      */
@@ -560,9 +613,11 @@ public class IbClient implements AutoCloseable {
      *
      * @see <a href="https://interactivebrokers.github.io/tws-api/pnl.html">
      * TWS API: Profit And Loss (P&amp;L)</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a0351f22a77b5ba0c0243122baf72fa45">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a0351f22a77b5ba0c0243122baf72fa45">
      * TWS API: reqPnL</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a5a805731fedd8f40130a51a459328572">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a5a805731fedd8f40130a51a459328572">
      * TWS API: cancelPnL</a>
      * @see com.finplant.ib.IbClient#subscribeOnContractPnl
      */
@@ -599,7 +654,8 @@ public class IbClient implements AutoCloseable {
      * @implNote This information is the same as displayed in TWS Account Window. Data updates once per 3 min
      * @see <a href="https://interactivebrokers.github.io/tws-api/account_updates.html">
      * TWS API: Account Updates</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#aea1b0d9b6b85a4e0b18caf13a51f837f">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#aea1b0d9b6b85a4e0b18caf13a51f837f">
      * TWS API: reqAccountUpdates</a>
      * @see com.finplant.ib.IbClient#subscribeOnContractPnl
      */
@@ -656,7 +712,8 @@ public class IbClient implements AutoCloseable {
      *
      * @return Single with a time in UNIX format
      *
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#ad1ecfd4fb31841ce5817e0c32f44b639">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#ad1ecfd4fb31841ce5817e0c32f44b639">
      * TWS API: reqCurrentTime</a>
      */
     public Single<Long> getCurrentTime() {
@@ -707,7 +764,8 @@ public class IbClient implements AutoCloseable {
      * }</pre>
      * @see <a href="https://interactivebrokers.github.io/tws-api/order_submission.html">
      * TWS API: Placing Orders</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/interfaceIBApi_1_1EWrapper.html#a09c07727efd297e438690ab42838d332">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/interfaceIBApi_1_1EWrapper.html#a09c07727efd297e438690ab42838d332">
      * TWS API: nextValidId</a>
      * @see #placeOrder(Contract, Order, Scheduler)
      * @see #nextOrderId
@@ -721,7 +779,8 @@ public class IbClient implements AutoCloseable {
      *
      * @param contract           IB contract
      * @param order              IB order
-     * @param subscribeScheduler RxJava2 scheduler used to replace default scheduler {@code .subscribeOn(Schedulers.io())}
+     * @param subscribeScheduler RxJava2 scheduler used to replace default scheduler {@code .subscribeOn(Schedulers
+     *                           .io())}
      * @return Single with a IB result
      *
      * @see #placeOrder(Contract, Order)
@@ -753,7 +812,8 @@ public class IbClient implements AutoCloseable {
      * Then library request IB for canceling and waits for respective status or error.
      * @see <a href="https://interactivebrokers.github.io/tws-api/cancel_order.html">
      * TWS API: Cancelling Orders</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#adb0a6963779be4904439fb1f24a8cce8">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#adb0a6963779be4904439fb1f24a8cce8">
      * TWS API: cancelOrder</a>
      */
     public Completable cancelOrder(int orderId) {
@@ -804,7 +864,8 @@ public class IbClient implements AutoCloseable {
      * Some corner case are possible.
      * @see <a href="https://interactivebrokers.github.io/tws-api/cancel_order.html">
      * TWS API: Cancelling Orders</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a66ad7a4820c5be21ebde521d59a50053">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a66ad7a4820c5be21ebde521d59a50053">
      * TWS API: reqGlobalCancel</a>
      */
     public Completable cancelAll() {
@@ -857,7 +918,8 @@ public class IbClient implements AutoCloseable {
      *
      * @return Observable with orders. Completes as TWS sends all orders.
      *
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#aa2c9a012884dd53311a7a7c6a326306c">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#aa2c9a012884dd53311a7a7c6a326306c">
      * TWS API: reqAllOpenOrders</a>
      */
     public Observable<IbOrder> reqAllOpenOrders() {
@@ -892,7 +954,8 @@ public class IbClient implements AutoCloseable {
      * @implNote Note that IB can return more then one ContractDetails.
      * @see <a href="https://interactivebrokers.github.io/tws-api/contract_details.html">
      * TWS API: Requesting Contract Details</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#ade440c6db838b548594981d800ea5ca9">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#ade440c6db838b548594981d800ea5ca9">
      * TWS API: reqContractDetails</a>
      */
     public Observable<ContractDetails> reqContractDetails(Contract contract) {
@@ -937,7 +1000,8 @@ public class IbClient implements AutoCloseable {
      *
      * @see <a href="https://interactivebrokers.github.io/tws-api/historical_time_and_sales.html">
      * TWS API: Historical Time and Sales Data</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a99dbcf80c99b8f262a524de64b2f9c1e">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a99dbcf80c99b8f262a524de64b2f9c1e">
      * TWS API: reqHistoricalTicks</a>
      * @see #reqHistoricalBidAsks
      * @see #reqHistoricalTrades
@@ -986,7 +1050,8 @@ public class IbClient implements AutoCloseable {
      *
      * @see <a href="https://interactivebrokers.github.io/tws-api/historical_time_and_sales.html">
      * TWS API: Historical Time and Sales Data</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a99dbcf80c99b8f262a524de64b2f9c1e">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a99dbcf80c99b8f262a524de64b2f9c1e">
      * TWS API: reqHistoricalTicks</a>
      * @see #reqHistoricalMidpoints
      * @see #reqHistoricalTrades
@@ -1043,7 +1108,8 @@ public class IbClient implements AutoCloseable {
      * to call {@link #reqHistoricalMidpoints} for them.
      * @see <a href="https://interactivebrokers.github.io/tws-api/historical_time_and_sales.html">
      * TWS API: Historical Time and Sales Data</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a99dbcf80c99b8f262a524de64b2f9c1e">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a99dbcf80c99b8f262a524de64b2f9c1e">
      * TWS API: reqHistoricalTicks</a>
      * @see #reqHistoricalMidpoints
      * @see #reqHistoricalBidAsks
@@ -1118,7 +1184,8 @@ public class IbClient implements AutoCloseable {
      *
      * @see <a href="https://interactivebrokers.github.io/tws-api/historical_bars.html">
      * TWS API: Historical Bar Data</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a5eac5b7908b62c224985cf8577a8350c">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a5eac5b7908b62c224985cf8577a8350c">
      * TWS API: reqHistoricalData</a>
      * @see #subscribeOnHistoricalData
      */
@@ -1189,7 +1256,8 @@ public class IbClient implements AutoCloseable {
      * and then continue emit actual candle updates
      * @see <a href="https://interactivebrokers.github.io/tws-api/historical_bars.html">
      * TWS API: Historical Bar Data</a>
-     * @see <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a5eac5b7908b62c224985cf8577a8350c">
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a5eac5b7908b62c224985cf8577a8350c">
      * TWS API: reqHistoricalData</a>
      * @see #reqHistoricalData
      */
@@ -1286,17 +1354,22 @@ public class IbClient implements AutoCloseable {
 
     public enum AccountSummaryTags {
         AccountType, // Identifies the IB account structure
-        NetLiquidation, // The basis for determining the price of the assets in your account. Total cash value + stock value + options value + bond value
+        NetLiquidation, // The basis for determining the price of the assets in your account. Total cash value +
+        // stock value + options value + bond value
         TotalCashValue, // Total cash balance recognized at the time of trade + futures PNL
-        SettledCash, // Cash recognized at the time of settlement - purchases at the time of trade - commissions - taxes - fees
+        SettledCash, // Cash recognized at the time of settlement - purchases at the time of trade - commissions -
+        // taxes - fees
         AccruedCash, // Total accrued cash value of stock, commodities and securities
-        BuyingPower, // Buying power serves as a measurement of the dollar value of securities that one may purchase in a securities account without depositing additional funds
-        EquityWithLoanValue, // Forms the basis for determining whether a client has the necessary assets to either initiate or maintain security positions. Cash + stocks + bonds + mutual funds
+        BuyingPower, // Buying power serves as a measurement of the dollar value of securities that one may purchase
+        // in a securities account without depositing additional funds
+        EquityWithLoanValue, // Forms the basis for determining whether a client has the necessary assets to either
+        // initiate or maintain security positions. Cash + stocks + bonds + mutual funds
         PreviousEquityWithLoanValue, // Marginable Equity with Loan value as of 16:00 ET the previous day
         GrossPositionValue, // The sum of the absolute value of all stock and equity option positions
         RegTEquity, // Regulation T equity for universal account
         RegTMargin, // Regulation T margin for universal account
-        SMA, // Special Memorandum Account: Line of credit created when the market value of securities in a Regulation T account increase in value
+        SMA, // Special Memorandum Account: Line of credit created when the market value of securities in a
+        // Regulation T account increase in value
         InitMarginReq, // Initial Margin requirement of whole portfolio
         MaintMarginReq, // Maintenance Margin requirement of whole portfolio
         AvailableFunds, // This value tells what you have available for trading
@@ -1312,7 +1385,8 @@ public class IbClient implements AutoCloseable {
         LookAheadAvailableFunds, // This value reflects your available funds at the next margin change
         LookAheadExcessLiquidity, // This value reflects your excess liquidity at the next margin change
         HighestSeverity, // A measure of how close the account is to liquidation
-        DayTradesRemaining, // The Number of Open/Close trades a user could put on before Pattern Day Trading is detected. A value of "-1" means that the user can put on unlimited day trades.
+        DayTradesRemaining, // The Number of Open/Close trades a user could put on before Pattern Day Trading is
+        // detected. A value of "-1" means that the user can put on unlimited day trades.
         Leverage, // GrossPositionValue / NetLiquidation
     }
 

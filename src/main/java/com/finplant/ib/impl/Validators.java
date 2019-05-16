@@ -18,8 +18,8 @@ public class Validators {
         }
     }
 
-    public static void intShouldBePositive(int port, String message) {
-        if (port <= 0) {
+    public static void intShouldBePositive(int value, String message) {
+        if (value <= 0) {
             throw new IllegalArgumentException(message);
         }
     }
