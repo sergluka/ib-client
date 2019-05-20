@@ -37,7 +37,7 @@ public class IbClient implements AutoCloseable {
     private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd HH:mm:ss");
 
     private final Subject<IbLogRecord> logSubject = PublishSubject.create();
-    private final BehaviorSubject<Boolean> connectionStatusSubject = BehaviorSubject.create();
+    private final PublishSubject<Boolean> connectionStatusSubject = PublishSubject.create();
 
     private final IdGenerator idGenerator;
     private final RequestRepository requests;
