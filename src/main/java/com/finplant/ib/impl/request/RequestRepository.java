@@ -55,6 +55,10 @@ public class RequestRepository implements AutoCloseable {
         get(null, reqId, true).ifPresent(request -> request.onError(throwable));
     }
 
+    public void onError(Integer reqId, Throwable throwable, Boolean shouldExists) {
+        get(null, reqId, shouldExists).ifPresent(request -> request.onError(throwable));
+    }
+
     public void onComplete(Type type, Integer reqId, Boolean shouldExists) {
         get(type, reqId, shouldExists).ifPresent(Request::onComplete);
     }
@@ -75,7 +79,9 @@ public class RequestRepository implements AutoCloseable {
         Request<T> request = requests.get(new RequestKey(type, reqId));
         if (request == null) {
             if (shouldExists) {
-                log.error("Got event '{}' with unknown request id {}", type, reqId);
+                log.error("Got unexpected event '{}' id={}", type, reqId);
+            } else {
+                log.debug("Got unexpected event '{}' id={}", type, reqId);
             }
         }
         return Optional.ofNullable(request);

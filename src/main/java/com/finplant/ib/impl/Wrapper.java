@@ -158,7 +158,7 @@ public class Wrapper implements EWrapper {
     @Override
     public void openOrderEnd() {
         requests.onNextAndComplete(RequestRepository.Type.REQ_ORDER_LIST, null,
-                                   new ArrayList<>(cache.getOrders().values()), true);
+                                   new ArrayList<>(cache.getOrders().values()), false);
     }
 
     @Override
@@ -753,7 +753,7 @@ public class Wrapper implements EWrapper {
     }
 
     private void publishNoData(int tickerId) {
-        requests.onError(RequestRepository.Type.EVENT_MARKET_DATA, tickerId, new IbExceptions.NoTicksError());
+        requests.onError(RequestRepository.Type.EVENT_MARKET_DATA, tickerId, new IbExceptions.NoTicksError(), false);
     }
 
     public Set<String> getManagedAccounts() {

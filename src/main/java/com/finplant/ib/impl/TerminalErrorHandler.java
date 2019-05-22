@@ -116,7 +116,7 @@ public abstract class TerminalErrorHandler {
             case CUSTOM:
                 break;
             case REQUEST_ERROR:
-                requests.onError(id, new IbExceptions.TerminalError(message, code));
+                requests.onError(id, new IbExceptions.TerminalError(message, code), false);
                 break;
             case DEBUG:
                 log.debug("TWS message: [#{}] {}", code, message);
