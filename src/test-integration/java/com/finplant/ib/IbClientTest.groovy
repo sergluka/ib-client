@@ -73,23 +73,6 @@ class IbClientTest extends Specification {
         client.isConnected()
     }
 
-    def "Connection status should changes according connect commands"() {
-        given:
-        def observer = client.connectionStatus().test()
-
-        when:
-        client.disconnect()
-        client.connect("127.0.0.1", 7497, 2).blockingAwait(30, TimeUnit.SECONDS)
-
-        then:
-        observer.awaitCount(2)
-        observer.assertNoErrors()
-        observer.assertNotTerminated()
-        observer.assertValueCount(2)
-        observer.assertValueAt(0, false)
-        observer.assertValueAt(0, true)
-    }
-
     def "Call reqCurrentTime is OK"() {
         when:
         long time = client.getCurrentTime().blockingGet()
@@ -341,7 +324,7 @@ class IbClientTest extends Specification {
         client.placeOrder(createContractGC(), createOrderStp(0, 1.0, 1.0)).blockingGet()
 
         then:
-        observer.awaitCount(1, { sleep(5000) })
+        observer.awaitCount(1, { sleep(30_000) })
         observer.assertNoErrors()
         observer.assertNotComplete()
         observer.assertValueCount(1)
@@ -534,7 +517,7 @@ class IbClientTest extends Specification {
         def observer = client.reqMktData(createContractEUR()).test()
 
         then:
-        observer.awaitDone(10, TimeUnit.SECONDS)
+        observer.awaitDone(30, TimeUnit.SECONDS)
         observer.assertValueCount(1)
         observer.assertNoErrors()
         observer.assertValueAt 0, { tick ->

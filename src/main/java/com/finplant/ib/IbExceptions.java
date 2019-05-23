@@ -5,9 +5,22 @@ import com.finplant.ib.impl.request.RequestKey;
 @SuppressWarnings({"WeakerAccess", "unused"})
 public class IbExceptions {
 
-    public abstract static class IbClientError extends RuntimeException {
-        IbClientError(String text) {
+    public static class IbClientError extends RuntimeException {
+
+        private final Integer requestId;
+
+        public IbClientError(int requestId, String text) {
             super(text);
+            this.requestId = requestId;
+        }
+
+        public IbClientError(String text) {
+            super(text);
+            this.requestId = null;
+        }
+
+        public Integer getRequestId() {
+            return requestId;
         }
     }
 
@@ -19,8 +32,8 @@ public class IbExceptions {
         private final String errorMsg;
         private final int errorCode;
 
-        public TerminalError(String errorMsg, int errorCode) {
-            super(String.format("[%d]: %s", errorCode, errorMsg));
+        public TerminalError(int requestId, String errorMsg, int errorCode) {
+            super(requestId, String.format("[%d]: id=%d, %s", errorCode, requestId, errorMsg));
             this.errorMsg = errorMsg;
             this.errorCode = errorCode;
         }
@@ -42,19 +55,19 @@ public class IbExceptions {
 
     public static class DuplicatedRequestError extends IbClientError {
         public DuplicatedRequestError(RequestKey key) {
-            super(String.format("Request already exists: %s", key));
+            super(key.getId(), String.format("Request already exists: %s", key));
         }
     }
 
     public static class NoTicksError extends IbClientError {
-        public NoTicksError() {
-            super("Has no ticks");
+        public NoTicksError(int requestId) {
+            super(requestId, "Has no ticks");
         }
     }
 
     public static class NoPermissions extends IbClientError {
-        public NoPermissions(String message) {
-            super(message);
+        public NoPermissions(int requestId, String message) {
+            super(requestId, message);
         }
     }
 

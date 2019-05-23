@@ -61,6 +61,10 @@ class Request<T> {
     }
 
     void onError(Throwable throwable) {
+        if (emitter.isDisposed()) {
+            log.error("TWS reports an error for already disposed request {}: {}", this, throwable.getMessage());
+            return;
+        }
         emitter.onError(throwable);
     }
 

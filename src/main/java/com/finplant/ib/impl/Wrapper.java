@@ -130,7 +130,7 @@ public class Wrapper implements EWrapper {
             }
             if (twsStatus.isFilled()) {
                 requests.onError(RequestRepository.Type.REQ_ORDER_CANCEL, orderId,
-                                 new Exception("Already filled"), false);
+                                 new IbExceptions.IbClientError("Already filled"), false);
             }
         }
     }
@@ -147,7 +147,8 @@ public class Wrapper implements EWrapper {
                      orderId, contract.symbol(), order.orderId(), state.status());
 
             if (!state.status().isActive()) {
-                requests.onError(RequestRepository.Type.REQ_ORDER_PLACE, orderId, new Exception("Order is rejected"));
+                requests.onError(RequestRepository.Type.REQ_ORDER_PLACE, orderId,
+                                 new IbExceptions.IbClientError("Order is rejected"));
                 return;
             }
 
@@ -347,7 +348,6 @@ public class Wrapper implements EWrapper {
                                    final String value,
                                    final String currency,
                                    final String accountName) {
-        log.trace("updateAccountValue: NOT IMPLEMENTED");
     }
 
     @Override
@@ -426,7 +426,7 @@ public class Wrapper implements EWrapper {
         IbTick tick = cache.getTick(tickerId);
         if (tick == null) {
             log.info("No ticks for ticker {}", tickerId);
-            requests.onError(tickerId, new IbExceptions.NoTicksError());
+            requests.onError(tickerId, new IbExceptions.NoTicksError(tickerId));
             return;
         }
 
@@ -753,7 +753,8 @@ public class Wrapper implements EWrapper {
     }
 
     private void publishNoData(int tickerId) {
-        requests.onError(RequestRepository.Type.EVENT_MARKET_DATA, tickerId, new IbExceptions.NoTicksError(), false);
+        requests.onError(RequestRepository.Type.EVENT_MARKET_DATA, tickerId,
+                         new IbExceptions.NoTicksError(tickerId), false);
     }
 
     public Set<String> getManagedAccounts() {

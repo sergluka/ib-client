@@ -65,7 +65,7 @@ public abstract class TerminalErrorHandler {
 
             case 10147: // OrderId ... that needs to be cancelled is not found
                 requests.onError(RequestRepository.Type.REQ_ORDER_CANCEL, id,
-                                 new IbExceptions.TerminalError(message, code));
+                                 new IbExceptions.TerminalError(id, message, code));
                 type = ErrorType.CUSTOM;
                 break;
 
@@ -116,7 +116,7 @@ public abstract class TerminalErrorHandler {
             case CUSTOM:
                 break;
             case REQUEST_ERROR:
-                requests.onError(id, new IbExceptions.TerminalError(message, code), false);
+                requests.onError(id, new IbExceptions.TerminalError(id, message, code), false);
                 break;
             case DEBUG:
                 log.debug("TWS message: [#{}] {}", code, message);
@@ -146,8 +146,8 @@ public abstract class TerminalErrorHandler {
 
         if (!message.startsWith(HISTORICAL_DATA_MSG)) {
             log.error("Unexpected message for REQ_HISTORICAL_DATA: {}", message);
-            requests.onError(RequestRepository.Type.REQ_HISTORICAL_DATA, id,
-                             new IbExceptions.TerminalError(message, code));
+            requests.onError(null, id,
+                             new IbExceptions.TerminalError(id, message, code));
             return;
         }
 
@@ -155,10 +155,10 @@ public abstract class TerminalErrorHandler {
         if (messageInfo.startsWith(HISTORICAL_DATA_CANCEL_MSG)) {
             // Subscription canceling is not an error
         } else if (messageInfo.startsWith(HISTORICAL_DATA_NO_PERMISSIONS_MSG)) {
-            requests.onError(RequestRepository.Type.REQ_HISTORICAL_DATA, id,
-                             new IbExceptions.NoPermissions(messageInfo), true);
+            requests.onError(null, id,
+                             new IbExceptions.NoPermissions(id, messageInfo), true);
         } else {
-            requests.onError(RequestRepository.Type.REQ_HISTORICAL_DATA, id, new Exception(message), true);
+            requests.onError(null, id, new IbExceptions.IbClientError(id, message), true);
         }
     }
 }

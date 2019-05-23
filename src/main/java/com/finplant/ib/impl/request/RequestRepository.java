@@ -79,9 +79,9 @@ public class RequestRepository implements AutoCloseable {
         Request<T> request = requests.get(new RequestKey(type, reqId));
         if (request == null) {
             if (shouldExists) {
-                log.error("Got unexpected event '{}' id={}", type, reqId);
+                log.error("Cannot find request '{}' id={}", type, reqId);
             } else {
-                log.debug("Got unexpected event '{}' id={}", type, reqId);
+                log.debug("Cannot find request '{}' id={}", type, reqId);
             }
         }
         return Optional.ofNullable(request);
@@ -174,14 +174,16 @@ public class RequestRepository implements AutoCloseable {
 
         public Observable<T> subscribe(Scheduler subscribeScheduler) {
 
-            if (register == null) {
-                throw new IllegalArgumentException("Registration function is mandatory");
-            }
-            if (type == null) {
-                throw new IllegalArgumentException("Request type is mandatory");
-            }
-
             return Observable.<T>create(emitter -> {
+
+                if (register == null) {
+                    emitter.onError(new IllegalArgumentException("Registration function is mandatory"));
+                    return;
+                }
+                if (type == null) {
+                    emitter.onError(new IllegalArgumentException("Request type is mandatory"));
+                    return;
+                }
 
                 if (withId && id == null) {
                     id = idGenerator.nextRequestId();
@@ -191,13 +193,15 @@ public class RequestRepository implements AutoCloseable {
                 Request<T> request = new Request<>(emitter, key, register, unregister, userData);
 
                 if (!client.isConnected()) {
-                    throw new IbExceptions.NotConnectedError();
+                    emitter.onError(new IbExceptions.NotConnectedError());
+                    return;
                 }
 
                 Request old = requests.putIfAbsent(key, request);
                 if (old != null) {
                     log.error("Duplicated request: {}", key);
-                    throw new IbExceptions.DuplicatedRequestError(key);
+                    emitter.onError(new IbExceptions.DuplicatedRequestError(key));
+                    return;
                 }
 
                 emitter.setCancellable(() -> {
