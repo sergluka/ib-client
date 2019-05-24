@@ -36,8 +36,11 @@ public abstract class TerminalErrorHandler {
 
         log.trace("Message from IB client: id={}, code={}, message={}", id, code, message);
 
+        IbExceptions.IbClientError exception = new IbExceptions.TerminalError(id, message, code);
+
         ErrorType type;
         switch (code) {
+
             case 202: // Order canceled
             case 2100: // API client has been unsubscribed from account data..
             case 2104: // Market data farm connection is OK
@@ -64,8 +67,7 @@ public abstract class TerminalErrorHandler {
                 break;
 
             case 10147: // OrderId ... that needs to be cancelled is not found
-                requests.onError(RequestRepository.Type.REQ_ORDER_CANCEL, id,
-                                 new IbExceptions.TerminalError(id, message, code));
+                requests.onError(RequestRepository.Type.REQ_ORDER_CANCEL, id, exception);
                 type = ErrorType.CUSTOM;
                 break;
 
@@ -79,6 +81,11 @@ public abstract class TerminalErrorHandler {
             case 162:
                 onHistoricalDataError(code, id, message);
                 type = ErrorType.DEBUG;
+                break;
+
+            case 10182: // Failed to request live updates (disconnected)
+                exception = new IbExceptions.SubscriptionLostError(id, message);
+                type = ErrorType.REQUEST_ERROR;
                 break;
 
             default:
@@ -116,7 +123,7 @@ public abstract class TerminalErrorHandler {
             case CUSTOM:
                 break;
             case REQUEST_ERROR:
-                requests.onError(id, new IbExceptions.TerminalError(id, message, code), false);
+                requests.onError(id, exception, false);
                 break;
             case DEBUG:
                 log.debug("TWS message: [#{}] {}", code, message);

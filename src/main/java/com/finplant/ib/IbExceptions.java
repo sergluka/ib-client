@@ -77,4 +77,10 @@ public class IbExceptions {
         }
     }
 
+    public static class SubscriptionLostError extends IbClientError {
+        public SubscriptionLostError(int requestId, String message) {
+            super(requestId, message);
+        }
+    }
+
 }
