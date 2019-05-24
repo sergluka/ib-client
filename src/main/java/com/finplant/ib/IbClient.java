@@ -14,7 +14,6 @@ import io.reactivex.Observable;
 import io.reactivex.Scheduler;
 import io.reactivex.Single;
 import io.reactivex.schedulers.Schedulers;
-import io.reactivex.subjects.BehaviorSubject;
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
 import org.jetbrains.annotations.NotNull;
@@ -351,7 +350,7 @@ public class IbClient implements AutoCloseable {
      * Switch delayed streaming data mode
      *
      * @param type Data feed subscription mode
-     * @see com.finplant.ib.IbClient#reqMktData
+     * @see com.finplant.ib.IbClient#reqMarketData
      * @see <a href=https://interactivebrokers.github.io/tws-api/delayed_data.html>TWS API: Delayed Streaming Data</a>
      */
     public void setMarketDataType(MarketDataType type) {
@@ -370,12 +369,12 @@ public class IbClient implements AutoCloseable {
      * @see <a href=https://interactivebrokers.github.io/tws-api/delayed_data.html>TWS API: Delayed Streaming Data</a>
      * @see
      * <a href=https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a7a19258a3a2087c07c1c57b93f659b63>TWS
-     * API: reqMktData</a>
+     * API: reqMarketData</a>
      * @see
      * <a href=https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#ae919658c15bceba6b6cf2a1336d0acbf>TWS
      * API: cancelPositionsMulti</a>
      */
-    public Single<IbTick> reqMktData(Contract contract) {
+    public Single<IbTick> reqMarketData(Contract contract) {
         Validators.shouldNotBeNull(contract, "Contract should be defined");
 
         return requests.<IbTick>builder()
@@ -527,7 +526,7 @@ public class IbClient implements AutoCloseable {
      * TWS API: Market Depth (Level I)</a>
      * @see
      * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a7a19258a3a2087c07c1c57b93f659b63">
-     * TWS API: reqMktData</a>
+     * TWS API: reqMarketData</a>
      * @see
      * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#af443a1cd993aee33ce67deb7bc39e484">
      * TWS API: cancelMktData</a>
@@ -537,7 +536,7 @@ public class IbClient implements AutoCloseable {
 
         return requests.<IbTick>builder()
                 .type(RequestRepository.Type.EVENT_MARKET_DATA)
-                .register(id -> socket.reqMktData(id, contract, "", false, false, null))
+                .register(id -> socket.reqMktData(id, contract, "233", false, false, null))
                 .unregister(id -> socket.cancelMktData(id))
                 .subscribe();
     }

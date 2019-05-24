@@ -25,8 +25,8 @@ class IbClientTest extends Specification {
     void setup() {
         client = new IbClient()
         assert client.connect("127.0.0.1", 7497, 2).blockingAwait(3000, TimeUnit.SECONDS)
-        client.cancelAll().timeout(10, TimeUnit.SECONDS).blockingGet()
-        closeAllPositions()
+//        client.cancelAll().timeout(10, TimeUnit.SECONDS).blockingGet()
+//        closeAllPositions()
     }
 
     void closeAllPositions() {
@@ -514,7 +514,7 @@ class IbClientTest extends Specification {
 
     def "Get contract snapshot"() {
         when:
-        def observer = client.reqMktData(createContractEUR()).test()
+        def observer = client.reqMarketData(createContractEUR()).test()
 
         then:
         observer.awaitDone(30, TimeUnit.SECONDS)

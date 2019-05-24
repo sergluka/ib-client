@@ -280,7 +280,8 @@ public class Wrapper implements EWrapper {
     }
 
     public void updateMktDepthL2(int tickerId, int position,
-                                 String marketMaker, int operation, int side, double price, int size, boolean isSmartDepth) {
+                                 String marketMaker, int operation, int side, double price, int size,
+                                 boolean isSmartDepth) {
 
         log.trace("updateMktDepthL2: tickerId = {}, position = {}, marketMaker = {}, operation = {}, side = {}, " +
                   "price = {}, size = {}", tickerId, position, marketMaker, operation, side, price, size);
@@ -430,7 +431,7 @@ public class Wrapper implements EWrapper {
             return;
         }
 
-        requests.onNextAndComplete(RequestRepository.Type.REQ_MARKET_DATA, tickerId, tick, true);
+        requests.onNextAndComplete(null, tickerId, tick, false);
     }
 
     @Override
@@ -631,9 +632,9 @@ public class Wrapper implements EWrapper {
     @Override
     public void mktDepthExchanges(DepthMktDataDescription[] depthMktDataDescriptions) {
         List<IbDepthMktDataDescription> result =
-              Lists.newArrayList(depthMktDataDescriptions).stream()
-                   .map(IbDepthMktDataDescription::new)
-                   .collect(Collectors.toList());
+                Lists.newArrayList(depthMktDataDescriptions).stream()
+                     .map(IbDepthMktDataDescription::new)
+                     .collect(Collectors.toList());
         log.trace("mktDepthExchanges: {}", result);
 
         requests.onNextAndComplete(RequestRepository.Type.REQ_MARKET_DEPTH_EXCHANGES, null, result, true);
@@ -753,8 +754,7 @@ public class Wrapper implements EWrapper {
     }
 
     private void publishNoData(int tickerId) {
-        requests.onError(RequestRepository.Type.EVENT_MARKET_DATA, tickerId,
-                         new IbExceptions.NoTicksError(tickerId), false);
+        requests.onError(null, tickerId, new IbExceptions.NoTicksError(tickerId), false);
     }
 
     public Set<String> getManagedAccounts() {
