@@ -536,7 +536,7 @@ public class IbClient implements AutoCloseable {
 
         return requests.<IbTick>builder()
                 .type(RequestRepository.Type.EVENT_MARKET_DATA)
-                .register(id -> socket.reqMktData(id, contract, "233", false, false, null))
+                .register(id -> socket.reqMktData(id, contract, "", false, false, null))
                 .unregister(id -> socket.cancelMktData(id))
                 .subscribe();
     }

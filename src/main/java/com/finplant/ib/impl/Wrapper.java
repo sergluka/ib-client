@@ -69,7 +69,7 @@ public class Wrapper implements EWrapper {
     @Override
     public void tickPrice(int tickerId, int field, double price, TickAttrib attribs) {
         if (price == -1) {
-            publishNoData(tickerId);
+            log.debug("Got absent `tickPrice` for field %d");
             return;
         }
 
@@ -81,7 +81,7 @@ public class Wrapper implements EWrapper {
     @Override
     public void tickSize(int tickerId, int field, int value) {
         if (value == -1) {
-            publishNoData(tickerId);
+            log.debug("Got absent `tickSize` for field %d");
             return;
         }
 
