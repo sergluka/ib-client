@@ -188,7 +188,7 @@ public class IbTickImpl implements IbTick {
     public IbTickImpl() {
     }
 
-    public void setIntValue(Integer type, Integer value) {
+    public void setIntValue(int tickerId, Integer type, Integer value) {
 
         Types enumType = valueOf(type);
         switch (enumType) {
@@ -255,10 +255,10 @@ public class IbTickImpl implements IbTick {
             default:
                 log.warn("Unknown int type for tick, type={}, value={}", type, value);
         }
-        log.trace("Set value: {} = {}", enumType, value);
+        log.trace("Set value for {}: {} = {}", tickerId, enumType, value);
     }
 
-    public void setPriceValue(Integer type, BigDecimal value, TickAttrib attrib) {
+    public void setPriceValue(int tickerId, Integer type, BigDecimal value, TickAttrib attrib) {
         Types enumType = valueOf(type);
         switch (enumType) {
             case BID:
@@ -360,11 +360,11 @@ public class IbTickImpl implements IbTick {
             default:
                 log.warn("Unknown price type for tick, type={}, value={}", type, value);
         }
-        log.trace("Set value: {} = {}, attr: [auto exec: {}, past limit: {}, pre open: {}]",
-                  enumType, value, attrib.canAutoExecute(), attrib.pastLimit(), attrib.preOpen());
+        log.trace("Set value for {}: {} = {}, attr: [auto exec: {}, past limit: {}, pre open: {}]",
+                  tickerId, enumType, value, attrib.canAutoExecute(), attrib.pastLimit(), attrib.preOpen());
     }
 
-    public void setStringValue(Integer type, String value) {
+    public void setStringValue(int tickerId, Integer type, String value) {
         Types enumType = valueOf(type);
         switch (enumType) {
             case BID_EXCHANGE:
@@ -397,10 +397,10 @@ public class IbTickImpl implements IbTick {
             default:
                 log.warn("Unknown string type for tick, type={}, value={}", type, value);
         }
-        log.trace("Set value: {} = {}", enumType, value);
+        log.trace("Set value for {}: {} = {}", tickerId, enumType, value);
     }
 
-    public void setGenericValue(Integer type, BigDecimal value) {
+    public void setGenericValue(int tickerId, Integer type, BigDecimal value) {
         Types enumType = valueOf(type);
         switch (enumType) {
             case OPTION_HISTORICAL_VOLATILITY:
@@ -433,7 +433,7 @@ public class IbTickImpl implements IbTick {
             default:
                 log.warn("Unknown generic type for tick, type={}, value={}", type, value);
         }
-        log.trace("Set value: {} = {}", enumType, value);
+        log.trace("Set value for {}: {} = {}", tickerId, enumType, value);
     }
 
     public void refreshUpdateTime() {

@@ -69,35 +69,36 @@ public class Wrapper implements EWrapper {
     @Override
     public void tickPrice(int tickerId, int field, double price, TickAttrib attribs) {
         if (price == -1) {
-            log.debug("Got absent `tickPrice` for field %d");
+            log.debug("Got absent `tickPrice` for ticker {} and field {}", tickerId, field);
             return;
         }
 
         IbTick result = cache.updateTick(tickerId, (tick) ->
-                tick.setPriceValue(field, BigDecimal.valueOf(price), attribs));
+                tick.setPriceValue(tickerId, field, BigDecimal.valueOf(price), attribs));
         publishNewTick(tickerId, result);
     }
 
     @Override
     public void tickSize(int tickerId, int field, int value) {
         if (value == -1) {
-            log.debug("Got absent `tickSize` for field %d");
+            log.debug("Got absent `tickSize` for ticker {} and field {}", tickerId, field);
             return;
         }
 
-        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setIntValue(field, value));
+        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setIntValue(tickerId, field, value));
         publishNewTick(tickerId, result);
     }
 
     @Override
     public void tickGeneric(int tickerId, int field, double value) {
-        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setGenericValue(field, BigDecimal.valueOf(value)));
+        IbTick result = cache.updateTick(tickerId, (tick) ->
+                tick.setGenericValue(tickerId, field, BigDecimal.valueOf(value)));
         publishNewTick(tickerId, result);
     }
 
     @Override
     public void tickString(int tickerId, int field, String value) {
-        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setStringValue(field, value));
+        IbTick result = cache.updateTick(tickerId, (tick) -> tick.setStringValue(tickerId, field, value));
         publishNewTick(tickerId, result);
     }
 
@@ -751,10 +752,6 @@ public class Wrapper implements EWrapper {
 
     private void publishNewTick(int tickerId, IbTick result) {
         requests.onNext(RequestRepository.Type.EVENT_MARKET_DATA, tickerId, result, false);
-    }
-
-    private void publishNoData(int tickerId) {
-        requests.onError(null, tickerId, new IbExceptions.NoTicksError(tickerId), false);
     }
 
     public Set<String> getManagedAccounts() {
