@@ -148,22 +148,24 @@ public abstract class TerminalErrorHandler {
     private void onHistoricalDataError(int code, int id, String message) {
 
         final String HISTORICAL_DATA_MSG = "Historical Market Data Service error message";
+
         final String HISTORICAL_DATA_CANCEL_MSG = "API historical data query cancelled";
         final String HISTORICAL_DATA_NO_PERMISSIONS_MSG = "No market data permissions for";
+        final String HISTORICAL_DATA_NO_DATA_MSG = "HMDS query returned no data";
 
         if (!message.startsWith(HISTORICAL_DATA_MSG)) {
             log.error("Unexpected message for REQ_HISTORICAL_DATA: {}", message);
-            requests.onError(null, id,
-                             new IbExceptions.TerminalError(id, message, code));
+            requests.onError(null, id, new IbExceptions.TerminalError(id, message, code));
             return;
         }
 
         String messageInfo = message.substring(HISTORICAL_DATA_MSG.length() + 1);
+        //noinspection StatementWithEmptyBody Subscription canceling is not an error
         if (messageInfo.startsWith(HISTORICAL_DATA_CANCEL_MSG)) {
-            // Subscription canceling is not an error
         } else if (messageInfo.startsWith(HISTORICAL_DATA_NO_PERMISSIONS_MSG)) {
-            requests.onError(null, id,
-                             new IbExceptions.NoPermissions(id, messageInfo), true);
+            requests.onError(null, id, new IbExceptions.NoPermissions(id, messageInfo), true);
+        } else if (messageInfo.startsWith(HISTORICAL_DATA_NO_DATA_MSG)) {
+            requests.onError(null, id, new IbExceptions.NoDataError(id, messageInfo), true);
         } else {
             requests.onError(null, id, new IbExceptions.IbClientError(id, message), true);
         }

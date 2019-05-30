@@ -59,9 +59,13 @@ public class IbExceptions {
         }
     }
 
-    public static class NoTicksError extends IbClientError {
-        public NoTicksError(int requestId) {
-            super(requestId, "Has no ticks");
+    public static class NoDataError extends IbClientError {
+        public NoDataError(int requestId) {
+            super(requestId, "Has no data");
+        }
+
+        public NoDataError(int requestId, String message) {
+            super(requestId, message);
         }
     }
 

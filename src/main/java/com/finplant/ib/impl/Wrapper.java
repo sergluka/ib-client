@@ -428,7 +428,7 @@ public class Wrapper implements EWrapper {
         IbTick tick = cache.getTick(tickerId);
         if (tick == null) {
             log.info("No ticks for ticker {}", tickerId);
-            requests.onError(tickerId, new IbExceptions.NoTicksError(tickerId));
+            requests.onError(tickerId, new IbExceptions.NoDataError(tickerId));
             return;
         }
 
