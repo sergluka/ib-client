@@ -37,7 +37,8 @@ dependencies {
     implementation 'com.google.guava:guava:27.1-jre'
 
     testImplementation 'org.spockframework:spock-core:1.2-groovy-2.5'
-    testImplementation 'net.bytebuddy:byte-buddy:1.8.22'
+    testImplementation 'org.objenesis:objenesis:2.6'
+    testImplementation 'net.bytebuddy:byte-buddy:1.9.0'
     testImplementation 'ch.qos.logback:logback-classic:1.2.+'
     testImplementation 'org.assertj:assertj-core:3.11.1'
 }
