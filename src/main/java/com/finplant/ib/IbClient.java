@@ -226,7 +226,7 @@ public class IbClient implements AutoCloseable {
         }
 
         String tagsString = Stream.concat(tags.stream().map(Enum::name), Stream.of(ledgerTag))
-                                  .collect(Collectors.joining(","));
+                .collect(Collectors.joining(","));
 
 
         return requests.<IbAccountSummary>builder()
@@ -845,11 +845,11 @@ public class IbClient implements AutoCloseable {
 
         Completable request = Completable.defer(() -> {
             return requests.builder()
-                           .id(orderId)
-                           .type(RequestRepository.Type.REQ_ORDER_CANCEL)
-                           .register(id -> socket.cancelOrder(id))
-                           .subscribe()
-                           .ignoreElements();
+                    .id(orderId)
+                    .type(RequestRepository.Type.REQ_ORDER_CANCEL)
+                    .register(id -> socket.cancelOrder(id))
+                    .subscribe()
+                    .ignoreElements();
         });
 
         return preconditions.andThen(request);

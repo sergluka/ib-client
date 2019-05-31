@@ -185,11 +185,15 @@ public class RequestRepository implements AutoCloseable {
                     return;
                 }
 
+                Integer requestId;
+
                 if (withId && id == null) {
-                    id = idGenerator.nextRequestId();
+                    requestId = idGenerator.nextRequestId();
+                } else {
+                    requestId = id;
                 }
 
-                RequestKey key = new RequestKey(type, id);
+                RequestKey key = new RequestKey(type, requestId);
                 Request<T> request = new Request<>(emitter, key, register, unregister, userData);
 
                 if (!client.isConnected()) {

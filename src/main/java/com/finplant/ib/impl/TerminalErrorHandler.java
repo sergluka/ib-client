@@ -147,11 +147,11 @@ public abstract class TerminalErrorHandler {
 
     private void onHistoricalDataError(int code, int id, String message) {
 
-        final String HISTORICAL_DATA_MSG = "Historical Market Data Service error message";
+        String HISTORICAL_DATA_MSG = "Historical Market Data Service error message";
 
-        final String HISTORICAL_DATA_CANCEL_MSG = "API historical data query cancelled";
-        final String HISTORICAL_DATA_NO_PERMISSIONS_MSG = "No market data permissions for";
-        final String HISTORICAL_DATA_NO_DATA_MSG = "HMDS query returned no data";
+        String HISTORICAL_DATA_CANCEL_MSG = "API historical data query cancelled";
+        String HISTORICAL_DATA_NO_PERMISSIONS_MSG = "No market data permissions for";
+        String HISTORICAL_DATA_NO_DATA_MSG = "HMDS query returned no data";
 
         if (!message.startsWith(HISTORICAL_DATA_MSG)) {
             log.error("Unexpected message for REQ_HISTORICAL_DATA: {}", message);
