@@ -817,8 +817,6 @@ public class IbClient implements AutoCloseable {
      * TWS API: cancelOrder</a>
      */
     public Completable cancelOrder(int orderId) {
-        Validators.intShouldBePositive(orderId, "Order ID should be positive");
-
         log.info("Canceling order {}", orderId);
 
         // Checking does order doesn't already filled or canceled
