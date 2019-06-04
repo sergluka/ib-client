@@ -929,6 +929,22 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
+     * Requests status updates about future orders placed from TWS. Can only be used with client ID 0.
+     *
+     * @param autoBind if set to true, the newly created orders will be assigned an API order ID and implicitly
+     *                 associated with this client. If set to false, future orders will not be.
+     *
+     * @see <a href="https://interactivebrokers.github.io/tws-api/open_orders.html#manually_submitted">
+     * TWS API: Manually submitted orders</a>
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#abe8e30367fff33b9a1171a4580029016">
+     * TWS API: reqAutoOpenOrders</a>
+     */
+    public void reqAutoOpenOrders(boolean autoBind) {
+        socket.reqAutoOpenOrders(autoBind);
+    }
+
+    /**
      * Requests for contract details.
      *
      * @param contract IB contract
