@@ -743,7 +743,18 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void orderBound(long orderId, int apiClientId, int apiOrderId) {
-        log.trace("orderBound: NOT IMPLEMENTED");
+        log.trace("orderBound: NOT IMPLEMENTED. orderId={}, apiClientId={}, apiOrderId={}",
+                  orderId, apiClientId, apiClientId);
+    }
+
+    @Override
+    public void completedOrder(Contract contract, Order order, OrderState orderState) {
+        log.trace("completedOrder: NOT IMPLEMENTED. order={}, state={}", order.orderId(), orderState.getStatus());
+    }
+
+    @Override
+    public void completedOrdersEnd() {
+        log.trace("completedOrdersEnd: NOT IMPLEMENTED");
     }
 
     public void setSocket(EClientSocket socket) {

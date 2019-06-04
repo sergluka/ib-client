@@ -24,7 +24,7 @@ class IbClientTest extends Specification {
 
     void setup() {
         client = new IbClient()
-        assert client.connect("127.0.0.1", 7497, 2).blockingAwait(3000, TimeUnit.SECONDS)
+        assert client.connect("127.0.0.1", 7497, 0).blockingAwait(3000, TimeUnit.SECONDS)
 //        client.cancelAll().timeout(10, TimeUnit.SECONDS).blockingGet()
 //        closeAllPositions()
     }
@@ -63,7 +63,7 @@ class IbClientTest extends Specification {
 
     void cleanup() {
         if (client) {
-            client.cancelAll().blockingGet()
+//            client.cancelAll().blockingGet()
             client.close()
         }
     }
@@ -238,11 +238,11 @@ class IbClientTest extends Specification {
 
     def "Request cannot be duplicated"() {
         when:
-        def observable = client.reqAllOpenOrders()
-                .mergeWith(client.reqAllOpenOrders())
-                .mergeWith(client.reqAllOpenOrders())
-                .mergeWith(client.reqAllOpenOrders())
-                .mergeWith(client.reqAllOpenOrders())
+        def observable = client.reqOpenOrders()
+                .mergeWith(client.reqOpenOrders())
+                .mergeWith(client.reqOpenOrders())
+                .mergeWith(client.reqOpenOrders())
+                .mergeWith(client.reqOpenOrders())
         observable.blockingLast()
 
         then:
@@ -256,7 +256,7 @@ class IbClientTest extends Specification {
 
         when:
         client.placeOrder(contract, order).blockingGet()
-        def list = client.reqAllOpenOrders().timeout(3, TimeUnit.SECONDS).toList().blockingGet()
+        def list = client.reqOpenOrders().timeout(3, TimeUnit.SECONDS).toList().blockingGet()
 
         then:
         println list
@@ -265,7 +265,7 @@ class IbClientTest extends Specification {
 
     def "Request orders when no orders exists"() {
         when:
-        def list = client.reqAllOpenOrders().timeout(3, TimeUnit.SECONDS).toList().blockingGet()
+        def list = client.reqOpenOrders().timeout(3, TimeUnit.SECONDS).toList().blockingGet()
 
         then:
         list.isEmpty()
@@ -449,10 +449,10 @@ class IbClientTest extends Specification {
 
         when:
         def future1 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-        client.reqAllOpenOrders().timeout(10, TimeUnit.SECONDS).blockingSubscribe()
+        client.reqOpenOrders().timeout(10, TimeUnit.SECONDS).blockingSubscribe()
         def future2 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
         def future3 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-        client.reqAllOpenOrders().timeout(10, TimeUnit.SECONDS).blockingSubscribe()
+        client.reqOpenOrders().timeout(10, TimeUnit.SECONDS).blockingSubscribe()
         def future4 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
         def future5 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
         def future6 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
@@ -464,9 +464,9 @@ class IbClientTest extends Specification {
         def order3 = future3.timeout(10, TimeUnit.SECONDS).blockingGet()
         def order4 = future4.timeout(10, TimeUnit.SECONDS).blockingGet()
         def order5 = future5.timeout(10, TimeUnit.SECONDS).blockingGet()
-        def list1 = client.reqAllOpenOrders().timeout(10, TimeUnit.SECONDS).toList().blockingGet()
+        def list1 = client.reqOpenOrders().timeout(10, TimeUnit.SECONDS).toList().blockingGet()
         def order6 = future6.timeout(10, TimeUnit.SECONDS).blockingGet()
-        def list2 = client.reqAllOpenOrders().timeout(10, TimeUnit.SECONDS).toList().blockingGet()
+        def list2 = client.reqOpenOrders().timeout(10, TimeUnit.SECONDS).toList().blockingGet()
 
 
         then:

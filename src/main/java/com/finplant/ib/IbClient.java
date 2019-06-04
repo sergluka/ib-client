@@ -869,7 +869,7 @@ public class IbClient implements AutoCloseable {
     public Completable cancelAll() {
 
         return Observable.create(emitter -> {
-            Integer sumOfOrders = reqAllOpenOrders()
+            Integer sumOfOrders = reqOpenOrders()
                     .filter(order -> !order.getLastStatus().isCanceled() &&
                                      !order.getLastStatus().isFilled() &&
                                      !order.getLastStatus().isInactive())
@@ -897,7 +897,7 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
-     * Requests for all open orders
+     * Requests for open orders
      *
      * <pre>{@code
      * Example:
@@ -908,7 +908,7 @@ public class IbClient implements AutoCloseable {
      *
      *    when:
      *    client.placeOrder(contract, order).blockingGet()
-     *    def list = client.reqAllOpenOrders().timeout(3, TimeUnit.SECONDS).toList().blockingGet()
+     *    def list = client.reqOpenOrders().timeout(3, TimeUnit.SECONDS).toList().blockingGet()
      *
      *    then:
      *    list.size() > 0
@@ -918,12 +918,12 @@ public class IbClient implements AutoCloseable {
      *
      * @see
      * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#aa2c9a012884dd53311a7a7c6a326306c">
-     * TWS API: reqAllOpenOrders</a>
+     * TWS API: reqOpenOrders</a>
      */
-    public Observable<IbOrder> reqAllOpenOrders() {
+    public Observable<IbOrder> reqOpenOrders() {
         return requests.<List<IbOrder>>builder()
                 .type(RequestRepository.Type.REQ_ORDER_LIST)
-                .register(() -> socket.reqAllOpenOrders())
+                .register(() -> socket.reqOpenOrders())
                 .subscribe()
                 .flatMap(Observable::fromIterable);
     }
