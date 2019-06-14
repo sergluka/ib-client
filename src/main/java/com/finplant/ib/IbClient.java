@@ -232,6 +232,7 @@ public class IbClient implements AutoCloseable {
         return requests.<IbAccountSummary>builder()
                 .type(RequestRepository.Type.REQ_ACCOUNT_SUMMARY)
                 .register(id -> socket.reqAccountSummary(id, group, tagsString))
+                .unregister(id -> socket.cancelAccountSummary(id))
                 .subscribe()
                 .singleOrError();
     }

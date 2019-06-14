@@ -680,8 +680,18 @@ class IbClientTest extends Specification {
         _1_month | _
     }
 
-    def "Get all accounts summary"() {
+    def "Get all accounts summary after few calls"() {
         when:
+        client.reqAccountSummary("All", "All").blockingGet()
+        client.reqAccountSummary("All", "All").blockingGet()
+        client.reqAccountSummary("All", "All").blockingGet()
+        client.reqAccountSummary("All", "All").blockingGet()
+        client.reqAccountSummary("All", "All").blockingGet()
+        client.reqAccountSummary("All", "All").blockingGet()
+        client.reqAccountSummary("All", "All").blockingGet()
+        client.reqAccountSummary("All", "All").blockingGet()
+        client.reqAccountSummary("All", "All").blockingGet()
+
         def observer = client.reqAccountSummary("All", "All").test()
 
         then:
@@ -695,75 +705,75 @@ class IbClientTest extends Specification {
         value.cushion > 0.0g
         value.dayTradesRemaining == -1
         value.lookAheadNextChange > new Date()
-        value.accruedCash > 0.0g
-        value.availableFunds > 0.0g
-        value.buyingPower > 0.0g
-        value.equityWithLoanValue > 0.0g
-        value.excessLiquidity > 0.0g
-        value.fullAvailableFunds > 0.0g
-        value.fullExcessLiquidity > 0.0g
-        value.fullInitMarginReq > 0.0g
-        value.fullMaintMarginReq > 0.0g
-        value.grossPositionValue > 0.0g
-        value.initMarginReq > 0.0g
-        value.lookAheadAvailableFunds > 0.0g
-        value.lookAheadExcessLiquidity > 0.0g
-        value.lookAheadInitMarginReq > 0.0g
-        value.lookAheadMaintMarginReq > 0.0g
-        value.maintMarginReq > 0.0g
-        value.netLiquidation > 0.0g
-        value.regTEquity > 0.0g
-        value.regTMargin > 0.0g
-        value.SMA > 0.0g
-        value.totalCashValue > 0.0g
+        value.accruedCash != null
+        value.availableFunds != null
+        value.buyingPower != null
+        value.equityWithLoanValue != null
+        value.excessLiquidity != null
+        value.fullAvailableFunds != null
+        value.fullExcessLiquidity != null
+        value.fullInitMarginReq != null
+        value.fullMaintMarginReq != null
+        value.grossPositionValue != null
+        value.initMarginReq != null
+        value.lookAheadAvailableFunds != null
+        value.lookAheadExcessLiquidity != null
+        value.lookAheadInitMarginReq != null
+        value.lookAheadMaintMarginReq != null
+        value.maintMarginReq != null
+        value.netLiquidation != null
+        value.regTEquity != null
+        value.regTMargin != null
+        value.SMA != null
+        value.totalCashValue != null
 
         def summaryAUD = value.details["AUD"]
-        summaryAUD.cashBalance > 0.0
-        summaryAUD.totalCashBalance >= 0.0
-        summaryAUD.accruedCash >= 0.0
-        summaryAUD.stockMarketValue >= 0.0
-        summaryAUD.optionMarketValue >= 0.0
-        summaryAUD.futureOptionValue >= 0.0
-        summaryAUD.futuresPNL >= 0.0
-        summaryAUD.netLiquidationByCurrency > 0.0
-        summaryAUD.unrealizedPnL >= 0.0
-        summaryAUD.realizedPnL >= 0.0
-        summaryAUD.exchangeRate >= 0.0
-        summaryAUD.fundValue >= 0.0
-        summaryAUD.netDividend >= 0.0
-        summaryAUD.mutualFundValue >= 0.0
-        summaryAUD.moneyMarketFundValue >= 0.0
-        summaryAUD.corporateBondValue >= 0.0
-        summaryAUD.tBondValue >= 0.0
-        summaryAUD.tBillValue >= 0.0
-        summaryAUD.warrantValue >= 0.0
-        summaryAUD.fxCashBalance >= 0.0
+        summaryAUD.cashBalance
+        summaryAUD.totalCashBalance != null
+        summaryAUD.accruedCash != null
+        summaryAUD.stockMarketValue != null
+        summaryAUD.optionMarketValue != null
+        summaryAUD.futureOptionValue != null
+        summaryAUD.futuresPNL != null
+        summaryAUD.netLiquidationByCurrency != null
+        summaryAUD.unrealizedPnL != null
+        summaryAUD.realizedPnL != null
+        summaryAUD.exchangeRate != null
+        summaryAUD.fundValue != null
+        summaryAUD.netDividend != null
+        summaryAUD.mutualFundValue != null
+        summaryAUD.moneyMarketFundValue != null
+        summaryAUD.corporateBondValue != null
+        summaryAUD.tBondValue != null
+        summaryAUD.tBillValue != null
+        summaryAUD.warrantValue != null
+        summaryAUD.fxCashBalance != null
         summaryAUD.accountOrGroup == "All"
-        summaryAUD.issuerOptionValue >= 0.0
+        summaryAUD.issuerOptionValue != null
 
         def summaryEUR = value.details["EUR"]
-        summaryEUR.cashBalance > 0.0
-        summaryEUR.totalCashBalance >= 0.0
-        summaryEUR.accruedCash >= 0.0
-        summaryEUR.stockMarketValue >= 0.0
-        summaryEUR.optionMarketValue >= 0.0
-        summaryEUR.futureOptionValue >= 0.0
-        summaryEUR.futuresPNL >= 0.0
-        summaryEUR.netLiquidationByCurrency > 0.0
-        summaryEUR.unrealizedPnL >= 0.0
-        summaryEUR.realizedPnL >= 0.0
-        summaryEUR.exchangeRate >= 0.0
-        summaryEUR.fundValue >= 0.0
-        summaryEUR.netDividend >= 0.0
-        summaryEUR.mutualFundValue >= 0.0
-        summaryEUR.moneyMarketFundValue >= 0.0
-        summaryEUR.corporateBondValue >= 0.0
-        summaryEUR.tBondValue >= 0.0
-        summaryEUR.tBillValue >= 0.0
-        summaryEUR.warrantValue >= 0.0
-        summaryEUR.fxCashBalance >= 0.0
+        summaryEUR.cashBalance
+        summaryEUR.totalCashBalance != null
+        summaryEUR.accruedCash != null
+        summaryEUR.stockMarketValue != null
+        summaryEUR.optionMarketValue != null
+        summaryEUR.futureOptionValue != null
+        summaryEUR.futuresPNL != null
+        summaryEUR.netLiquidationByCurrency != null
+        summaryEUR.unrealizedPnL != null
+        summaryEUR.realizedPnL != null
+        summaryEUR.exchangeRate != null
+        summaryEUR.fundValue != null
+        summaryEUR.netDividend != null
+        summaryEUR.mutualFundValue != null
+        summaryEUR.moneyMarketFundValue != null
+        summaryEUR.corporateBondValue != null
+        summaryEUR.tBondValue != null
+        summaryEUR.tBillValue != null
+        summaryEUR.warrantValue != null
+        summaryEUR.fxCashBalance != null
         summaryEUR.accountOrGroup == "All"
-        summaryEUR.issuerOptionValue >= 0.0
+        summaryEUR.issuerOptionValue != null
     }
 
     def "reqMarketRule should return list of price increments"() {
