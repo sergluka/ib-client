@@ -5,8 +5,8 @@ import com.ib.client.Order;
 import com.ib.client.OrderState;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.LinkedList;
 import java.util.Set;
-import java.util.TreeSet;
 
 @SuppressWarnings("unused")
 public class IbOrder {
@@ -16,7 +16,7 @@ public class IbOrder {
     private final Order order;
     private final OrderState state;
 
-    private final TreeSet<IbOrderStatus> statuses = new TreeSet<>();
+    private final LinkedList<IbOrderStatus> statuses = new LinkedList<>();
 
     public IbOrder(int orderId, Contract contract, Order order, OrderState state) {
         this.orderId = orderId;
@@ -27,7 +27,11 @@ public class IbOrder {
 
     // TODO: Hide
     public synchronized boolean addStatus(@NotNull IbOrderStatus status) {
-        return statuses.add(status);
+        if (!statuses.contains(status)) {
+            return statuses.add(status);
+        }
+
+        return false;
     }
 
     public synchronized void addStatuses(@NotNull Set<IbOrderStatus> set) {
@@ -39,7 +43,7 @@ public class IbOrder {
     }
 
     public synchronized IbOrderStatus getLastStatus() {
-        return statuses.last();
+        return statuses.getLast();
     }
 
     public Contract getContract() {

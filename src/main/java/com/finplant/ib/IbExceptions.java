@@ -9,7 +9,7 @@ public class IbExceptions {
 
         private final Integer requestId;
 
-        public IbClientError(int requestId, String text) {
+        public IbClientError(Integer requestId, String text) {
             super(text);
             this.requestId = requestId;
         }

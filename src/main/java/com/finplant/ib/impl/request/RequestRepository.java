@@ -175,7 +175,6 @@ public class RequestRepository implements AutoCloseable {
         public Observable<T> subscribe(Scheduler subscribeScheduler) {
 
             return Observable.<T>create(emitter -> {
-
                 if (register == null) {
                     emitter.onError(new IllegalArgumentException("Registration function is mandatory"));
                     return;

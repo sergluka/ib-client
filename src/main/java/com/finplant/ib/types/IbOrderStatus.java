@@ -8,7 +8,7 @@ import com.google.common.collect.Ordering;
 import com.ib.client.OrderStatus;
 
 @SuppressWarnings("unused")
-public class IbOrderStatus implements Comparable<IbOrderStatus> {
+public class IbOrderStatus {
     private final int orderId;
     private final OrderStatus status;
     private final BigDecimal filled;
@@ -146,23 +146,5 @@ public class IbOrderStatus implements Comparable<IbOrderStatus> {
 
     public boolean isFilled() {
         return status == OrderStatus.Filled;
-    }
-
-    @Override
-    public int compareTo(IbOrderStatus rhs) {
-        return ComparisonChain.start()
-                              .compare(orderId, rhs.orderId)
-                              .compare(filled, rhs.filled)
-                              .compare(remaining, rhs.remaining)
-                              .compare(avgFillPrice, rhs.avgFillPrice)
-                              .compare(permId, rhs.permId)
-                              .compare(parentId, rhs.parentId)
-                              .compare(lastFillPrice, rhs.lastFillPrice)
-                              .compare(clientId, rhs.clientId)
-                              .compare(mktCapPrice, rhs.mktCapPrice)
-                              .compare(status, rhs.status, Ordering.natural().nullsFirst())
-                              .compare(whyHeld, rhs.whyHeld, Ordering.natural().nullsFirst())
-                              .result();
-
     }
 }

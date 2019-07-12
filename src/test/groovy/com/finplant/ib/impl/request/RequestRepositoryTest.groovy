@@ -19,18 +19,20 @@ class RequestRepositoryTest extends Specification {
 
     def "Build request without type should raise error"() {
         when:
-        repository.builder().register({}).subscribe()
+        def testObserver = repository.builder().register({}).subscribe().test()
 
         then:
-        thrown(IllegalArgumentException)
+        testObserver.awaitTerminalEvent()
+        testObserver.assertError(IllegalArgumentException)
     }
 
     def "Build request without registration function should raise error"() {
         when:
-        repository.builder().type(RequestRepository.Type.EVENT_ACCOUNT_PNL).subscribe()
+        def testObserver = repository.builder().type(RequestRepository.Type.EVENT_ACCOUNT_PNL).subscribe().test()
 
         then:
-        thrown(IllegalArgumentException)
+        testObserver.awaitTerminalEvent()
+        testObserver.assertError(IllegalArgumentException)
     }
 
     def "Add request with id and complete it with data"() {
@@ -50,10 +52,12 @@ class RequestRepositoryTest extends Specification {
                 .unregister({ id -> unregisterCalled.evaluate { assert id == 111 } } as Consumer<Integer>)
                 .subscribe()
                 .test()
+
+        observer.awaitCount(1)
+
         repository.onNextAndComplete(RequestRepository.Type.EVENT_PORTFOLIO, 111, "Data", true)
 
         then:
-        observer.awaitCount(1)
         observer.assertNoErrors()
         observer.assertComplete()
         observer.assertValueCount(1)
@@ -104,6 +108,7 @@ class RequestRepositoryTest extends Specification {
                 .subscribe()
                 .test()
         then:
+        observer.awaitTerminalEvent()
         observer.assertError(IbExceptions.DuplicatedRequestError.class)
     }
 

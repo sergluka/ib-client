@@ -40,7 +40,7 @@ public class CacheRepositoryImpl implements CacheRepository {
             if (value != null) {
                 log.debug("Order {} already has been added", order.getOrderId());
                 result.set(false);
-                return value;
+                return order;
             }
 
             result.set(true);
