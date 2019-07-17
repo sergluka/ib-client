@@ -4,15 +4,14 @@ import java.math.BigDecimal;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
-// TODO: Refactor
 public class IbAccountSummary {
 
     private String accountType;
     private BigDecimal netLiquidation;
     private BigDecimal totalCashValue;
     private BigDecimal settledCash;
-    private BigDecimal accruedCash;
     private BigDecimal buyingPower;
     private BigDecimal equityWithLoanValue;
     private BigDecimal previousEquityWithLoanValue;
@@ -34,183 +33,176 @@ public class IbAccountSummary {
     private BigDecimal lookAheadMaintMarginReq;
     private BigDecimal lookAheadAvailableFunds;
     private BigDecimal lookAheadExcessLiquidity;
-    private int highestSeverity;
-    private int dayTradesRemaining;
-    private int leverage;
+    private Integer highestSeverity;
+    private Integer dayTradesRemaining;
+    private Integer leverage;
 
     private final Map<String, DetailsPerCurrency> details = new HashMap<>();
 
-    public void update(String account, String tag, String value, String currency) {
+    public void update(String tag, String value, String currency) throws Exception {
 
-        if (!account.equals("All")) {
-            switch (tag) {
-                case "AccountType":
-                    accountType = value;
-                    break;
-                case "NetLiquidation":
-                    netLiquidation = new BigDecimal(value);
-                    break;
-                case "TotalCashValue":
-                    totalCashValue = new BigDecimal(value);
-                    break;
-                case "SettledCash":
-                    settledCash = new BigDecimal(value);
-                    break;
-                case "AccruedCash":
-                    accruedCash = new BigDecimal(value);
-                    break;
-                case "BuyingPower":
-                    buyingPower = new BigDecimal(value);
-                    break;
-                case "EquityWithLoanValue":
-                    equityWithLoanValue = new BigDecimal(value);
-                    break;
-                case "PreviousEquityWithLoanValue":
-                    previousEquityWithLoanValue = new BigDecimal(value);
-                    break;
-                case "GrossPositionValue":
-                    grossPositionValue = new BigDecimal(value);
-                    break;
-                case "RegTEquity":
-                    regTEquity = new BigDecimal(value);
-                    break;
-                case "RegTMargin":
-                    regTMargin = new BigDecimal(value);
-                    break;
-                case "SMA":
-                    SMA = new BigDecimal(value);
-                    break;
-                case "InitMarginReq":
-                    initMarginReq = new BigDecimal(value);
-                    break;
-                case "MaintMarginReq":
-                    maintMarginReq = new BigDecimal(value);
-                    break;
-                case "AvailableFunds":
-                    availableFunds = new BigDecimal(value);
-                    break;
-                case "ExcessLiquidity":
-                    excessLiquidity = new BigDecimal(value);
-                    break;
-                case "Cushion":
-                    cushion = new BigDecimal(value);
-                    break;
-                case "FullInitMarginReq":
-                    fullInitMarginReq = new BigDecimal(value);
-                    break;
-                case "FullMaintMarginReq":
-                    fullMaintMarginReq = new BigDecimal(value);
-                    break;
-                case "FullAvailableFunds":
-                    fullAvailableFunds = new BigDecimal(value);
-                    break;
-                case "FullExcessLiquidity":
-                    fullExcessLiquidity = new BigDecimal(value);
-                    break;
-                case "LookAheadNextChange":
-                    lookAheadNextChange = new Date(Integer.valueOf(value) * 1000L);
-                    break;
-                case "LookAheadInitMarginReq":
-                    lookAheadInitMarginReq = new BigDecimal(value);
-                    break;
-                case "LookAheadMaintMarginReq":
-                    lookAheadMaintMarginReq = new BigDecimal(value);
-                    break;
-                case "LookAheadAvailableFunds":
-                    lookAheadAvailableFunds = new BigDecimal(value);
-                    break;
-                case "LookAheadExcessLiquidity":
-                    lookAheadExcessLiquidity = new BigDecimal(value);
-                    break;
-                case "HighestSeverity":
-                    highestSeverity = Integer.valueOf(value);
-                    break;
-                case "DayTradesRemaining":
-                    dayTradesRemaining = Integer.valueOf(value);
-                    break;
-                case "Leverage":
-                    leverage = Integer.valueOf(value);
-                    break;
-                default:
-                    throw new IllegalStateException("Unexpected value: " + tag);
-            }
-        } else {
-            DetailsPerCurrency summary = details.computeIfAbsent(currency, key -> new DetailsPerCurrency());
+        switch (tag) {
+            case "AccountType":
+                shouldBeNull(accountType, () -> accountType = value);
+                break;
+            case "NetLiquidation":
+                shouldBeNull(netLiquidation, () -> netLiquidation = new BigDecimal(value));
+                break;
+            case "TotalCashValue":
+                shouldBeNull(totalCashValue, () -> totalCashValue = new BigDecimal(value));
+                break;
+            case "SettledCash":
+                shouldBeNull(settledCash, () -> settledCash = new BigDecimal(value));
+                break;
+            case "BuyingPower":
+                shouldBeNull(buyingPower, () -> buyingPower = new BigDecimal(value));
+                break;
+            case "EquityWithLoanValue":
+                shouldBeNull(equityWithLoanValue, () -> equityWithLoanValue = new BigDecimal(value));
+                break;
+            case "PreviousEquityWithLoanValue":
+                shouldBeNull(previousEquityWithLoanValue, () -> previousEquityWithLoanValue = new BigDecimal(value));
+                break;
+            case "GrossPositionValue":
+                shouldBeNull(grossPositionValue, () -> grossPositionValue = new BigDecimal(value));
+                break;
+            case "RegTEquity":
+                shouldBeNull(regTEquity, () -> regTEquity = new BigDecimal(value));
+                break;
+            case "RegTMargin":
+                shouldBeNull(regTMargin, () -> regTMargin = new BigDecimal(value));
+                break;
+            case "SMA":
+                shouldBeNull(SMA, () -> SMA = new BigDecimal(value));
+                break;
+            case "InitMarginReq":
+                shouldBeNull(initMarginReq, () -> initMarginReq = new BigDecimal(value));
+                break;
+            case "MaintMarginReq":
+                shouldBeNull(maintMarginReq, () -> maintMarginReq = new BigDecimal(value));
+                break;
+            case "AvailableFunds":
+                shouldBeNull(availableFunds, () -> availableFunds = new BigDecimal(value));
+                break;
+            case "ExcessLiquidity":
+                shouldBeNull(excessLiquidity, () -> excessLiquidity = new BigDecimal(value));
+                break;
+            case "Cushion":
+                shouldBeNull(cushion, () -> cushion = new BigDecimal(value));
+                break;
+            case "FullInitMarginReq":
+                shouldBeNull(fullInitMarginReq, () -> fullInitMarginReq = new BigDecimal(value));
+                break;
+            case "FullMaintMarginReq":
+                shouldBeNull(fullMaintMarginReq, () -> fullMaintMarginReq = new BigDecimal(value));
+                break;
+            case "FullAvailableFunds":
+                shouldBeNull(fullAvailableFunds, () -> fullAvailableFunds = new BigDecimal(value));
+                break;
+            case "FullExcessLiquidity":
+                shouldBeNull(fullExcessLiquidity, () -> fullExcessLiquidity = new BigDecimal(value));
+                break;
+            case "LookAheadNextChange":
+                shouldBeNull(lookAheadNextChange, () -> lookAheadNextChange = new Date(Integer.valueOf(value) * 1000L));
+                break;
+            case "LookAheadInitMarginReq":
+                shouldBeNull(lookAheadInitMarginReq, () -> lookAheadInitMarginReq = new BigDecimal(value));
+                break;
+            case "LookAheadMaintMarginReq":
+                shouldBeNull(lookAheadMaintMarginReq, () -> lookAheadMaintMarginReq = new BigDecimal(value));
+                break;
+            case "LookAheadAvailableFunds":
+                shouldBeNull(lookAheadAvailableFunds, () -> lookAheadAvailableFunds = new BigDecimal(value));
+                break;
+            case "LookAheadExcessLiquidity":
+                shouldBeNull(lookAheadExcessLiquidity, () -> lookAheadExcessLiquidity = new BigDecimal(value));
+                break;
+            case "HighestSeverity":
+                shouldBeNull(highestSeverity, () -> highestSeverity = Integer.valueOf(value));
+                break;
+            case "DayTradesRemaining":
+                shouldBeNull(dayTradesRemaining, () -> dayTradesRemaining = Integer.valueOf(value));
+                break;
+            case "Leverage":
+                shouldBeNull(leverage, () -> leverage = Integer.valueOf(value));
+                break;
 
-            switch (tag) {
-                case "Currency":
-                case "RealCurrency":
-                    break;
-                case "CashBalance":
-                    summary.cashBalance = new BigDecimal(value);
-                    break;
-                case "TotalCashBalance":
-                    summary.totalCashBalance = new BigDecimal(value);
-                    break;
-                case "AccruedCash":
-                    summary.accruedCash = new BigDecimal(value);
-                    break;
-                case "StockMarketValue":
-                    summary.stockMarketValue = new BigDecimal(value);
-                    break;
-                case "OptionMarketValue":
-                    summary.optionMarketValue = new BigDecimal(value);
-                    break;
-                case "FutureOptionValue":
-                    summary.futureOptionValue = new BigDecimal(value);
-                    break;
-                case "FuturesPNL":
-                    summary.futuresPNL = new BigDecimal(value);
-                    break;
-                case "NetLiquidationByCurrency":
-                    summary.netLiquidationByCurrency = new BigDecimal(value);
-                    break;
-                case "UnrealizedPnL":
-                    summary.unrealizedPnL = new BigDecimal(value);
-                    break;
-                case "RealizedPnL":
-                    summary.realizedPnL = new BigDecimal(value);
-                    break;
-                case "ExchangeRate":
-                    summary.exchangeRate = new BigDecimal(value);
-                    break;
-                case "FundValue":
-                    summary.fundValue = new BigDecimal(value);
-                    break;
-                case "NetDividend":
-                    summary.netDividend = new BigDecimal(value);
-                    break;
-                case "MutualFundValue":
-                    summary.mutualFundValue = new BigDecimal(value);
-                    break;
-                case "MoneyMarketFundValue":
-                    summary.moneyMarketFundValue = new BigDecimal(value);
-                    break;
-                case "CorporateBondValue":
-                    summary.corporateBondValue = new BigDecimal(value);
-                    break;
-                case "TBondValue":
-                    summary.tBondValue = new BigDecimal(value);
-                    break;
-                case "TBillValue":
-                    summary.tBillValue = new BigDecimal(value);
-                    break;
-                case "WarrantValue":
-                    summary.warrantValue = new BigDecimal(value);
-                    break;
-                case "FxCashBalance":
-                    summary.fxCashBalance = new BigDecimal(value);
-                    break;
-                case "AccountOrGroup":
-                    summary.accountOrGroup = value;
-                    break;
-                case "IssuerOptionValue":
-                    summary.issuerOptionValue = new BigDecimal(value);
-                    break;
-                default:
-                    throw new IllegalStateException("Unexpected value: " + tag);
+            // details per currency
 
-            }
+            case "Currency":
+                break;
+            case "RealCurrency":
+                applyDetails(currency, summary -> summary.realCurrency = value);
+                break;
+            case "CashBalance":
+                applyDetails(currency, summary -> summary.cashBalance = new BigDecimal(value));
+                break;
+            case "TotalCashBalance":
+                applyDetails(currency, summary -> summary.totalCashBalance = new BigDecimal(value));
+                break;
+            case "AccruedCash":
+                applyDetails(currency, summary -> summary.accruedCash = new BigDecimal(value));
+                break;
+            case "StockMarketValue":
+                applyDetails(currency, summary -> summary.stockMarketValue = new BigDecimal(value));
+                break;
+            case "OptionMarketValue":
+                applyDetails(currency, summary -> summary.optionMarketValue = new BigDecimal(value));
+                break;
+            case "FutureOptionValue":
+                applyDetails(currency, summary -> summary.futureOptionValue = new BigDecimal(value));
+                break;
+            case "FuturesPNL":
+                applyDetails(currency, summary -> summary.futuresPNL = new BigDecimal(value));
+                break;
+            case "NetLiquidationByCurrency":
+                applyDetails(currency, summary -> summary.netLiquidationByCurrency = new BigDecimal(value));
+                break;
+            case "UnrealizedPnL":
+                applyDetails(currency, summary -> summary.unrealizedPnL = new BigDecimal(value));
+                break;
+            case "RealizedPnL":
+                applyDetails(currency, summary -> summary.realizedPnL = new BigDecimal(value));
+                break;
+            case "ExchangeRate":
+                applyDetails(currency, summary -> summary.exchangeRate = new BigDecimal(value));
+                break;
+            case "FundValue":
+                applyDetails(currency, summary -> summary.fundValue = new BigDecimal(value));
+                break;
+            case "NetDividend":
+                applyDetails(currency, summary -> summary.netDividend = new BigDecimal(value));
+                break;
+            case "MutualFundValue":
+                applyDetails(currency, summary -> summary.mutualFundValue = new BigDecimal(value));
+                break;
+            case "MoneyMarketFundValue":
+                applyDetails(currency, summary -> summary.moneyMarketFundValue = new BigDecimal(value));
+                break;
+            case "CorporateBondValue":
+                applyDetails(currency, summary -> summary.corporateBondValue = new BigDecimal(value));
+                break;
+            case "TBondValue":
+                applyDetails(currency, summary -> summary.tBondValue = new BigDecimal(value));
+                break;
+            case "TBillValue":
+                applyDetails(currency, summary -> summary.tBillValue = new BigDecimal(value));
+                break;
+            case "WarrantValue":
+                applyDetails(currency, summary -> summary.warrantValue = new BigDecimal(value));
+                break;
+            case "FxCashBalance":
+                applyDetails(currency, summary -> summary.fxCashBalance = new BigDecimal(value));
+                break;
+            case "AccountOrGroup":
+                applyDetails(currency, summary -> summary.accountOrGroup = value);
+                break;
+            case "IssuerOptionValue":
+                applyDetails(currency, summary -> summary.issuerOptionValue = new BigDecimal(value));
+                break;
+            default:
+                throw new IllegalStateException("Unexpected value: " + tag);
+
         }
     }
 
@@ -230,10 +222,6 @@ public class IbAccountSummary {
 
     public BigDecimal getSettledCash() {
         return settledCash;
-    }
-
-    public BigDecimal getAccruedCash() {
-        return accruedCash;
     }
 
     public BigDecimal getBuyingPower() {
@@ -338,7 +326,21 @@ public class IbAccountSummary {
         return details;
     }
 
+    private <T> void shouldBeNull(T member, Runnable runnable) throws Exception {
+
+        if (member != null) {
+            throw new Exception("Value is overwritten");
+        }
+        runnable.run();
+    }
+
+    private void applyDetails(String currency, Consumer<DetailsPerCurrency> applyValue) {
+        DetailsPerCurrency summary = details.computeIfAbsent(currency, key -> new DetailsPerCurrency());
+        applyValue.accept(summary);
+    }
+
     public class DetailsPerCurrency {
+        private String realCurrency;
         private BigDecimal cashBalance;
         private BigDecimal totalCashBalance;
         private BigDecimal accruedCash;
@@ -361,6 +363,10 @@ public class IbAccountSummary {
         private BigDecimal fxCashBalance;
         private String accountOrGroup;
         private BigDecimal issuerOptionValue;
+
+        public String getRealCurrency() {
+            return realCurrency;
+        }
 
         public BigDecimal getCashBalance() {
             return cashBalance;

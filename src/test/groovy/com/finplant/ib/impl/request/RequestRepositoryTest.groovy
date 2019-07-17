@@ -158,11 +158,11 @@ class RequestRepositoryTest extends Specification {
         repository.onError(RequestRepository.Type.EVENT_PORTFOLIO, null, new IllegalArgumentException())
 
         then:
-        registerCalled.await()
-        unregisterCalled.await()
-
         observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
         observer.assertError(IllegalArgumentException.class)
         observer.assertValueCount(0)
+
+        registerCalled.await()
+        unregisterCalled.await()
     }
 }

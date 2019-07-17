@@ -195,7 +195,7 @@ public class IbClient implements AutoCloseable {
      * <p>
      * // TODO
      */
-    public Single<IbAccountSummary> reqAccountSummary(String group, String ledger) {
+    public Single<IbAccountsSummary> reqAccountSummary(String group, String ledger) {
         return reqAccountSummary(group, ledger, EnumSet.allOf(AccountSummaryTags.class));
     }
 
@@ -212,24 +212,26 @@ public class IbClient implements AutoCloseable {
      * // TODO Add examples
      */
     // TODO: Make one function with parameters builder to avoid magic strings
-    public Single<IbAccountSummary> reqAccountSummary(String group, String ledger, EnumSet<AccountSummaryTags> tags) {
+    public Single<IbAccountsSummary> reqAccountSummary(String group, String ledger, EnumSet<AccountSummaryTags> tags) {
 
         Validators.stringShouldNotBeEmpty(group, "Group should be defined");
-        Validators.stringShouldNotBeEmpty(ledger, "Ledger should be defined");
         Validators.collectionShouldNotBeEmpty(tags, "Should be defined at least one tag");
 
         String ledgerTag;
-        if (ledger.equals("All")) {
+        if (ledger == null || ledger.isEmpty()) {
+            ledgerTag = "$LEDGER";
+        }
+        else if (ledger.equals("All")) {
             ledgerTag = "$LEDGER:ALL";
-        } else {
+        }
+        else {
             ledgerTag = "$LEDGER:" + ledger;
         }
 
         String tagsString = Stream.concat(tags.stream().map(Enum::name), Stream.of(ledgerTag))
                 .collect(Collectors.joining(","));
 
-
-        return requests.<IbAccountSummary>builder()
+        return requests.<IbAccountsSummary>builder()
                 .type(RequestRepository.Type.REQ_ACCOUNT_SUMMARY)
                 .register(id -> socket.reqAccountSummary(id, group, tagsString))
                 .unregister(id -> socket.cancelAccountSummary(id))
