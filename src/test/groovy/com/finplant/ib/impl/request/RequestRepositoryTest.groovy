@@ -7,6 +7,7 @@ import spock.lang.Specification
 import spock.lang.Subject
 import spock.util.concurrent.AsyncConditions
 
+import java.util.concurrent.TimeUnit
 import java.util.function.Consumer
 
 class RequestRepositoryTest extends Specification {
@@ -157,9 +158,11 @@ class RequestRepositoryTest extends Specification {
         repository.onError(RequestRepository.Type.EVENT_PORTFOLIO, null, new IllegalArgumentException())
 
         then:
-        observer.assertError(IllegalArgumentException.class)
-        observer.assertValueCount(0)
         registerCalled.await()
         unregisterCalled.await()
+
+        observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
+        observer.assertError(IllegalArgumentException.class)
+        observer.assertValueCount(0)
     }
 }
