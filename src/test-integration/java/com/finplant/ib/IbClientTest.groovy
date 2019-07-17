@@ -776,6 +776,23 @@ class IbClientTest extends Specification {
         summaryEUR.issuerOptionValue != null
     }
 
+    def "Get only base currency accounts summary details"() {
+        given:
+        def accountName = client.getManagedAccounts()[0]
+
+        when:
+        def result = client.reqAccountSummary("All", null).blockingGet()
+
+        then:
+        result.accounts.size() == 1
+        def account = result.accounts[accountName]
+        account
+
+        def baseDetails = account.details.get("BASE")
+        baseDetails
+        baseDetails.realCurrency == "USD"
+    }
+
     def "reqMarketRule should return list of price increments"() {
         when:
         def observer = client.reqMarketRule(791).test()

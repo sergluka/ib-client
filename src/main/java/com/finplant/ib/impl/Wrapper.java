@@ -437,7 +437,7 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void marketDataType(final int reqId, final int marketDataType) {
-        log.trace("marketDataType: NOT IMPLEMENTED");
+        log.trace("marketDataType: NOT IMPLEMENTED - reqId={}, marketDataType={}", reqId, marketDataType);
     }
 
     @Override
@@ -468,13 +468,13 @@ public class Wrapper implements EWrapper {
                                final String currency) {
 
         log.trace("accountSummary: reqId = {}, account = {}, {} = {} {}", reqId, account, tag, value, currency);
-        cache.updateAccountSummary(reqId, account, tag, value, currency);
+        cache.updateAccountsSummary(reqId, account, tag, value, currency);
     }
 
     @Override
     public void accountSummaryEnd(final int reqId) {
         requests.onNextAndComplete(RequestRepository.Type.REQ_ACCOUNT_SUMMARY, reqId,
-                                   cache.popAccountSummary(reqId), true);
+                                   cache.popAccountsSummary(reqId), true);
     }
 
     @Override
@@ -658,7 +658,8 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void tickReqParams(int tickerId, double minTick, String bboExchange, int snapshotPermissions) {
-        log.trace("tickReqParams: NOT IMPLEMENTED");
+        log.trace("tickReqParams: NOT IMPLEMENTED - tickerId={}, minTick={}, bboExchange={}, snapshotPermissions={}",
+                  tickerId, minTick, bboExchange, snapshotPermissions);
     }
 
     @Override
