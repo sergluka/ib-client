@@ -83,6 +83,11 @@ public abstract class TerminalErrorHandler {
                 type = ErrorType.DEBUG;
                 break;
 
+            case 200:
+                exception = new IbExceptions.NoSecurityDefinitionError(id, message);
+                type = ErrorType.REQUEST_ERROR;
+                break;
+
             case 10182: // Failed to request live updates (disconnected)
                 exception = new IbExceptions.SubscriptionLostError(id, message);
                 type = ErrorType.REQUEST_ERROR;

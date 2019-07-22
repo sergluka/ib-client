@@ -87,4 +87,9 @@ public class IbExceptions {
         }
     }
 
+    public static class NoSecurityDefinitionError extends IbClientError {
+        public NoSecurityDefinitionError(int requestId, String message) {
+            super(requestId, message);
+        }
+    }
 }
