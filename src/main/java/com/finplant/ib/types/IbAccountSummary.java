@@ -130,6 +130,7 @@ public class IbAccountSummary {
             // details per currency
 
             case "Currency":
+                applyDetails(currency, summary -> summary.currency = value);
                 break;
             case "RealCurrency":
                 applyDetails(currency, summary -> summary.realCurrency = value);
@@ -340,6 +341,7 @@ public class IbAccountSummary {
     }
 
     public class DetailsPerCurrency {
+        private String currency;
         private String realCurrency;
         private BigDecimal cashBalance;
         private BigDecimal totalCashBalance;
@@ -363,6 +365,10 @@ public class IbAccountSummary {
         private BigDecimal fxCashBalance;
         private String accountOrGroup;
         private BigDecimal issuerOptionValue;
+
+        public String getCurrency() {
+            return currency;
+        }
 
         public String getRealCurrency() {
             return realCurrency;

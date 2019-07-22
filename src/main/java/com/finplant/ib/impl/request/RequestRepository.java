@@ -81,7 +81,7 @@ public class RequestRepository implements AutoCloseable {
             if (shouldExists) {
                 log.error("Cannot find request '{}' id={}", type, reqId);
             } else {
-                log.debug("Cannot find request '{}' id={}", type, reqId);
+                log.trace("Cannot find request '{}' id={}", type, reqId);
             }
         }
         return Optional.ofNullable(request);

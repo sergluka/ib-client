@@ -215,7 +215,7 @@ public class IbClient implements AutoCloseable {
     public Single<IbAccountsSummary> reqAccountSummary(String group, String ledger, EnumSet<AccountSummaryTags> tags) {
 
         Validators.stringShouldNotBeEmpty(group, "Group should be defined");
-        Validators.collectionShouldNotBeEmpty(tags, "Should be defined at least one tag");
+        Validators.shouldNotBeNull(tags, "Tags should be defined");
 
         String ledgerTag;
         if (ledger == null || ledger.isEmpty()) {
