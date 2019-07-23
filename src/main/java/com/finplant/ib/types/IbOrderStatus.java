@@ -1,11 +1,9 @@
 package com.finplant.ib.types;
 
+import com.ib.client.OrderStatus;
+
 import java.math.BigDecimal;
 import java.util.Objects;
-
-import com.google.common.collect.ComparisonChain;
-import com.google.common.collect.Ordering;
-import com.ib.client.OrderStatus;
 
 @SuppressWarnings("unused")
 public class IbOrderStatus {
@@ -146,5 +144,9 @@ public class IbOrderStatus {
 
     public boolean isFilled() {
         return status == OrderStatus.Filled;
+    }
+
+    public boolean isActive() {
+        return status.isActive();
     }
 }
