@@ -132,11 +132,13 @@ public class IbClient implements AutoCloseable {
                 @Override
                 protected void afterConnect() {
                     socket.setServerLogLevel(IbClient.LogLevel.DETAIL.ordinal());
-                    emitter.onComplete();
                 }
 
                 @Override
                 protected void onConnectStatusChange(Boolean status) {
+                    if (status) {
+                        emitter.onComplete();
+                    }
                     connectionStatusSubject.onNext(status);
                 }
             };

@@ -500,11 +500,30 @@ class IbClientTest extends Specification {
         expect:
 
         (0..10).each {
-            client.connect("127.0.0.1", 7497, 1).blockingGet(10, TimeUnit.SECONDS)
+            client.connect("127.0.0.1", 7497, 1).blockingGet(20, TimeUnit.SECONDS)
             assert client.isConnected()
             client.getCurrentTime().timeout(10, TimeUnit.SECONDS).blockingGet() > 1510320971
             client.disconnect()
         }
+    }
+
+    def "Connection status should changes"() {
+        given:
+        client.disconnect()
+        def observable = client.connectionStatus().test()
+
+        when:
+        client.connect("127.0.0.1", 7497, 1).blockingGet(20, TimeUnit.SECONDS)
+        client.disconnect()
+        client.connect("127.0.0.1", 7497, 1).blockingGet(20, TimeUnit.SECONDS)
+        client.disconnect()
+
+        then:
+        observable.awaitCount(4)
+        observable.assertValueAt(0, true)
+        observable.assertValueAt(1, false)
+        observable.assertValueAt(2, true)
+        observable.assertValueAt(3, false)
     }
 
     def "Set market data type"() {
@@ -804,57 +823,57 @@ class IbClientTest extends Specification {
 
         observer.assertValueAt 0, { value ->
             assert value.lowEdge() == 0.0
-            assert value.increment() ==  1.0
+            assert value.increment() == 1.0
             return true
         } as Predicate
         observer.assertValueAt 1, { value ->
             assert value.lowEdge() == 3000.0
-            assert value.increment() ==  5.0
+            assert value.increment() == 5.0
             return true
         } as Predicate
         observer.assertValueAt 2, { value ->
             assert value.lowEdge() == 5000.0
-            assert value.increment() ==  10.0
+            assert value.increment() == 10.0
             return true
         } as Predicate
         observer.assertValueAt 3, { value ->
             assert value.lowEdge() == 30000.0
-            assert value.increment() ==  50.0
+            assert value.increment() == 50.0
             return true
         } as Predicate
         observer.assertValueAt 4, { value ->
             assert value.lowEdge() == 50000.0
-            assert value.increment() ==  100.0
+            assert value.increment() == 100.0
             return true
         } as Predicate
         observer.assertValueAt 5, { value ->
             assert value.lowEdge() == 300000.0
-            assert value.increment() ==  500.0
+            assert value.increment() == 500.0
             return true
         } as Predicate
         observer.assertValueAt 6, { value ->
             assert value.lowEdge() == 500000.0
-            assert value.increment() ==  1000.0
+            assert value.increment() == 1000.0
             return true
         } as Predicate
         observer.assertValueAt 7, { value ->
             assert value.lowEdge() == 3000000.0
-            assert value.increment() ==  5000.0
+            assert value.increment() == 5000.0
             return true
         } as Predicate
         observer.assertValueAt 8, { value ->
             assert value.lowEdge() == 5000000.0
-            assert value.increment() ==  10000.0
+            assert value.increment() == 10000.0
             return true
         } as Predicate
         observer.assertValueAt 9, { value ->
             assert value.lowEdge() == 3.0E7
-            assert value.increment() ==  50000.0
+            assert value.increment() == 50000.0
             return true
         } as Predicate
-       observer.assertValueAt 10, { value ->
+        observer.assertValueAt 10, { value ->
             assert value.lowEdge() == 5.0E7
-            assert value.increment() ==  100000.0
+            assert value.increment() == 100000.0
             return true
         } as Predicate
     }
