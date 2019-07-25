@@ -6,7 +6,7 @@ import com.ib.client.OrderState;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.LinkedList;
-import java.util.Set;
+import java.util.List;
 
 @SuppressWarnings("unused")
 public class IbOrder {
@@ -34,12 +34,16 @@ public class IbOrder {
         return false;
     }
 
-    public synchronized void addStatuses(@NotNull Set<IbOrderStatus> set) {
-        statuses.addAll(set);
+    public synchronized void addStatuses(@NotNull List<IbOrderStatus> list) {
+        statuses.addAll(list);
     }
 
     public int getOrderId() {
         return orderId;
+    }
+
+    public synchronized List<IbOrderStatus> getStatuses() {
+        return statuses;
     }
 
     public synchronized IbOrderStatus getLastStatus() {

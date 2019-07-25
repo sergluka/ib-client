@@ -62,6 +62,18 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
+     * Generates new incremental request/order ID, if developer need to define it explicitly.
+     *
+     * @return incremental ID
+     *
+     * @apiNote Thread safe.
+     * @see #placeOrder(Contract, Order)
+     */
+    public int nextOrderId() {
+        return idGenerator.nextId();
+    }
+
+    /**
      * Connects to TWS or IB Gateway instance
      *
      * @param ip     IP address
@@ -795,7 +807,7 @@ public class IbClient implements AutoCloseable {
         Validators.shouldNotBeNull(order, "Order should be defined");
 
         if (order.orderId() == 0) {
-            order.orderId(idGenerator.nextOrderId());
+            order.orderId(idGenerator.nextId());
         }
 
         return requests.<IbOrder>builder()
@@ -1306,15 +1318,49 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
-     * Generates new incremental order ID, if developer need to define it explicitly.
+     * Subscribes to filled order execution info
      *
-     * @return incremental ID
+     * @return Observable with {@link IbExecutionReport}. Never completes. Object contains wrapped data from
+     * both related callbacks {@link Wrapper#execDetails(int, com.ib.client.Contract, com.ib.client.Execution)} and
+     * {@link Wrapper#commissionReport(com.ib.client.CommissionReport)}
      *
-     * @apiNote Thread safe.
-     * @see #placeOrder(Contract, Order)
+     * <pre>{@code
+     * Example:
+     *     given:
+     *     def observer = client.subscribeOnExecutionReport().take(1).test()
+     *
+     *     def order = createOrderStp()
+     *     client.placeOrder(createContractEUR(), order).flatMap({ ibOrder ->
+     *     client.subscribeOnOrderNewStatus()
+     *         .filter({ status -> status.orderId == order.orderId() })
+     *         .filter({ status -> status.isFilled() })
+     *         .timeout(20, TimeUnit.SECONDS)
+     *         .firstOrError()
+     *     }).blockingGet()
+     *
+     *     expect:
+     *     observer.awaitTerminalEvent(30, TimeUnit.SECONDS)
+     *     observer.assertNoErrors()
+     *     observer.values()[0].with { IbExecutionReport report ->
+     *         assert report.execution.orderId > 0
+     *         assert report.execution.execId == report.commission.execId
+     *         assert report.commission.commission > 0.0
+     *     }
+     * }</pre>
+     *
+     * @see <a href="https://interactivebrokers.github.io/tws-api/executions_commissions.html">
+     * TWS API: Executions and Commissions</a>
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/interfaceIBApi_1_1EWrapper.html#a7ebfc18d5d03189ab5bf895db4a1a204">
+     * TWS API: commissionReport</a>
+     * <a href="https://interactivebrokers.github.io/tws-api/interfaceIBApi_1_1EWrapper.html#a09f82de3d0666d13b00b5168e8b9313d">
+     * TWS API: execDetails</a>
      */
-    public int nextOrderId() {
-        return idGenerator.nextOrderId();
+    public Observable<IbExecutionReport> subscribeOnExecutionReport() {
+        return requests.<IbExecutionReport>builder()
+                .type(RequestRepository.Type.EVENT_EXECUTION_INFO)
+                .register(() -> {})
+                .subscribe();
     }
 
     private <T> Observable<T> reqHistoricalTicks(Contract contract,

@@ -10,13 +10,11 @@ public class IdGenerator {
     private static final Logger log = LoggerFactory.getLogger(IdGenerator.class);
 
     private static final int INVALID_ID = -1;
-    private static final int REQUESTS_START_ID = 100_000_000;
 
     private final AtomicInteger orderId = new AtomicInteger(INVALID_ID);
-    private final AtomicInteger requestId = new AtomicInteger(REQUESTS_START_ID);
 
     // Returns return true if TWS resets its ID
-    public boolean setOrderId(Integer newValue) {
+    boolean setId(Integer newValue) {
         int oldValue = orderId.getAndSet(newValue);
 
         if (newValue < oldValue) {
@@ -27,15 +25,11 @@ public class IdGenerator {
         return false;
     }
 
-    public int nextOrderId() {
+    public int nextId() {
         if (orderId.get() == INVALID_ID) {
             throw new IllegalStateException("Has no request ID from TWS");
         }
 
         return orderId.getAndIncrement();
-    }
-
-    public int nextRequestId() {
-        return requestId.getAndIncrement();
     }
 }

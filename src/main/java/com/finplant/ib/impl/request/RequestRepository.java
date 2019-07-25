@@ -101,6 +101,7 @@ public class RequestRepository implements AutoCloseable {
         EVENT_MARKET_DATA_LVL2,
         EVENT_PORTFOLIO,
         EVENT_HISTORICAL_DATA,
+        EVENT_EXECUTION_INFO,
         REQ_MARKET_DATA,
         REQ_MARKET_DEPTH_EXCHANGES,
         REQ_CURRENT_TIME,
@@ -187,7 +188,7 @@ public class RequestRepository implements AutoCloseable {
                 Integer requestId;
 
                 if (withId && id == null) {
-                    requestId = idGenerator.nextRequestId();
+                    requestId = idGenerator.nextId();
                 } else {
                     requestId = id;
                 }
@@ -212,7 +213,7 @@ public class RequestRepository implements AutoCloseable {
                         log.debug("Unregister from {}", request);
                         request.unregister();
                     } else {
-                        log.warn("Have no connection at unregister of {}", key);
+                        log.debug("Have no connection at unregister of {}", key);
                     }
                     remove(key);
                 });

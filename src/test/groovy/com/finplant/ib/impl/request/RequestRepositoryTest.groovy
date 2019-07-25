@@ -41,7 +41,7 @@ class RequestRepositoryTest extends Specification {
         def registerCalled = new AsyncConditions()
         def unregisterCalled = new AsyncConditions()
 
-        1 * idGenerator.nextRequestId() >> 111
+        1 * idGenerator.nextId() >> 111
         2 * client.isConnected() >> true
         0 * idGenerator._
         0 * client._

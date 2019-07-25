@@ -4,6 +4,7 @@ import com.finplant.ib.IbExceptions;
 import com.finplant.ib.impl.cache.CacheRepositoryImpl;
 import com.finplant.ib.impl.connection.ConnectionMonitor;
 import com.finplant.ib.impl.request.RequestRepository;
+import com.finplant.ib.impl.utils.Converter;
 import com.finplant.ib.types.*;
 import com.finplant.ib.utils.PrettyPrinters;
 import com.google.common.base.Splitter;
@@ -173,12 +174,12 @@ public class Wrapper implements EWrapper {
                                 double realizedPNL,
                                 String accountName) {
 
-        BigDecimal positionObj = doubleToBigDecimal("position", position);
-        BigDecimal marketPriceObj = doubleToBigDecimal("marketPrice", marketPrice);
-        BigDecimal marketValueObj = doubleToBigDecimal("marketValue", marketValue);
-        BigDecimal averageCostObj = doubleToBigDecimal("averageCost", averageCost);
-        BigDecimal unrealizedPNLObj = doubleToBigDecimal("unrealizedPNL", unrealizedPNL);
-        BigDecimal realizedPNLObj = doubleToBigDecimal("realizedPNL", realizedPNL);
+        BigDecimal positionObj = Converter.doubleToBigDecimal("position", position);
+        BigDecimal marketPriceObj = Converter.doubleToBigDecimal("marketPrice", marketPrice);
+        BigDecimal marketValueObj = Converter.doubleToBigDecimal("marketValue", marketValue);
+        BigDecimal averageCostObj = Converter.doubleToBigDecimal("averageCost", averageCost);
+        BigDecimal unrealizedPNLObj = Converter.doubleToBigDecimal("unrealizedPNL", unrealizedPNL);
+        BigDecimal realizedPNLObj = Converter.doubleToBigDecimal("realizedPNL", realizedPNL);
 
         log.trace("updatePortfolio: contract={}, position={}, marketPrice={}, marketValue={}, averageCost={}, " +
                   "unrealizedPNL={}, realizedPNL={}, accountName={}",
@@ -250,7 +251,7 @@ public class Wrapper implements EWrapper {
     @Override
     public void nextValidId(int id) {
         log.trace("New request ID: {}", id);
-        if (idGenerator.setOrderId(id)) {
+        if (idGenerator.setId(id)) {
             cache.clear();
         }
     }
@@ -310,12 +311,32 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void execDetails(final int reqId, final Contract contract, final Execution execution) {
-        log.trace("execDetails: NOT IMPLEMENTED");
+
+        IbContract ibContract = new IbContract(contract);
+        IbExecution ibExecution = new IbExecution(execution);
+
+        log.trace("execDetails: reqId={}, contract={}, execution={}", reqId, ibContract, ibExecution);
+
+        cache.addExecutionReport(ibContract, ibExecution);
     }
 
     @Override
     public void execDetailsEnd(final int reqId) {
         log.trace("execDetailsEnd: NOT IMPLEMENTED");
+    }
+
+    @Override
+    public void commissionReport(final CommissionReport report) {
+        IbCommissionReport commissionReport = new IbCommissionReport(report);
+        log.trace("commissionReport: commissionReport={}", commissionReport);
+
+        IbExecutionReport execReport = cache.updateExecutionReport(commissionReport);
+        log.info("Order {} is executed with exec id '{}, total amount: {}, price: {}, commission: {} {}',  ",
+                 execReport.getExecution().getOrderId(), execReport.getExecution().getExecId(),
+                 execReport.getExecution().getCumQty(), execReport.getExecution().getPrice(),
+                 commissionReport.getCommission(), commissionReport.getCurrency());
+
+        requests.onNext(RequestRepository.Type.EVENT_EXECUTION_INFO, null, execReport, false);
     }
 
     @Override
@@ -438,11 +459,6 @@ public class Wrapper implements EWrapper {
     @Override
     public void marketDataType(final int reqId, final int marketDataType) {
         log.trace("marketDataType: NOT IMPLEMENTED - reqId={}, marketDataType={}", reqId, marketDataType);
-    }
-
-    @Override
-    public void commissionReport(final CommissionReport commissionReport) {
-        log.trace("commissionReport: NOT IMPLEMENTED");
     }
 
     @Override
@@ -716,10 +732,10 @@ public class Wrapper implements EWrapper {
         log.trace("pnlSingle: reqId={}, pos={}, dailyPnL={}, unrealizedPnL={}, realizedPnL={}, value={}",
                   reqId, pos, dailyPnL, unrealizedPnL, realizedPnL, value);
 
-        BigDecimal dailyPnLObj = doubleToBigDecimal("dailyPnL", dailyPnL);
-        BigDecimal unrealizedPnLObj = doubleToBigDecimal("unrealizedPnL", unrealizedPnL);
-        BigDecimal realizedPnLObj = doubleToBigDecimal("realizedPnL", realizedPnL);
-        BigDecimal valueObj = doubleToBigDecimal("value", value);
+        BigDecimal dailyPnLObj = Converter.doubleToBigDecimal("dailyPnL", dailyPnL);
+        BigDecimal unrealizedPnLObj = Converter.doubleToBigDecimal("unrealizedPnL", unrealizedPnL);
+        BigDecimal realizedPnLObj = Converter.doubleToBigDecimal("realizedPnL", realizedPnL);
+        BigDecimal valueObj = Converter.doubleToBigDecimal("value", value);
 
         IbPnl pnl = new IbPnl(pos, dailyPnLObj, unrealizedPnLObj, realizedPnLObj, valueObj);
         requests.onNext(RequestRepository.Type.EVENT_CONTRACT_PNL, reqId, pnl, true);
@@ -781,17 +797,5 @@ public class Wrapper implements EWrapper {
         cache.addMarketDepth(contract, orderBookDepth, IbMarketDepth.Operation.values()[operation]);
 
         requests.onNext(RequestRepository.Type.EVENT_MARKET_DATA_LVL2, tickerId, orderBookDepth, true);
-    }
-
-    /**
-     * TWS API describes that double equals Double.MAX_VALUE should be threaded as unset
-     */
-    private BigDecimal doubleToBigDecimal(String name, double value) {
-        if (value == Double.MAX_VALUE) {
-            log.trace("Missing value for '{}'", name);
-            return null;
-        }
-
-        return BigDecimal.valueOf(value);
     }
 }

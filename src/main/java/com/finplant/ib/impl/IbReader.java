@@ -61,7 +61,6 @@ public class IbReader {
                 try {
                     Thread.sleep(WAIT_TIMEOUT_MS);
                 } catch (InterruptedException e) {
-                    log.debug("Reader thread has been interrupted");
                     break;
                 }
             }
@@ -72,7 +71,6 @@ public class IbReader {
         try {
             thread.join(STOP_TIMEOUT_MS);
         } catch (InterruptedException e) {
-            log.debug("Current thread has been interrupted");
             return;
         }
         if (thread.isAlive()) {

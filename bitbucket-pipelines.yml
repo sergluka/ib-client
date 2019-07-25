@@ -1,7 +1,7 @@
 image: java:8
 
 pipelines:
-  default:
+  master:
     - step:
         caches:
           - gradle

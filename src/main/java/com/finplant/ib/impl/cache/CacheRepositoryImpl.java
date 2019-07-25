@@ -23,23 +23,19 @@ public class CacheRepositoryImpl implements CacheRepository {
     private final ConcurrentHashMap<Integer, IbTickImpl> ticks = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, IbPortfolio> portfolioContracts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, IbAccountsSummary> accountSummaries = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, IbExecutionReport> execReports = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<Integer, Map<IbMarketDepth.Key, IbMarketDepth>> orderBooks =
-          new ConcurrentHashMap<>();
-
-    // After order placing, some statuses goes first, before `openOrder` callback, so storing then separately
-    private final LinkedHashMap<Integer, Set<IbOrderStatus>> statuses = new LinkedHashMap<>();
+            new ConcurrentHashMap<>();
 
     public boolean addOrder(IbOrder order) {
-        final Set<IbOrderStatus> set = statuses.remove(order.getOrderId());
-        if (set != null) {
-            order.addStatuses(set);
-        }
+
         final AtomicReference<Boolean> result = new AtomicReference<>(false);
-        orders.compute(order.getOrderId(), (key, value)-> {
+        orders.compute(order.getOrderId(), (key, value) -> {
             if (value != null) {
                 log.debug("Order {} already has been added", order.getOrderId());
                 result.set(false);
+                order.addStatuses(value.getStatuses());
                 return order;
             }
 
@@ -58,14 +54,7 @@ public class CacheRepositoryImpl implements CacheRepository {
     public boolean addNewStatus(@NotNull IbOrderStatus status) {
         IbOrder order = orders.get(status.getOrderId());
         if (order == null) {
-            log.debug("Status update for not (yet?) existing order {}: {}", status.getOrderId(), status);
-
-            final Set<IbOrderStatus> set = statuses.computeIfAbsent(status.getOrderId(), (key) -> new HashSet<>());
-            if (!set.add(status)) {
-                log.debug("[{}]: Status '{}' already exists", status.getOrderId(), status.getStatus());
-                return false;
-            }
-
+            log.error("Status update for not (yet?) existing order {}: {}", status.getOrderId(), status);
             return false;
         }
 
@@ -81,14 +70,14 @@ public class CacheRepositoryImpl implements CacheRepository {
     }
 
     public IbTick updateTick(int tickerId, Consumer<IbTickImpl> consumer) {
-        IbTickImpl tick = ticks.computeIfAbsent(tickerId, (key) -> new IbTickImpl()) ;
+        IbTickImpl tick = ticks.computeIfAbsent(tickerId, (key) -> new IbTickImpl());
         tick.refreshUpdateTime();
         consumer.accept(tick);
         return tick;
     }
 
     public void updateAccountsSummary(int id, String account, String tag, String value, String currency) {
-        IbAccountsSummary accountsSummary = accountSummaries.computeIfAbsent(id, (key) -> new IbAccountsSummary()) ;
+        IbAccountsSummary accountsSummary = accountSummaries.computeIfAbsent(id, (key) -> new IbAccountsSummary());
         try {
             accountsSummary.update(account, tag, value, currency);
         } catch (Exception e) {
@@ -172,6 +161,24 @@ public class CacheRepositoryImpl implements CacheRepository {
         });
     }
 
+    public void addExecutionReport(IbContract contract, IbExecution execution) {
+        IbExecutionReport report = execReports.put(execution.getExecId(), new IbExecutionReport(contract, execution));
+        if (report != null) {
+            log.warn("Execution info for '{}' is overwritten", execution.getExecId());
+        }
+    }
+
+    public IbExecutionReport updateExecutionReport(IbCommissionReport report) {
+        IbExecutionReport execReport = execReports.get(report.getExecId());
+        if (execReport != null) {
+            execReport.setCommission(report);
+        } else {
+            log.warn("Commission report for '{}' without execution report", report.getExecId());
+        }
+
+        return execReport;
+    }
+
     @Override
     public void clear() {
         orders.clear();
@@ -179,7 +186,7 @@ public class CacheRepositoryImpl implements CacheRepository {
         ticks.clear();
         portfolioContracts.clear();
         orderBooks.clear();
-        statuses.clear();
+        execReports.clear();
 
         log.debug("Cache is cleared");
     }

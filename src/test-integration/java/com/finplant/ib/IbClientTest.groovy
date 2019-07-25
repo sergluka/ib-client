@@ -1,6 +1,7 @@
 package com.finplant.ib
 
 import com.finplant.ib.types.IbBar
+import com.finplant.ib.types.IbExecutionReport
 import com.finplant.ib.types.IbMarketDepth
 import com.finplant.ib.types.IbPortfolio
 import com.finplant.ib.types.IbPosition
@@ -156,6 +157,28 @@ class IbClientTest extends Specification {
         then:
         observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
         observer.assertError(IbExceptions.OrderAlreadyFilledError.class)
+    }
+
+    def "Await execution report after fill"() {
+        given:
+        def observer = client.subscribeOnExecutionReport().take(1).test()
+
+        def order = createOrderStp()
+        client.placeOrder(createContractEUR(), order).flatMap({ ibOrder ->
+            client.subscribeOnOrderNewStatus()
+                    .filter({ status -> status.orderId == order.orderId() })
+                    .filter({ status -> status.isFilled() })
+                    .timeout(20, TimeUnit.SECONDS)
+                    .firstOrError()
+        }).blockingGet()
+
+        expect:
+        observer.awaitTerminalEvent(30, TimeUnit.SECONDS)
+        observer.values()[0].with { IbExecutionReport report ->
+            assert report.execution.orderId > 0
+            assert report.execution.execId == report.commission.execId
+            assert report.commission.commission > 0.0
+        }
     }
 
     def "Cancel request should raise error if order doesn't exists"() {
