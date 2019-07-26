@@ -76,6 +76,11 @@ public abstract class TerminalErrorHandler {
                 type = ErrorType.WARN;
                 break;
 
+            case 101:
+                exception = new IbExceptions.MaxNumberOfTickersError(id, message);
+                type = ErrorType.REQUEST_ERROR;
+                break;
+
             /* Ugly TWS API sends all events related with historical data with the same
              * code (162). The only way to separate error and non-error cases is to parse text message*/
             case 162:

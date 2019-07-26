@@ -92,4 +92,10 @@ public class IbExceptions {
             super(requestId, message);
         }
     }
+
+    public static class MaxNumberOfTickersError extends IbClientError {
+        public MaxNumberOfTickersError(int requestId, String message) {
+            super(requestId, message);
+        }
+    }
 }
