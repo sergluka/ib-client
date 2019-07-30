@@ -1000,42 +1000,42 @@ public class IbClient implements AutoCloseable {
 
 
     /**
-     /**
-     * Requests for contract descriptions.
-     *
-     * @param pattern IB contract name pattern
-     * @return Observable with contract descriptions. Completes as soon TWS sends all data.
-     *
-     * <pre>{@code
-     * Example:
-     *
-     *   when:
-     *   def observer = client.reqMatchingSymbols("FB").test()
-     *
-     *   then:
-     *       observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
-     *       observer.assertNoErrors()
-     *       observer.valueCount() >= 2
-     *       observer.values()[0].with { IbContractDescription description ->
-     *           assert description.contract.symbol == "FB"
-     *           assert description.contract.secType == Types.SecType.STK
-     *           assert description.contract.primaryExchange == "MEXI"
-     *           assert description.derivativeSecTypes.isEmpty()
-     *       }
-     *   observer.values()[1].with { IbContractDescription description ->
-     *       assert description.contract.symbol == "FB"
-     *       assert description.contract.secType == Types.SecType.STK
-     *       assert description.contract.primaryExchange == "NASDAQ.NMS"
-     *       assert description.derivativeSecTypes == [Types.SecType.CFD, Types.SecType.OPT, Types.SecType.IOPT,
-     *                                                 Types.SecType.WAR, Types.SecType.FUT]
-     *   }
-     *
-     * @see <a href="https://interactivebrokers.github.io/tws-api/matching_symbols.html">
-     * TWS API: Stock Contract Search</a>
-     * @see
-     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#aa0bff193c5cbaa73e89dccdd0f027195">
-     * TWS API: reqMatchingSymbols</a>
-     */
+    * Requests for contract descriptions.
+    *
+    * @param pattern IB contract name pattern
+    * @return Observable with contract descriptions. Completes as soon TWS sends all data.
+    *
+    * <pre>{@code
+    * Example:
+    *
+    *   when:
+    *   def observer = client.reqMatchingSymbols("FB").test()
+    *
+    *   then:
+    *   observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
+    *   observer.assertNoErrors()
+    *   observer.valueCount() >= 2
+    *   observer.values()[0].with { IbContractDescription description ->
+    *       assert description.contract.symbol == "FB"
+    *       assert description.contract.secType == Types.SecType.STK
+    *       assert description.contract.primaryExchange == "MEXI"
+    *       assert description.derivativeSecTypes.isEmpty()
+    *   }
+    *   observer.values()[1].with { IbContractDescription description ->
+    *       assert description.contract.symbol == "FB"
+    *       assert description.contract.secType == Types.SecType.STK
+    *       assert description.contract.primaryExchange == "NASDAQ.NMS"
+    *       assert description.derivativeSecTypes == [Types.SecType.CFD, Types.SecType.OPT, Types.SecType.IOPT,
+    *                                                 Types.SecType.WAR, Types.SecType.FUT]
+    *   }
+    * }</pre>
+    *
+    * @see <a href="https://interactivebrokers.github.io/tws-api/matching_symbols.html">
+    * TWS API: Stock Contract Search</a>
+    * @see
+    * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#aa0bff193c5cbaa73e89dccdd0f027195">
+    * TWS API: reqMatchingSymbols</a>
+    */
     public Observable<IbContractDescription> reqMatchingSymbols(String pattern) {
         return requests.<IbContractDescription>builder()
                 .type(RequestRepository.Type.REQ_CONTRACT_DESCRIPTION)
