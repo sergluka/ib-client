@@ -109,6 +109,7 @@ public class RequestRepository implements AutoCloseable {
         REQ_ORDER_CANCEL,
         REQ_ORDER_LIST,
         REQ_CONTRACT_DETAIL,
+        REQ_CONTRACT_DESCRIPTION,
         REQ_HISTORICAL_MIDPOINT_TICK,
         REQ_HISTORICAL_BID_ASK_TICK,
         REQ_HISTORICAL_TRADE,

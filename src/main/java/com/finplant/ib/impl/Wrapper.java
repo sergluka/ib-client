@@ -598,6 +598,16 @@ public class Wrapper implements EWrapper {
     }
 
     @Override
+    public void symbolSamples(int reqId, ContractDescription[] contractDescriptions) {
+        log.trace(String.format("symbolSamples: %d description", contractDescriptions.length));
+
+        Stream.of(contractDescriptions)
+              .map(IbContractDescription::new)
+              .forEach(desc -> requests.onNext(RequestRepository.Type.REQ_CONTRACT_DESCRIPTION, reqId, desc, true));
+        requests.onComplete(RequestRepository.Type.REQ_CONTRACT_DESCRIPTION, reqId, true);
+    }
+
+    @Override
     public void accountUpdateMulti(final int reqId,
                                    final String account,
                                    final String modelCode,
@@ -639,11 +649,6 @@ public class Wrapper implements EWrapper {
     @Override
     public void familyCodes(FamilyCode[] familyCodes) {
         log.trace("familyCodes: NOT IMPLEMENTED");
-    }
-
-    @Override
-    public void symbolSamples(int reqId, ContractDescription[] contractDescriptions) {
-        log.trace("symbolSamples: NOT IMPLEMENTED");
     }
 
     @Override

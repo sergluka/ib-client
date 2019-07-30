@@ -1,6 +1,7 @@
 package com.finplant.ib
 
 import com.finplant.ib.types.IbBar
+import com.finplant.ib.types.IbContractDescription
 import com.finplant.ib.types.IbExecutionReport
 import com.finplant.ib.types.IbMarketDepth
 import com.finplant.ib.types.IbPortfolio
@@ -95,6 +96,30 @@ class IbClientTest extends Specification {
         then:
         println(list)
         list.size() > 0
+    }
+
+    def "Requesting matching symbols for FB should return valid list"() {
+
+        when:
+        def observer = client.reqMatchingSymbols("FB").test()
+
+        then:
+        observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
+        observer.assertNoErrors()
+        observer.valueCount() >= 2
+        observer.values()[0].with { IbContractDescription description ->
+            assert description.contract.symbol == "FB"
+            assert description.contract.secType == Types.SecType.STK
+            assert description.contract.primaryExchange == "MEXI"
+            assert description.derivativeSecTypes.isEmpty()
+        }
+        observer.values()[1].with { IbContractDescription description ->
+            assert description.contract.symbol == "FB"
+            assert description.contract.secType == Types.SecType.STK
+            assert description.contract.primaryExchange == "NASDAQ.NMS"
+            assert description.derivativeSecTypes == [Types.SecType.CFD, Types.SecType.OPT, Types.SecType.IOPT,
+                                                      Types.SecType.WAR, Types.SecType.FUT]
+        }
     }
 
     def "Call placeOrder is OK"() {
