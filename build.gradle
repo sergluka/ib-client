@@ -19,7 +19,7 @@ plugins {
 }
 
 group 'com.finplant.ib'
-version '2.3.2'
+version '2.3.3'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8

@@ -81,8 +81,14 @@ public class IbExceptions {
         }
     }
 
-    public static class SubscriptionLostError extends IbClientError {
-        public SubscriptionLostError(int requestId, String message) {
+    public static class SubscriptionLostByDisconnectError extends IbClientError {
+        public SubscriptionLostByDisconnectError(int requestId, String message) {
+            super(requestId, message);
+        }
+    }
+
+    public static class SubscriptionLostByCompetingSessionError extends IbClientError {
+        public SubscriptionLostByCompetingSessionError(int requestId, String message) {
             super(requestId, message);
         }
     }

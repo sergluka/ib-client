@@ -93,8 +93,13 @@ public abstract class TerminalErrorHandler {
                 type = ErrorType.REQUEST_ERROR;
                 break;
 
-            case 10182: // Failed to request live updates (disconnected)
-                exception = new IbExceptions.SubscriptionLostError(id, message);
+            case 10182: // Failed to request live updates (disconnected). Raise at disconnect from data server.
+                exception = new IbExceptions.SubscriptionLostByDisconnectError(id, message);
+                type = ErrorType.REQUEST_ERROR;
+                break;
+
+            case 10197: // No market data during competing live session. Raised on second login via Web interface
+                exception = new IbExceptions.SubscriptionLostByCompetingSessionError(id, message);
                 type = ErrorType.REQUEST_ERROR;
                 break;
 
