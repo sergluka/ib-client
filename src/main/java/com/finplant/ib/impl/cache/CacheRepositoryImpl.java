@@ -168,7 +168,7 @@ public class CacheRepositoryImpl implements CacheRepository {
         }
     }
 
-    public IbExecutionReport updateExecutionReport(IbCommissionReport report) {
+    public Optional<IbExecutionReport> updateExecutionReport(IbCommissionReport report) {
         IbExecutionReport execReport = execReports.get(report.getExecId());
         if (execReport != null) {
             execReport.setCommission(report);
@@ -176,7 +176,7 @@ public class CacheRepositoryImpl implements CacheRepository {
             log.warn("Commission report for '{}' without execution report", report.getExecId());
         }
 
-        return execReport;
+        return Optional.ofNullable(execReport);
     }
 
     @Override

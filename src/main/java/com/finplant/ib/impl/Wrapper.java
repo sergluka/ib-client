@@ -330,13 +330,14 @@ public class Wrapper implements EWrapper {
         IbCommissionReport commissionReport = new IbCommissionReport(report);
         log.trace("commissionReport: commissionReport={}", commissionReport);
 
-        IbExecutionReport execReport = cache.updateExecutionReport(commissionReport);
-        log.info("Order {} is executed with exec id '{}, total amount: {}, price: {}, commission: {} {}',  ",
-                 execReport.getExecution().getOrderId(), execReport.getExecution().getExecId(),
-                 execReport.getExecution().getCumQty(), execReport.getExecution().getPrice(),
-                 commissionReport.getCommission(), commissionReport.getCurrency());
+        cache.updateExecutionReport(commissionReport).ifPresent(execReport -> {
+            log.info("Order {} is executed with exec id '{}, total amount: {}, price: {}, commission: {} {}',  ",
+                     execReport.getExecution().getOrderId(), execReport.getExecution().getExecId(),
+                     execReport.getExecution().getCumQty(), execReport.getExecution().getPrice(),
+                     commissionReport.getCommission(), commissionReport.getCurrency());
 
-        requests.onNext(RequestRepository.Type.EVENT_EXECUTION_INFO, null, execReport, false);
+            requests.onNext(RequestRepository.Type.EVENT_EXECUTION_INFO, null, execReport, false);
+        });
     }
 
     @Override
