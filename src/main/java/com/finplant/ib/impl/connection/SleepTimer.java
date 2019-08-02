@@ -6,6 +6,11 @@ class SleepTimer {
     private Runnable runnable;
 
     synchronized void start(Long delay, Runnable runnable) {
+        if (delay == 0) {
+            runnable.run();
+            return;
+        }
+
         this.triggerTime = System.currentTimeMillis() + delay;
         this.runnable = runnable;
     }

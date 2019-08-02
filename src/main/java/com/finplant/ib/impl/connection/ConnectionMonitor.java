@@ -3,6 +3,7 @@ package com.finplant.ib.impl.connection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -11,6 +12,12 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public abstract class ConnectionMonitor implements AutoCloseable {
+
+    private final Duration connectionDelay;
+
+    public ConnectionMonitor(Duration connectionDelay) {
+        this.connectionDelay = connectionDelay;
+    }
 
     public enum Command {
         NONE,
@@ -32,7 +39,7 @@ public abstract class ConnectionMonitor implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(ConnectionMonitor.class);
 
     private static final int CLOSE_TIMEOUT_MS = 10_000;
-    private static final long RECONNECT_DELAY = 10_000;
+//    private static final long RECONNECT_DELAY = 10_000;
 
     private final Lock statusLock = new ReentrantLock();
     private final Condition statusCondition = statusLock.newCondition();
@@ -125,35 +132,40 @@ public abstract class ConnectionMonitor implements AutoCloseable {
 
     private Command handleCommand(Command command) {
         switch (command) {
+
             case CONNECT:
                 setStatus(Status.CONNECTING);
                 connectRequest();
                 break;
+
             case RECONNECT:
                 setStatus(Status.DISCONNECTING);
                 disconnectRequest(true);
                 setStatus(Status.DISCONNECTED);
 
-                timer.start(RECONNECT_DELAY, () -> {
+                timer.start(connectionDelay.toMillis(), () -> {
                     setStatus(Status.CONNECTING);
                     connectRequest();
                 });
 
                 break;
+
             case CONFIRM_CONNECT:
                 /* Right after connect, an error 507 (Bad Message Length) can occur, so we re-read command
                    to be sure valid connection still persist */
-                timer.start(RECONNECT_DELAY, () -> {
+                timer.start(connectionDelay.toMillis(), () -> {
                     setStatus(Status.CONNECTED);
                     afterConnect();
                 });
 
                 break;
+
             case DISCONNECT:
                 setStatus(Status.DISCONNECTING);
                 disconnectRequest(false);
                 setStatus(Status.DISCONNECTED);
                 break;
+
             case NONE:
                 if (timer.isRunning()) {
                     setStatus(Status.SLEEP);

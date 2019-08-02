@@ -13,6 +13,7 @@ import spock.lang.Ignore
 import spock.lang.Specification
 import spock.lang.Unroll
 
+import java.time.Duration
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.util.concurrent.TimeUnit
@@ -25,8 +26,9 @@ class IbClientTest extends Specification {
     IbClient client = new IbClient()
 
     void setup() {
-        client = new IbClient()
-        assert client.connect("127.0.0.1", 7497, 0).blockingAwait(3000, TimeUnit.SECONDS)
+        def options = new IbClientOptions().connectionDelay(Duration.ofSeconds(1))
+        client = new IbClient(options)
+        assert client.connect("127.0.0.1", 7496, 0).blockingAwait(3000, TimeUnit.SECONDS)
 //        client.cancelAll().timeout(10, TimeUnit.SECONDS).blockingGet()
 //        closeAllPositions()
     }

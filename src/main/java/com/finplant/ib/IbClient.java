@@ -40,6 +40,7 @@ public class IbClient implements AutoCloseable {
 
     private final IdGenerator idGenerator;
     private final RequestRepository requests;
+    private final IbClientOptions options;
 
     private IbReader reader;
     private Wrapper wrapper;
@@ -48,6 +49,11 @@ public class IbClient implements AutoCloseable {
     private ConnectionMonitor connectionMonitor;
 
     public IbClient() {
+        this(new IbClientOptions());
+    }
+
+    public IbClient(IbClientOptions options) {
+        this.options = options;
         idGenerator = new IdGenerator();
         requests = new RequestRepository(this, idGenerator);
     }
@@ -108,7 +114,7 @@ public class IbClient implements AutoCloseable {
 
             cache = new CacheRepositoryImpl();
 
-            connectionMonitor = new ConnectionMonitor() {
+            connectionMonitor = new ConnectionMonitor(options.getConnectionDelay()) {
 
                 @Override
                 protected void connectRequest() {
