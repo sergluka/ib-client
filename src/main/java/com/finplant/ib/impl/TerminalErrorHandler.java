@@ -47,6 +47,7 @@ public abstract class TerminalErrorHandler {
             case 2106: // A historical data farm is connected.
             case 2107: // A historical data farm connection has become inactive but should be available upon demand.
             case 2108: // A market data farm connection has become inactive but should be available upon demand.
+            case 2158: // Sec-def data farm connection is OK
                 type = ErrorType.INFO;
                 break;
 

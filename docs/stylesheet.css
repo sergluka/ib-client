@@ -574,8 +574,8 @@ div.contentContainer ul.blockList li.blockList h2{
 }
 
 
-/* PrismJS 1.16.0
-https://prismjs.com/download.html#themes=prism&languages=clike+java */
+/* PrismJS 1.17.1
+https://prismjs.com/download.html#themes=prism&languages=clike+javascript+java */
 /**
  * prism.js default theme for JavaScript, CSS and HTML
  * Based on dabblet (http://dabblet.com)
@@ -627,7 +627,7 @@ code[class*="language-"]::selection, code[class*="language-"] ::selection {
 
 /* Code blocks */
 pre[class*="language-"] {
-	padding: 0em;
+	padding: 1em;
 	margin: .5em 0;
 	overflow: auto;
 }
