@@ -19,10 +19,10 @@ plugins {
 }
 
 group 'com.finplant.ib'
-version '2.3.5'
+version '2.3.6'
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+sourceCompatibility = 1.12
+targetCompatibility = 1.12
 
 repositories {
     mavenCentral()

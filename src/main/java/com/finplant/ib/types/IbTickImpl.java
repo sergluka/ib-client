@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.finplant.ib.types.IbTickImpl.Types.*;
 
@@ -16,6 +17,7 @@ public class IbTickImpl implements IbTick {
     private static final Logger log = LoggerFactory.getLogger(IbTickImpl.class);
 
     public enum Types {
+        UNKNOWN(-1),
         BID_SIZE(0),
         BID(1),
         ASK(2),
@@ -85,7 +87,10 @@ public class IbTickImpl implements IbTick {
         DELAYED_MODEL_OPTION(83),
         LAST_EXCHANGE(84),
         LAST_REGULATORY_TIME(85),
-        FUTURES_OPEN_INTEREST(86);
+        FUTURES_OPEN_INTEREST(86),
+        AVERAGE_OPTION_VOLUME(87),
+        DELAYED_LAST_TIMESTAMP(88),
+        SHORTABLE_SHARES(89);
 
         private static final Map<Integer, Types> map = new HashMap<>();
 
@@ -94,14 +99,19 @@ public class IbTickImpl implements IbTick {
                 map.put(type.value, type);
             }
         }
+
         private Integer value;
 
         Types(Integer value) {
             this.value = value;
         }
 
-        static Types valueOf(Integer type) {
-            return map.get(type);
+        static Optional<Types> valueOf(Integer type) {
+            Types value = map.get(type);
+            if (value == null) {
+                log.warn("Unknown tick type: {}", type);
+            }
+            return Optional.ofNullable(value);
         }
 
         public Integer getValue() {
@@ -129,6 +139,8 @@ public class IbTickImpl implements IbTick {
     private Integer delayedLastSize;
     private Integer delayedVolume;
     private Integer futuresOpenInterest;
+    private Integer averageOptionVolume;
+    private Integer shortableShares;
 
     private BigDecimal bid;
     private BigDecimal ask;
@@ -172,6 +184,7 @@ public class IbTickImpl implements IbTick {
     private String rtTradeVolume;
     private String lastExchange;
     private String lastRegulatoryTime;
+    private String delayedLastTimestamp;
 
     private BigDecimal optionHistoricalVolatility;
     private BigDecimal optionImpliedVolatility;
@@ -190,250 +203,263 @@ public class IbTickImpl implements IbTick {
 
     public void setIntValue(int tickerId, Integer type, Integer value) {
 
-        Types enumType = valueOf(type);
-        switch (enumType) {
-            case BID_SIZE:
-                bidSize = value;
-                break;
-            case ASK_SIZE:
-                askSize = value;
-                break;
-            case LAST_SIZE:
-                lastSize = value;
-                break;
-            case VOLUME:
-                volume = value;
-                break;
-            case VOLUME_AVERAGE:
-                volumeAverage = value;
-                break;
-            case OPTION_CALL_OPEN_INTEREST:
-                optionCallOpenInterest = value;
-                break;
-            case OPTION_PUT_OPEN_INTEREST:
-                optionPutOpenInterest = value;
-                break;
-            case OPTION_CALL_VOLUME:
-                optionCallVolume = value;
-                break;
-            case OPTION_PUT_VOLUME:
-                optionPutVolume = value;
-                break;
-            case ACTION_VOLUME:
-                actionVolume = value;
-                break;
-            case ACTION_IMBALANCE:
-                actionImbalance = value;
-                break;
-            case REGULATORY_IMBALANCE:
-                regulatoryImbalance = value;
-                break;
-            case SHORT_TERM_VOLUME3_MIN:
-                shortTermVolume3Min = value;
-                break;
-            case SHORT_TERM_VOLUME5_MIN:
-                shortTermVolume5Min = value;
-                break;
-            case SHORT_TERM_VOLUME10_MIN:
-                shortTermVolume10Min = value;
-                break;
-            case DELAYED_BID_SIZE:
-                delayedBidSize = value;
-                break;
-            case DELAYED_ASK_SIZE:
-                delayedAskSize = value;
-                break;
-            case DELAYED_LAST_SIZE:
-                delayedLastSize = value;
-                break;
-            case DELAYED_VOLUME:
-                delayedVolume = value;
-                break;
-            case FUTURES_OPEN_INTEREST:
-                futuresOpenInterest = value;
-                break;
-            default:
-                log.warn("Unknown int type for tick, type={}, value={}", type, value);
-        }
-        log.trace("Set value for {}: {} = {}", tickerId, enumType, value);
+        valueOf(type).ifPresent(tickType -> {
+            switch (tickType) {
+                case BID_SIZE:
+                    bidSize = value;
+                    break;
+                case ASK_SIZE:
+                    askSize = value;
+                    break;
+                case LAST_SIZE:
+                    lastSize = value;
+                    break;
+                case VOLUME:
+                    volume = value;
+                    break;
+                case VOLUME_AVERAGE:
+                    volumeAverage = value;
+                    break;
+                case OPTION_CALL_OPEN_INTEREST:
+                    optionCallOpenInterest = value;
+                    break;
+                case OPTION_PUT_OPEN_INTEREST:
+                    optionPutOpenInterest = value;
+                    break;
+                case OPTION_CALL_VOLUME:
+                    optionCallVolume = value;
+                    break;
+                case OPTION_PUT_VOLUME:
+                    optionPutVolume = value;
+                    break;
+                case ACTION_VOLUME:
+                    actionVolume = value;
+                    break;
+                case ACTION_IMBALANCE:
+                    actionImbalance = value;
+                    break;
+                case REGULATORY_IMBALANCE:
+                    regulatoryImbalance = value;
+                    break;
+                case SHORT_TERM_VOLUME3_MIN:
+                    shortTermVolume3Min = value;
+                    break;
+                case SHORT_TERM_VOLUME5_MIN:
+                    shortTermVolume5Min = value;
+                    break;
+                case SHORT_TERM_VOLUME10_MIN:
+                    shortTermVolume10Min = value;
+                    break;
+                case DELAYED_BID_SIZE:
+                    delayedBidSize = value;
+                    break;
+                case DELAYED_ASK_SIZE:
+                    delayedAskSize = value;
+                    break;
+                case DELAYED_LAST_SIZE:
+                    delayedLastSize = value;
+                    break;
+                case DELAYED_VOLUME:
+                    delayedVolume = value;
+                    break;
+                case FUTURES_OPEN_INTEREST:
+                    futuresOpenInterest = value;
+                    break;
+                case AVERAGE_OPTION_VOLUME:
+                    averageOptionVolume = value;
+                    break;
+                case SHORTABLE_SHARES:
+                    shortableShares = value;
+                    break;
+                default:
+                    log.warn("Unknown int type for tick, type={}, value={}", type, value);
+            }
+            log.trace("Set value for {}: {} = {}", tickerId, tickType, value);
+        });
     }
 
     public void setPriceValue(int tickerId, Integer type, BigDecimal value, TickAttrib attrib) {
-        Types enumType = valueOf(type);
-        switch (enumType) {
-            case BID:
-                bid = value;
-                break;
-            case ASK:
-                ask = value;
-                break;
-            case LAST:
-                lastPrice = value;
-                break;
-            case HIGH:
-                highPrice = value;
-                break;
-            case LOW:
-                lowPrice = value;
-                break;
-            case CLOSE_PRICE:
-                closePrice = value;
-                break;
-            case OPEN_TICK:
-                openTick = value;
-                break;
-            case LOW13_WEEKS:
-                low13Weeks = value;
-                break;
-            case HIGH13_WEEKS:
-                high13Weeks = value;
-                break;
-            case LOW26_WEEKS:
-                low26Weeks = value;
-                break;
-            case HIGH26_WEEKS:
-                high26Weeks = value;
-                break;
-            case LOW52_WEEKS:
-                low52Weeks = value;
-                break;
-            case HIGH52_WEEKS:
-                high52Weeks = value;
-                break;
-            case AUCTION_PRICE:
-                auctionPrice = value;
-                break;
-            case MARK_PRICE:
-                markPrice = value;
-                break;
-            case BID_YIELD:
-                bidYield = value;
-                break;
-            case ASK_YIELD:
-                askYield = value;
-                break;
-            case LAST_YIELD:
-                lastYield = value;
-                break;
-            case LAST_RTHTRADE:
-                lastRthTrade = value;
-                break;
-            case DELAYED_BID:
-                delayedBid = value;
-                break;
-            case DELAYED_ASK:
-                delayedAsk = value;
-                break;
-            case DELAYED_LAST:
-                delayedLast = value;
-                break;
-            case DELAYED_HIGH_PRICE:
-                delayedHighPrice = value;
-                break;
-            case DELAYED_LOW_PRICE:
-                delayedLowPrice = value;
-                break;
-            case DELAYED_CLOSE:
-                delayedClose = value;
-                break;
-            case DELAYED_OPEN:
-                delayedOpen = value;
-                break;
-            case CREDITMAN_MARK_PRICE:
-                creditmanMarkPrice = value;
-                break;
-            case CREDITMAN_SLOW_MAR_KPRICE:
-                creditmanSlowMarkPrice = value;
-                break;
-            case DELAYED_BID_OPTION:
-                delayedBidOption = value;
-                break;
-            case DELAYED_ASK_OPTION:
-                delayedAskOption = value;
-                break;
-            case DELAYED_LAST_OPTION:
-                delayedLastOption = value;
-                break;
-            case DELAYED_MODEL_OPTION:
-                delayedModelOption = value;
-                break;
-            default:
-                log.warn("Unknown price type for tick, type={}, value={}", type, value);
-        }
-        log.trace("Set value for {}: {} = {}, attr: [auto exec: {}, past limit: {}, pre open: {}]",
-                  tickerId, enumType, value, attrib.canAutoExecute(), attrib.pastLimit(), attrib.preOpen());
+        valueOf(type).ifPresent(tickType -> {
+            switch (tickType) {
+                case BID:
+                    bid = value;
+                    break;
+                case ASK:
+                    ask = value;
+                    break;
+                case LAST:
+                    lastPrice = value;
+                    break;
+                case HIGH:
+                    highPrice = value;
+                    break;
+                case LOW:
+                    lowPrice = value;
+                    break;
+                case CLOSE_PRICE:
+                    closePrice = value;
+                    break;
+                case OPEN_TICK:
+                    openTick = value;
+                    break;
+                case LOW13_WEEKS:
+                    low13Weeks = value;
+                    break;
+                case HIGH13_WEEKS:
+                    high13Weeks = value;
+                    break;
+                case LOW26_WEEKS:
+                    low26Weeks = value;
+                    break;
+                case HIGH26_WEEKS:
+                    high26Weeks = value;
+                    break;
+                case LOW52_WEEKS:
+                    low52Weeks = value;
+                    break;
+                case HIGH52_WEEKS:
+                    high52Weeks = value;
+                    break;
+                case AUCTION_PRICE:
+                    auctionPrice = value;
+                    break;
+                case MARK_PRICE:
+                    markPrice = value;
+                    break;
+                case BID_YIELD:
+                    bidYield = value;
+                    break;
+                case ASK_YIELD:
+                    askYield = value;
+                    break;
+                case LAST_YIELD:
+                    lastYield = value;
+                    break;
+                case LAST_RTHTRADE:
+                    lastRthTrade = value;
+                    break;
+                case DELAYED_BID:
+                    delayedBid = value;
+                    break;
+                case DELAYED_ASK:
+                    delayedAsk = value;
+                    break;
+                case DELAYED_LAST:
+                    delayedLast = value;
+                    break;
+                case DELAYED_HIGH_PRICE:
+                    delayedHighPrice = value;
+                    break;
+                case DELAYED_LOW_PRICE:
+                    delayedLowPrice = value;
+                    break;
+                case DELAYED_CLOSE:
+                    delayedClose = value;
+                    break;
+                case DELAYED_OPEN:
+                    delayedOpen = value;
+                    break;
+                case CREDITMAN_MARK_PRICE:
+                    creditmanMarkPrice = value;
+                    break;
+                case CREDITMAN_SLOW_MAR_KPRICE:
+                    creditmanSlowMarkPrice = value;
+                    break;
+                case DELAYED_BID_OPTION:
+                    delayedBidOption = value;
+                    break;
+                case DELAYED_ASK_OPTION:
+                    delayedAskOption = value;
+                    break;
+                case DELAYED_LAST_OPTION:
+                    delayedLastOption = value;
+                    break;
+                case DELAYED_MODEL_OPTION:
+                    delayedModelOption = value;
+                    break;
+                default:
+                    log.warn("Unknown price type for tick, type={}, value={}", type, value);
+            }
+            log.trace("Set value for {}: {} = {}, attr: [auto exec: {}, past limit: {}, pre open: {}]",
+                      tickerId, tickType, value, attrib.canAutoExecute(), attrib.pastLimit(), attrib.preOpen());
+        });
     }
 
     public void setStringValue(int tickerId, Integer type, String value) {
-        Types enumType = valueOf(type);
-        switch (enumType) {
-            case BID_EXCHANGE:
-                bidExchange = value;
-                break;
-            case ASK_EXCHANGE:
-                askExchange = value;
-                break;
-            case LAST_TIMESTAMP:
-                lastTimestamp = value;
-                break;
-            case RT_VOLUME:
-                rtVolume = value;
-                break;
-            case IB_DIVIDENDS:
-                ibDividends = value;
-                break;
-            case NEWS:
-                news = value;
-                break;
-            case RT_TRADE_VOLUME:
-                rtTradeVolume = value;
-                break;
-            case LAST_EXCHANGE:
-                lastExchange = value;
-                break;
-            case LAST_REGULATORY_TIME:
-                lastRegulatoryTime = value;
-                break;
-            default:
-                log.warn("Unknown string type for tick, type={}, value={}", type, value);
-        }
-        log.trace("Set value for {}: {} = {}", tickerId, enumType, value);
+        valueOf(type).ifPresent(tickType -> {
+            switch (tickType) {
+                case BID_EXCHANGE:
+                    bidExchange = value;
+                    break;
+                case ASK_EXCHANGE:
+                    askExchange = value;
+                    break;
+                case LAST_TIMESTAMP:
+                    lastTimestamp = value;
+                    break;
+                case RT_VOLUME:
+                    rtVolume = value;
+                    break;
+                case IB_DIVIDENDS:
+                    ibDividends = value;
+                    break;
+                case NEWS:
+                    news = value;
+                    break;
+                case RT_TRADE_VOLUME:
+                    rtTradeVolume = value;
+                    break;
+                case LAST_EXCHANGE:
+                    lastExchange = value;
+                    break;
+                case LAST_REGULATORY_TIME:
+                    lastRegulatoryTime = value;
+                    break;
+                case DELAYED_LAST_TIMESTAMP:
+                    delayedLastTimestamp = value;
+                    break;
+                default:
+                    log.warn("Unknown string type for tick, type={}, value={}", type, value);
+            }
+            log.trace("Set value for {}: {} = {}", tickerId, tickType, value);
+        });
     }
 
     public void setGenericValue(int tickerId, Integer type, BigDecimal value) {
-        Types enumType = valueOf(type);
-        switch (enumType) {
-            case OPTION_HISTORICAL_VOLATILITY:
-                optionHistoricalVolatility = value;
-                break;
-            case OPTION_IMPLIED_VOLATILITY:
-                optionImpliedVolatility = value;
-                break;
-            case INDEX_FUTURE_PREMIUM:
-                indexFuturePremium = value;
-                break;
-            case SHORTABLE:
-                shortable = value;
-                break;
-            case HALTED:
-                halted = value;
-                break;
-            case TRADE_COUNT:
-                tradeCount = value;
-                break;
-            case TRADE_RATE:
-                tradeRate = value;
-                break;
-            case VOLUME_RATE:
-                volumeRate = value;
-                break;
-            case RT_HISTORICAL_VOLATILITY:
-                rtHistoricalVolatility = value;
-                break;
-            default:
-                log.warn("Unknown generic type for tick, type={}, value={}", type, value);
-        }
-        log.trace("Set value for {}: {} = {}", tickerId, enumType, value);
+        valueOf(type).ifPresent(tickType -> {
+            switch (tickType) {
+                case OPTION_HISTORICAL_VOLATILITY:
+                    optionHistoricalVolatility = value;
+                    break;
+                case OPTION_IMPLIED_VOLATILITY:
+                    optionImpliedVolatility = value;
+                    break;
+                case INDEX_FUTURE_PREMIUM:
+                    indexFuturePremium = value;
+                    break;
+                case SHORTABLE:
+                    shortable = value;
+                    break;
+                case HALTED:
+                    halted = value;
+                    break;
+                case TRADE_COUNT:
+                    tradeCount = value;
+                    break;
+                case TRADE_RATE:
+                    tradeRate = value;
+                    break;
+                case VOLUME_RATE:
+                    volumeRate = value;
+                    break;
+                case RT_HISTORICAL_VOLATILITY:
+                    rtHistoricalVolatility = value;
+                    break;
+                default:
+                    log.warn("Unknown generic type for tick, type={}, value={}", type, value);
+            }
+            log.trace("Set value for {}: {} = {}", tickerId, tickType, value);
+        });
     }
 
     public void refreshUpdateTime() {
@@ -857,6 +883,15 @@ public class IbTickImpl implements IbTick {
         }
         if (futuresOpenInterest != null) {
             buffer.append(", futuresOpenInterest=").append(futuresOpenInterest);
+        }
+        if (averageOptionVolume != null) {
+            buffer.append(", averageOptionVolume=").append(averageOptionVolume);
+        }
+        if (shortableShares != null) {
+            buffer.append(", shortableShares=").append(shortableShares);
+        }
+        if (delayedLastTimestamp != null) {
+            buffer.append(", delayedLastTimestamp=").append(delayedLastTimestamp);
         }
         if (bid != null) {
             buffer.append(", bid=").append(bid);

@@ -324,7 +324,7 @@ class IbClientTest extends Specification {
     def "Request positions"() {
         when:
         def positions = client.subscribeOnPositionChange("DU22993")
-                .takeUntil({ it == IbPosition.COMPLETE } as Predicate)
+                .skipWhile({ it == IbPosition.COMPLETE } as Predicate)
                 .toList()
                 .timeout(3, TimeUnit.SECONDS)
                 .blockingGet()

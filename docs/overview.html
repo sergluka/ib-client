@@ -56,11 +56,11 @@ statuses duplicates, check incoming messages, etc.
     order.totalQuantity(1.0);
 
     client.placeOrder(contract, order)
-          .flatMapObservable(result -> client.subscribeOnOrderNewStatus())
-          .filter(status -> status.getOrderId() == orderId)
-          .filter(status -> status.isFilled())
-          .subscribe(status -> log.info("Order {} is filled", orderId),
-                     e -> log.error("Order placing error: {}", e));
+          .flatMapObservable(result -&gt; client.subscribeOnOrderNewStatus())
+          .filter(status -&gt; status.getOrderId() == orderId)
+          .filter(status -&gt; status.isFilled())
+          .subscribe(status -&gt; log.info("Order {} is filled", orderId),
+                     e -&gt; log.error("Order placing error: {}", e));
 </code>
 </pre>
 
@@ -91,20 +91,20 @@ statuses duplicates, check incoming messages, etc.
     contract.exchange("SMART");
     contract.secType(Types.SecType.STK);
 
-    Single<IbOrder> entry = client.placeOrder(contract, parent, Schedulers.single())
-                                  .doOnSuccess(order -> log.info("Entry order was placed. {}", order.getOrder()))
-                                  .doOnError(e -> log.error("Fail to place entry order", e));
+    Single&lt;IbOrder&gt; entry = client.placeOrder(contract, parent, Schedulers.single())
+                                  .doOnSuccess(order -&gt; log.info("Entry order was placed. {}", order.getOrder()))
+                                  .doOnError(e -&gt; log.error("Fail to place entry order", e));
 
-    Single<IbOrder> tp = client.placeOrder(contract, takeProfit, Schedulers.single())
-                               .doOnSuccess(order -> log.info("TP order was placed. {}", order.getOrder()))
-                               .doOnError(e -> log.error("Fail to place take profit order", e));
+    Single&lt;IbOrder&gt; tp = client.placeOrder(contract, takeProfit, Schedulers.single())
+                               .doOnSuccess(order -&gt; log.info("TP order was placed. {}", order.getOrder()))
+                               .doOnError(e -&gt; log.error("Fail to place take profit order", e));
 
-    Single<IbOrder> sl = client.placeOrder(contract, stopLoss, Schedulers.single())
-                               .doOnSuccess(order -> log.info("SL order was placed. {}", order.getOrder()))
-                               .doOnError(e -> log.error("Fail to place stop loss order", e));
+    Single&lt;IbOrder&gt; sl = client.placeOrder(contract, stopLoss, Schedulers.single())
+                               .doOnSuccess(order -&gt; log.info("SL order was placed. {}", order.getOrder()))
+                               .doOnError(e -&gt; log.error("Fail to place stop loss order", e));
 
     Single.merge(entry, tp, sl)
-          .doOnError(e -> log.error("Error to place orders group. Error: {}", e.getMessage()))
+          .doOnError(e -&gt; log.error("Error to place orders group. Error: {}", e.getMessage()))
           .blockingSubscribe();
 </code>
 </pre>
