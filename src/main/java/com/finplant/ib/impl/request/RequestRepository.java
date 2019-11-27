@@ -88,7 +88,10 @@ public class RequestRepository implements AutoCloseable {
     }
 
     private void remove(RequestKey key) {
-        requests.remove(key);
+        Request prev = requests.remove(key);
+        if (prev == null) {
+            throw new IllegalArgumentException(String.format("Unknown request: %s", key));
+        }
     }
 
     public enum Type {
@@ -210,13 +213,13 @@ public class RequestRepository implements AutoCloseable {
                 }
 
                 emitter.setCancellable(() -> {
+                    remove(key);
                     if (client.isConnected()) {
                         log.debug("Unregister from {}", request);
                         request.unregister();
                     } else {
                         log.debug("Have no connection at unregister of {}", key);
                     }
-                    remove(key);
                 });
 
                 request.register();
