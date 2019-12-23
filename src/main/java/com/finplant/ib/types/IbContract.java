@@ -19,7 +19,7 @@ public class IbContract {
     private final Types.Right right;
     private final String multiplier;
     private final String exchange;
-    private final String primaryExch;
+    private final String primaryExchange;
     private final String currency;
     private final String localSymbol;
     private final String tradingClass;
@@ -39,7 +39,7 @@ public class IbContract {
         right = base.right();
         multiplier = base.multiplier();
         exchange = base.exchange();
-        primaryExch = base.primaryExch();
+        primaryExchange = base.primaryExch();
         currency = base.currency();
         localSymbol = base.localSymbol();
         tradingClass = base.tradingClass();
@@ -88,7 +88,7 @@ public class IbContract {
     }
 
     public String getPrimaryExchange() {
-        return primaryExch;
+        return primaryExchange;
     }
 
     public String getCurrency() {
@@ -134,7 +134,7 @@ public class IbContract {
         buffer.append(", right=").append(right);
         buffer.append(", multiplier='").append(multiplier).append('\'');
         buffer.append(", exchange='").append(exchange).append('\'');
-        buffer.append(", primaryExch='").append(primaryExch).append('\'');
+        buffer.append(", primaryExch='").append(primaryExchange).append('\'');
         buffer.append(", currency='").append(currency).append('\'');
         buffer.append(", localSymbol='").append(localSymbol).append('\'');
         buffer.append(", tradingClass='").append(tradingClass).append('\'');

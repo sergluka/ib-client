@@ -3,8 +3,6 @@ package com.finplant.ib;
 import java.util.Collection;
 import java.util.Map;
 
-import org.jetbrains.annotations.Nullable;
-
 import com.finplant.ib.types.IbMarketDepth;
 import com.finplant.ib.types.IbOrder;
 import com.finplant.ib.types.IbPortfolio;
@@ -24,10 +22,8 @@ public interface CacheRepository {
 
     Collection<IbPosition> getPositions();
 
-    @Nullable
     IbPosition getPosition(String account, Contract contract);
 
-    @Nullable
     IbPortfolio getPortfolio(Contract contract);
 
     void clear();

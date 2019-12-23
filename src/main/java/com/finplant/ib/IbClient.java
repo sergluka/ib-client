@@ -7,36 +7,31 @@ import com.finplant.ib.impl.Wrapper;
 import com.finplant.ib.impl.cache.CacheRepositoryImpl;
 import com.finplant.ib.impl.connection.ConnectionMonitor;
 import com.finplant.ib.impl.request.RequestRepository;
+import com.finplant.ib.params.AccountsSummaryParams;
+import com.finplant.ib.params.IbClientOptions;
 import com.finplant.ib.types.*;
 import com.ib.client.*;
-import io.reactivex.Completable;
-import io.reactivex.Observable;
-import io.reactivex.Scheduler;
-import io.reactivex.Single;
-import io.reactivex.schedulers.Schedulers;
-import io.reactivex.subjects.PublishSubject;
-import io.reactivex.subjects.Subject;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import reactor.core.publisher.EmitterProcessor;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.function.Consumer;
 
-@SuppressWarnings({"WeakerAccess", "unused"})
+@SuppressWarnings({"unused"})
 public class IbClient implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(IbClient.class);
     private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd HH:mm:ss");
 
-    private final Subject<IbLogRecord> logSubject = PublishSubject.create();
-    private final PublishSubject<Boolean> connectionStatusSubject = PublishSubject.create();
+    private final EmitterProcessor<IbLogRecord> logSubject = EmitterProcessor.create();
+    private final EmitterProcessor<Boolean> connectionStatusSubject = EmitterProcessor.create();
 
     private final IdGenerator idGenerator;
     private final RequestRepository requests;
@@ -80,35 +75,28 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
-     * Connects to TWS or IB Gateway instance
+     * Connects to TWS or IB Gateway instance.
      *
      * @param ip     IP address
      * @param port   port
      * @param connId Connection ID
-     * @return Completable that completes when connection will be established
-     *
-     * <pre>{@code
-     * Example:
-     *
-     * IbClient client = new IbClient();
-     * client.connect("127.0.0.1", 7497, 0).timeout(10, TimeUnit.SECONDS).blockingAwait();
-     * }</pre>
+     * @return Mono that completes when connection will be established
      *
      * @see <a href="https://interactivebrokers.github.io/tws-api/connection.html">
      * TWS API: Connectivity</a>
      */
-    public Completable connect(String ip, int port, int connId) {
+    public Mono<Void> connect(String ip, int port, int connId) {
         Validators.stringShouldNotBeEmpty(ip, "Hostname should be defined");
         Validators.intShouldBePositive(port, "Port should be positive");
         Validators.intShouldBePositiveOrZero(connId, "Connection ID should be positive or 0");
 
         log.debug("Connecting to {}:{}, id={} ...", ip, port, connId);
 
-        return Completable.create(emitter -> {
+        return Mono.create(emitter -> {
 
             if (isConnected()) {
                 log.warn("Already is connected");
-                emitter.onComplete();
+                emitter.success();
                 return;
             }
 
@@ -155,7 +143,7 @@ public class IbClient implements AutoCloseable {
                 @Override
                 protected void onConnectStatusChange(Boolean status) {
                     if (status) {
-                        emitter.onComplete();
+                        emitter.success();
                     }
                     connectionStatusSubject.onNext(status);
                 }
@@ -166,11 +154,12 @@ public class IbClient implements AutoCloseable {
             connectionMonitor.start();
             connectionMonitor.connect();
 
-        }).doOnError(e -> connectionMonitor.close());
+        }).doOnError(e -> connectionMonitor.close())
+                   .then();
     }
 
     /**
-     * Disconnects from TWS
+     * Disconnects from TWS.
      */
     public void disconnect() {
         log.debug("Disconnecting...");
@@ -180,7 +169,7 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
-     * Returns connection status
+     * Returns connection status.
      *
      * @return true if connected
      */
@@ -192,8 +181,8 @@ public class IbClient implements AutoCloseable {
 
     /**
      * Returns managed accounts.
-     * <p>
-     * This information is received right after connect to TWS
+     *
+     * <p>This information is received right after connect to TWS
      *
      * @return Set of accounts
      *
@@ -205,112 +194,58 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
-     * Request for account information for all possible tags
+     * Request for account summary data.
      *
-     * @param group  If "All" - get account summary data for all accounts,
-     *               or specific Advisor Account Group name that has already been created in TWS Global Configuration.
-     * @param ledger If "All" - relay all cash balance tags in all currencies,
-     *               or specific currency
-     * @return Single with account summary
-     * <p>
-     * // TODO
-     */
-    public Single<IbAccountsSummary> reqAccountSummary(String group, String ledger) {
-        return reqAccountSummary(group, ledger, EnumSet.allOf(AccountSummaryTags.class));
-    }
-
-    /**
-     * Request for account information data
+     * @param params  Consumer with params builder
+     * @return Mono with account summary
      *
-     * @param group  If "All" - get account summary data for all accounts,
-     *               or specific Advisor Account Group name that has already been created in TWS Global Configuration.
-     * @param ledger If "All" - relay all cash balance tags in all currencies,
-     *               or specific currency
-     * @param tags   Set of the desired tags:
-     * @return Single with account summary
-     * <p>
-     * // TODO Add examples
+     * @see <a href="https://interactivebrokers.github.io/tws-api/account_summary.html">
+     * TWS API: Account Summary</a>
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a3e0d55d36cd416639b97ee6e47a86fe9">
+     * TWS API: reqAccountSummary</a>
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#af5ec205466b47cdab2cd17931b529e82">
+     * TWS API: cancelAccountSummary</a>
      */
-    // TODO: Make one function with parameters builder to avoid magic strings
-    public Single<IbAccountsSummary> reqAccountSummary(String group, String ledger, EnumSet<AccountSummaryTags> tags) {
+    public Mono<IbAccountsSummary> reqAccountSummary(Consumer<AccountsSummaryParams> params) {
 
-        Validators.stringShouldNotBeEmpty(group, "Group should be defined");
-        Validators.shouldNotBeNull(tags, "Tags should be defined");
+        AccountsSummaryParams paramsBuilder = new AccountsSummaryParams();
+        params.accept(paramsBuilder);
 
-        String ledgerTag;
-        if (ledger == null || ledger.isEmpty()) {
-            ledgerTag = "$LEDGER";
-        }
-        else if (ledger.equals("All")) {
-            ledgerTag = "$LEDGER:ALL";
-        }
-        else {
-            ledgerTag = "$LEDGER:" + ledger;
-        }
+        paramsBuilder.validate();
 
-        String tagsString = Stream.concat(tags.stream().map(Enum::name), Stream.of(ledgerTag))
-                .collect(Collectors.joining(","));
+        var accountGroup = paramsBuilder.getAccountGroup();
+        String tagsString = paramsBuilder.buildTags();
 
         return requests.<IbAccountsSummary>builder()
                 .type(RequestRepository.Type.REQ_ACCOUNT_SUMMARY)
-                .register(id -> socket.reqAccountSummary(id, group, tagsString))
+                .register(id -> socket.reqAccountSummary(id, accountGroup, tagsString))
                 .unregister(id -> socket.cancelAccountSummary(id))
                 .subscribe()
-                .singleOrError();
+                .single();
     }
 
     /**
-     * Subscription to order statuses
+     * Subscription to order statuses.
      *
-     * <pre>{@code
-     * Example:
-     *
-     *  given:
-     *  def contract = createContractEUR()
-     *  def order = createOrderStp()
-     *  def observer = client.subscribeOnOrderNewStatus().test()
-     *
-     *  when:
-     *  client.placeOrder(contract, order).blockingGet()
-     *
-     *  then:
-     *  observer.awaitCount(2)
-     *  observer.assertNotComplete()
-     *  observer.assertNoErrors()
-     *  observer.assertValueAt 0, { it.status == OrderStatus.PreSubmitted } as Predicate
-     *  observer.assertValueAt 1, { it.status in [OrderStatus.Submitted, OrderStatus.Filled] } as Predicate
-     * }</pre>
-     *
-     * @return Observable that emits stream of statuses
+     * @return Flux that emits stream of statuses
      *
      * @see <a href="https://interactivebrokers.github.io/tws-api/order_submission.html#order_status">
      * TWS API: The orderStatus callback</a>
      */
-    public Observable<IbOrderStatus> subscribeOnOrderNewStatus() {
+    public Flux<IbOrderStatus> subscribeOnOrderNewStatus() {
         return requests.<IbOrderStatus>builder()
                 .type(RequestRepository.Type.EVENT_ORDER_STATUS)
-                .register(() -> {}) // statuses are received without registration
+                .register(() -> {
+                }) // statuses are received without registration
                 .subscribe();
     }
 
     /**
      * Subscription to position changes for a single account.
      *
-     * <pre>{@code
-     * Example:
-     *
-     * when:
-     *     def positions = client.subscribeOnPositionChange("AA000000")
-     *             .takeUntil({ it == IbPosition.COMPLETE } as Predicate)
-     *             .toList()
-     *             .timeout(3, TimeUnit.SECONDS)
-     *             .blockingGet()
-     *
-     * then:
-     *    positions
-     * }</pre>
-     *
-     * @return Observable that emits stream of {@link com.finplant.ib.types.IbPosition}
+     * @return Flux that emits stream of {@link com.finplant.ib.types.IbPosition}
      *
      * @implNote After subscription, client sends snapshot with already existing positions. Then
      * only updates will be send. To separate these two cases, special entry will be sent
@@ -321,7 +256,7 @@ public class IbClient implements AutoCloseable {
      * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#ab2159a39733d8967928317524875aa62">
      * TWS API: cancelPositions</a>
      */
-    public Observable<IbPosition> subscribeOnPositionChange() {
+    public Flux<IbPosition> subscribeOnPositionChange() {
         return requests.<IbPosition>builder()
                 .type(RequestRepository.Type.EVENT_POSITION)
                 .register(() -> socket.reqPositions())
@@ -333,33 +268,18 @@ public class IbClient implements AutoCloseable {
      * Subscription to position changes for multiple accounts.
      *
      * @param account Account number
-     * @return Observable that emits stream of @see IbPosition
+     * @return Flux that emits stream of @see IbPosition
      *
      * @implNote After subscription, client sends snapshot with already existing positions. Then
      * only updates will be send. To separate these two cases, special entry will be sent
      * between them - {@link com.finplant.ib.types.IbPosition#COMPLETE}
-     *
-     * <pre>{@code
-     * Example:
-     *
-     * when:
-     * def positions = client.subscribeOnPositionChange("AA99999")
-     *         .takeUntil({ it == IbPosition.COMPLETE } as Predicate)
-     *         .toList()
-     *         .timeout(3, TimeUnit.SECONDS)
-     *         .blockingGet()
-     *
-     * then:
-     * positions
-     * positions.size() > 0
-     * }</pre>
      * @see <a href=https://interactivebrokers.github.io/tws-api/positions.html#position_multi>
      * TWS API: reqPositionsMulti</a>
      * @see
      * <a href=https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#ae919658c15bceba6b6cf2a1336d0acbf>
      * TWS API: cancelPositionsMulti</a>
      */
-    public Observable<IbPosition> subscribeOnPositionChange(String account) {
+    public Flux<IbPosition> subscribeOnPositionChange(String account) {
         Validators.stringShouldNotBeEmpty(account, "Account should be defined");
 
         return requests.<IbPosition>builder()
@@ -370,7 +290,7 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
-     * Switch delayed streaming data mode
+     * Switch delayed streaming data mode.
      *
      * @param type Data feed subscription mode
      * @see com.finplant.ib.IbClient#reqMarketData
@@ -383,10 +303,10 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
-     * Get snapshot of market data
+     * Get snapshot of market data.
      *
      * @param contract IB contract
-     * @return Single with snapshot of market data
+     * @return Mono with snapshot of market data
      *
      * @see com.finplant.ib.IbClient#setMarketDataType
      * @see <a href=https://interactivebrokers.github.io/tws-api/delayed_data.html>TWS API: Delayed Streaming Data</a>
@@ -397,7 +317,7 @@ public class IbClient implements AutoCloseable {
      * <a href=https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#ae919658c15bceba6b6cf2a1336d0acbf>TWS
      * API: cancelPositionsMulti</a>
      */
-    public Single<IbTick> reqMarketData(Contract contract) {
+    public Mono<IbTick> reqMarketData(Contract contract) {
         Validators.shouldNotBeNull(contract, "Contract should be defined");
 
         return requests.<IbTick>builder()
@@ -405,14 +325,14 @@ public class IbClient implements AutoCloseable {
                 .register(id -> socket.reqMktData(id, contract, "", true, false, null))
                 .unregister(id -> socket.cancelPositionsMulti(id))
                 .subscribe()
-                .firstOrError();
+                .single();
     }
 
     /**
      * Requests venues for which market data is returned by {@link com.finplant.ib.IbClient#subscribeOnMarketDepth}
-     * subscription
+     * subscription.
      *
-     * @return Observable with descriptions
+     * @return Flux with descriptions
      *
      * @see <a href=https://interactivebrokers.github.io/tws-api/market_depth.html#reqmktdepthexchanges>
      * TWS API: Market Maker or Exchange</a>
@@ -420,38 +340,20 @@ public class IbClient implements AutoCloseable {
      * <a href=https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a5c40b7bf20ba269530807b093dc51853>
      * TWS API: reqMktDepthExchanges</a>
      */
-    public Observable<IbDepthMktDataDescription> reqMktDepthExchanges() {
+    public Flux<IbDepthMktDataDescription> reqMktDepthExchanges() {
 
         return requests.<List<IbDepthMktDataDescription>>builder()
                 .type(RequestRepository.Type.REQ_MARKET_DEPTH_EXCHANGES)
                 .register(() -> socket.reqMktDepthExchanges())
                 .subscribe()
-                .flatMap(Observable::fromIterable);
+                .flatMap(Flux::fromIterable);
     }
 
     /**
-     * Get market rule for specific ID
+     * Get market rule for specific ID.
      *
      * @param marketRuleId IB contract
-     * @return Observable with PriceIncrement. Completes as soon all data will be received.
-     *
-     * <pre>{@code
-     * Example:
-     *
-     * when:
-     *     def observer = client.reqMarketRule(98).test()
-     *
-     * then:
-     *     observer.awaitTerminalEvent()
-     *     observer.assertNoErrors()
-     *     observer.assertValueCount(1)
-     *
-     *     observer.assertValueAt 0, { value ->
-     *         assert value.lowEdge() == 0.0
-     *         assert value.increment() ==  0.001
-     *         return true
-     *     } as Predicate
-     * }</pre>
+     * @return Flux with PriceIncrement. Completes as soon all data will be received.
      *
      * @see com.finplant.ib.IbClient#setMarketDataType
      * @see
@@ -460,50 +362,24 @@ public class IbClient implements AutoCloseable {
      * <a href=https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#af4e8c23a0d1e480ce84320b9e6b525dd>TWS
      * API: reqMarketRule</a>
      */
-    public Observable<PriceIncrement> reqMarketRule(int marketRuleId) {
+    public Flux<PriceIncrement> reqMarketRule(int marketRuleId) {
         Validators.intShouldBePositiveOrZero(marketRuleId, "ID should be defined");
 
         return requests.<List<PriceIncrement>>builder()
                 .type(RequestRepository.Type.REQ_MARKET_RULE)
                 .register(marketRuleId, () -> socket.reqMarketRule(marketRuleId))
-                .unregister(() -> {})
+                .unregister(() -> {
+                })
                 .subscribe()
-                .flatMap(Observable::fromIterable);
+                .flatMap(Flux::fromIterable);
     }
 
     /**
-     * Subscription to contract order book (Market Depth Level II)
-     *
-     * <pre>{@code
-     * Example:
-     *
-     *    given:
-     *    def contract = createContractEUR()
-     *
-     *    when:
-     *    def observer = client.subscribeOnMarketDepth(contract, 2).test()
-     *
-     *    then:
-     *    observer.awaitCount(2, BaseTestConsumer.TestWaitStrategy.SLEEP_100MS, 5000)
-     *    observer.assertNoErrors()
-     *    observer.assertValueAt 0, { IbMarketDepth level ->
-     *        level.position == 0
-     *        level.side == IbMarketDepth.Side.BUY
-     *        level.price > 0.0
-     *        level.size > 0
-     *    } as Predicate
-     *
-     *    observer.assertValueAt 1, { IbMarketDepth level ->
-     *        level.position == 1
-     *        level.side == IbMarketDepth.Side.BUY
-     *        level.price > 0.0
-     *        level.size > 0
-     *    } as Predicate
-     * }</pre>
+     * Subscription to contract order book (Market Depth Level II).
      *
      * @param contract IB contract
      * @param numRows  Order book max depth
-     * @return Observable with order book levels
+     * @return Flux with order book levels
      *
      * @see <a href="https://interactivebrokers.github.io/tws-api/market_depth.html">
      * TWS API: Market Depth (Level II)</a>
@@ -514,7 +390,7 @@ public class IbClient implements AutoCloseable {
      * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#aee1213e04e1d22830e337c9735e995db">
      * TWS API: cancelMktDepth</a>
      */
-    public Observable<IbMarketDepth> subscribeOnMarketDepth(Contract contract, int numRows) {
+    public Flux<IbMarketDepth> subscribeOnMarketDepth(Contract contract, int numRows) {
         Validators.contractWithIdShouldExist(contract);
         Validators.intShouldBePositive(numRows, "Number of rows should be positive");
 
@@ -527,23 +403,10 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
-     * Subscription to contract ticks (Market Depth Level I)
-     *
-     * <pre>{@code
-     * Example:
-     *
-     *    when:
-     *    def testObserver = client.subscribeOnMarketData(createContractEUR()).test()
-     *
-     *    then:
-     *    testObserver.awaitCount(10)
-     *    testObserver.assertNoErrors()
-     *    testObserver.assertNotComplete()
-     *    testObserver.assertValueAt 0, { it.closePrice > 0 } as Predicate
-     * }</pre>
+     * Subscription to contract ticks (Market Depth Level I).
      *
      * @param contract IB contract
-     * @return Observable with contract ticks
+     * @return Flux with contract ticks
      *
      * @see <a href="https://interactivebrokers.github.io/tws-api/top_data.html">
      * TWS API: Market Depth (Level I)</a>
@@ -554,7 +417,7 @@ public class IbClient implements AutoCloseable {
      * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#af443a1cd993aee33ce67deb7bc39e484">
      * TWS API: cancelMktData</a>
      */
-    public Observable<IbTick> subscribeOnMarketData(Contract contract) {
+    public Flux<IbTick> subscribeOnMarketData(Contract contract) {
         Validators.contractWithIdShouldExist(contract);
 
         return requests.<IbTick>builder()
@@ -565,41 +428,23 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
-     * Subscription to PnL of a specific contract
-     *
-     * <pre>{@code
-     * Example:
-     *
-     *    given:
-     *    def contract = createContractGC()
-     *
-     *    when:
-     *    client.placeOrder(contract, createOrderMkt()).blockingGet()
-     *    def observer = client.subscribeOnContractPnl(contract.conid(), "AA000000").test()
-     *
-     *    then:
-     *    observer.awaitCount(1, BaseTestConsumer.TestWaitStrategy.SLEEP_1000MS)
-     *    observer.assertNoErrors()
-     *    observer.assertNotComplete()
-     *    observer.assertValueCount(1)
-     *    observer.assertValueAt 0, { it.positionId > 0 } as Predicate
-     * }</pre>
+     * Subscription to PnL of a specific contract.
      *
      * @param contractId IB contract ID ({@link Contract#conid()} )
      * @param account    User's account
-     * @return Observable with PnL data
+     * @return Flux with PnL data
      *
      * @see <a href="https://interactivebrokers.github.io/tws-api/pnl.html">
      * TWS API: Profit And Loss (P&amp;L)</a>
      * @see
      * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a9ba0dc47f80ff9e836a235a0dea791b3">
-     * TWS API: reqPnLSingle</a>
+     * TWS API: reqPnLMono</a>
      * @see
      * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#accd383725ef440070775654a9ab4bf47">
-     * TWS API: cancelPnLSingle</a>
+     * TWS API: cancelPnLMono</a>
      * @see com.finplant.ib.IbClient#subscribeOnAccountPnl
      */
-    public Observable<IbPnl> subscribeOnContractPnl(int contractId, String account) {
+    public Flux<IbPnl> subscribeOnContractPnl(int contractId, String account) {
         Validators.intShouldBePositive(contractId, "Contract ID should be positive");
         Validators.stringShouldNotBeEmpty(account, "Account should be defined");
 
@@ -611,28 +456,10 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
-     * Subscription to PnL
-     *
-     * <pre>{@code
-     * Example:
-     *
-     *    given:
-     *    def contract = createContractGC()
-     *
-     *    when:
-     *    client.placeOrder(contract, createOrderMkt()).blockingGet()
-     *    def observer = client.subscribeOnContractPnl(contract.conid(), "AA000000").test()
-     *
-     *    then:
-     *    observer.awaitCount(1, BaseTestConsumer.TestWaitStrategy.SLEEP_1000MS)
-     *    observer.assertNoErrors()
-     *    observer.assertNotComplete()
-     *    observer.assertValueCount(1)
-     *    observer.assertValueAt 0, { it.positionId > 0 } as Predicate
-     * }</pre>
+     * Subscription to PnL.
      *
      * @param account User's account
-     * @return Observable with PnL data
+     * @return Flux with PnL data
      *
      * @see <a href="https://interactivebrokers.github.io/tws-api/pnl.html">
      * TWS API: Profit And Loss (P&amp;L)</a>
@@ -644,7 +471,7 @@ public class IbClient implements AutoCloseable {
      * TWS API: cancelPnL</a>
      * @see com.finplant.ib.IbClient#subscribeOnContractPnl
      */
-    public Observable<IbPnl> subscribeOnAccountPnl(String account) {
+    public Flux<IbPnl> subscribeOnAccountPnl(String account) {
         Validators.stringShouldNotBeEmpty(account, "Account should be defined");
 
         return requests.<IbPnl>builder()
@@ -655,24 +482,10 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
-     * Subscription to user's portfolio updates
+     * Subscription to user's portfolio updates.
      *
      * @param account User's account
-     * @return Observable with portfolio information
-     *
-     * <pre>{@code
-     * Example:
-     *
-     *    when:
-     *    def portfolio = client.subscribeOnAccountPortfolio("DU22993")
-     *            .takeUntil({ it == IbPortfolio.COMPLETE } as Predicate)
-     *            .toList()
-     *            .timeout(3, TimeUnit.MINUTES)
-     *            .blockingGet()
-     *
-     *    then:
-     *    portfolio.size() > 0
-     * }</pre>
+     * @return Flux with portfolio information
      *
      * @implNote This information is the same as displayed in TWS Account Window. Data updates once per 3 min
      * @see <a href="https://interactivebrokers.github.io/tws-api/account_updates.html">
@@ -682,7 +495,7 @@ public class IbClient implements AutoCloseable {
      * TWS API: reqAccountUpdates</a>
      * @see com.finplant.ib.IbClient#subscribeOnContractPnl
      */
-    public Observable<IbPortfolio> subscribeOnAccountPortfolio(String account) {
+    public Flux<IbPortfolio> subscribeOnAccountPortfolio(String account) {
         Validators.stringShouldNotBeEmpty(account, "Account should be defined");
 
         return requests.<IbPortfolio>builder()
@@ -693,20 +506,20 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
-     * Subscription to connection status to TWS
-     * <p>
-     * As soon connection with TWS is lost or restored, respective status is published
+     * Subscription to connection status to TWS.
      *
-     * @return Observable with booleans
+     * <p>As soon connection with TWS is lost or restored, respective status is published
+     *
+     * @return Flux with booleans
      */
-    public Observable<Boolean> connectionStatus() {
+    public Flux<Boolean> connectionStatus() {
         return connectionStatusSubject;
     }
 
     /**
      * Subscription to TWS events.
      *
-     * @return Observable with TWS events
+     * @return Flux with TWS events
      *
      * @implNote Internally {@code ib-client} handles incoming TWS events according actual request type with severity
      * detection, as soon TWS sends them in many cases as an errors, warning, or as a regular notifications.
@@ -716,99 +529,48 @@ public class IbClient implements AutoCloseable {
      * TWS API: Error Handling</a>
      * @see com.finplant.ib.types.IbLogRecord
      */
-    public Observable<IbLogRecord> subscribeOnEvent() {
+    public Flux<IbLogRecord> subscribeOnEvent() {
         return logSubject;
     }
 
     /**
-     * Returns current TWS time
+     * Returns current TWS time.
      *
-     * <pre>{@code
-     * Example:
-     *
-     *    when:
-     *    long time = client.getCurrentTime().blockingGet()
-     *
-     *    then:
-     *    time > 1510320971
-     * }</pre>
-     *
-     * @return Single with a time in UNIX format
+     * @return Mono with a TWS server time assuming that its in GMT
      *
      * @see
      * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#ad1ecfd4fb31841ce5817e0c32f44b639">
      * TWS API: reqCurrentTime</a>
      */
-    public Single<Long> getCurrentTime() {
+    public Mono<LocalDateTime> getCurrentTime() {
         return requests.<Long>builder()
                 .type(RequestRepository.Type.REQ_CURRENT_TIME)
                 .register(() -> socket.reqCurrentTime())
                 .subscribe()
-                .firstOrError();
+                .map(time -> LocalDateTime.ofEpochSecond(time, 0, ZoneOffset.UTC))
+                .single();
     }
 
     /**
-     * Places an order
+     * Places an order.
      *
      * @param contract IB contract
      * @param order    IB order
-     * @return Single with a IB result
+     * @return Mono with a IB result
      *
      * @implNote TWS API requires every new order has to have unique and incremented {@link com.ib.client.Order#orderId}
      * that is build based on "nextValidId" returned on API at connect.
      * {@code ib-client} makes this step optional. If {@link com.ib.client.Order#orderId} is not assigned or zero,
      * library generates ID by itself. In some cases Developer need to define ID explicitly, then he is able to
      * generate new value with {@link #nextOrderId}
-     *
-     * <pre>{@code
-     * Example:
-     *    given:
-     *    def contract = new Contract()
-     *    contract.symbol("EUR")
-     *    contract.currency("USD")
-     *    contract.exchange("IDEALPRO")
-     *    contract.secType(Types.SecType.CASH)
-     *
-     *    def order = new Order()
-     *    order.action("BUY")
-     *    order.orderType(OrderType.STP)
-     *    order.auxPrice(auxPrice)
-     *    order.tif("GTC")
-     *    order.totalQuantity(quantity)
-     *
-     *    when:
-     *    def single = client.placeOrder(contract, order).test()
-     *
-     *    then:
-     *    single.awaitTerminalEvent(10, TimeUnit.SECONDS)
-     *    single.assertNoErrors()
-     *    single.assertComplete()
-     *    single.assertValueAt 0, { it.orderId > 0 } as Predicate
-     * }</pre>
      * @see <a href="https://interactivebrokers.github.io/tws-api/order_submission.html">
      * TWS API: Placing Orders</a>
      * @see
      * <a href="https://interactivebrokers.github.io/tws-api/interfaceIBApi_1_1EWrapper.html#a09c07727efd297e438690ab42838d332">
      * TWS API: nextValidId</a>
-     * @see #placeOrder(Contract, Order, Scheduler)
      * @see #nextOrderId
      */
-    public Single<IbOrder> placeOrder(Contract contract, Order order) {
-        return placeOrder(contract, order, Schedulers.io());
-    }
-
-    /**
-     * Places an order with custom schedule for `.subscribeOn`
-     *
-     * @param contract           IB contract
-     * @param order              IB order
-     * @param subscribeScheduler RxJava2 scheduler used to replace default scheduler {@code .subscribeOn(Schedulers
-     *                           .io())}
-     * @return Single with a IB result
-     *
-     * @see #placeOrder(Contract, Order)
-     */
-    public Single<IbOrder> placeOrder(Contract contract, Order order, Scheduler subscribeScheduler) {
+    public Mono<IbOrder> placeOrder(Contract contract, Order order) {
         Validators.shouldNotBeNull(contract, "Contract should be defined");
         Validators.shouldNotBeNull(order, "Order should be defined");
 
@@ -820,15 +582,15 @@ public class IbClient implements AutoCloseable {
                 .id(order.orderId())
                 .type(RequestRepository.Type.REQ_ORDER_PLACE)
                 .register(id -> socket.placeOrder(id, contract, order))
-                .subscribe(subscribeScheduler)
-                .firstOrError();
+                .subscribe()
+                .single();
     }
 
     /**
-     * Cancels an order
+     * Cancels an order.
      *
      * @param orderId order ID. See {@link com.ib.client.Order#orderId}
-     * @return Completable
+     * @return Mono
      *
      * @apiNote Library checks cancel result by checking statuses of the order.
      * First it looks, does order doesn't already canceled or filled.
@@ -839,47 +601,45 @@ public class IbClient implements AutoCloseable {
      * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#adb0a6963779be4904439fb1f24a8cce8">
      * TWS API: cancelOrder</a>
      */
-    public Completable cancelOrder(int orderId) {
+    public Mono<Void> cancelOrder(int orderId) {
         log.info("Canceling order {}", orderId);
 
         // Checking does order doesn't already filled or canceled
-        Completable preconditions = Completable.create(emitter -> {
+        Mono<Void> preconditions = Mono.create(emitter -> {
             IbOrder order = cache.getOrders().getOrDefault(orderId, null);
             if (order == null) {
-                emitter.onComplete();
+                emitter.success();
                 return;
             }
 
             IbOrderStatus lastStatus = order.getLastStatus();
             if (lastStatus.isFilled()) {
-                emitter.onError(new IbExceptions.OrderAlreadyFilledError(orderId));
+                emitter.error(new IbExceptions.OrderAlreadyFilledError(orderId));
                 return;
             }
             if (lastStatus.isCanceled()) {
                 log.warn("Order {} already has been canceled", orderId);
-                emitter.onComplete();
+                emitter.success();
                 return;
             }
 
-            emitter.onComplete();
+            emitter.success();
         });
 
-        Completable request = Completable.defer(() -> {
-            return requests.builder()
-                    .id(orderId)
-                    .type(RequestRepository.Type.REQ_ORDER_CANCEL)
-                    .register(id -> socket.cancelOrder(id))
-                    .subscribe()
-                    .ignoreElements();
-        });
+        Mono<Void> cancelRequest = requests.builder()
+                                           .id(orderId)
+                                           .type(RequestRepository.Type.REQ_ORDER_CANCEL)
+                                           .register(id -> socket.cancelOrder(id))
+                                           .subscribe()
+                                           .then();
 
-        return preconditions.andThen(request);
+        return preconditions.then(cancelRequest);
     }
 
     /**
-     * Cancels all opened orders
+     * Cancels all opened orders.
      *
-     * @return Completable
+     * @return Mono
      *
      * @implNote To provide result, library uses a bit tangled logic to wait until all opened orders will be canceled.
      * Some corner case are possible.
@@ -889,66 +649,41 @@ public class IbClient implements AutoCloseable {
      * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#a66ad7a4820c5be21ebde521d59a50053">
      * TWS API: reqGlobalCancel</a>
      */
-    public Completable cancelAll() {
+    public Mono<Void> cancelAll() {
 
-        return Observable.create(emitter -> {
-            Integer sumOfOrders = reqOpenOrders()
-                    .filter(order -> !order.getLastStatus().isCanceled() &&
-                                     !order.getLastStatus().isFilled() &&
-                                     !order.getLastStatus().isInactive())
-                    .map(IbOrder::getOrderId)
-                    .reduce(0, Integer::sum)
-                    .blockingGet();
 
-            socket.reqGlobalCancel();
+        var openedOrder = reqOpenOrders().filter(order -> !order.getLastStatus().isCanceled() &&
+                                                          !order.getLastStatus().isFilled() &&
+                                                          !order.getLastStatus().isInactive());
 
-            if (sumOfOrders == 0) {
-                emitter.onComplete();
-                return;
-            }
+        Flux<IbOrderStatus> cancelAllAndWait = subscribeOnOrderNewStatus()
+                .doOnSubscribe(unused -> socket.reqGlobalCancel())
+                .filter(IbOrderStatus::isCanceled)
+                .share();
 
-            subscribeOnOrderNewStatus()
-                    .filter(IbOrderStatus::isCanceled)
-                    .map(IbOrderStatus::getOrderId)
-                    .scan(sumOfOrders, (a, b) -> a - b)
-                    .filter(sum -> sum == 0)
-                    .take(1)
-                    .blockingLast();
-
-            emitter.onComplete();
-        }).ignoreElements();
+        return openedOrder
+                .buffer()
+                .flatMap(Flux::fromIterable)
+                .flatMap(order -> {
+                    return cancelAllAndWait.filter(status -> status.getOrderId() == order.getOrderId()).take(1);
+                }).then();
     }
 
     /**
-     * Requests for open orders
+     * Requests for open orders.
      *
-     * <pre>{@code
-     * Example:
-     *
-     *    given:
-     *    def contract = createContractEUR()
-     *    def order = createOrderStp()
-     *
-     *    when:
-     *    client.placeOrder(contract, order).blockingGet()
-     *    def list = client.reqOpenOrders().timeout(3, TimeUnit.SECONDS).toList().blockingGet()
-     *
-     *    then:
-     *    list.size() > 0
-     * }</pre>
-     *
-     * @return Observable with orders. Completes as TWS sends all orders.
+     * @return Flux with orders. Completes as TWS sends all orders.
      *
      * @see
      * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#aa2c9a012884dd53311a7a7c6a326306c">
      * TWS API: reqOpenOrders</a>
      */
-    public Observable<IbOrder> reqOpenOrders() {
+    public Flux<IbOrder> reqOpenOrders() {
         return requests.<List<IbOrder>>builder()
                 .type(RequestRepository.Type.REQ_ORDER_LIST)
                 .register(() -> socket.reqOpenOrders())
                 .subscribe()
-                .flatMap(Observable::fromIterable);
+                .flatMap(Flux::fromIterable);
     }
 
     /**
@@ -956,7 +691,6 @@ public class IbClient implements AutoCloseable {
      *
      * @param autoBind if set to true, the newly created orders will be assigned an API order ID and implicitly
      *                 associated with this client. If set to false, future orders will not be.
-     *
      * @see <a href="https://interactivebrokers.github.io/tws-api/open_orders.html#manually_submitted">
      * TWS API: Manually submitted orders</a>
      * @see
@@ -971,22 +705,7 @@ public class IbClient implements AutoCloseable {
      * Requests for contract details.
      *
      * @param contract IB contract
-     * @return Observable with contract details. Completes as soon TWS sends all data.
-     *
-     * <pre>{@code
-     * Example:
-     *    given:
-     *    def contract = new Contract()
-     *    contract.symbol("EUR")
-     *    contract.currency("USD")
-     *    contract.secType(Types.SecType.CASH)
-     *
-     *    when:
-     *    def list = client.reqContractDetails(contract).toList().blockingGet()
-     *
-     *    then:
-     *    list.size() == 1
-     * }</pre>
+     * @return Flux with contract details. Completes as soon TWS sends all data.
      *
      * @implNote Note that IB can return more then one ContractDetails.
      * @see <a href="https://interactivebrokers.github.io/tws-api/contract_details.html">
@@ -995,7 +714,7 @@ public class IbClient implements AutoCloseable {
      * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#ade440c6db838b548594981d800ea5ca9">
      * TWS API: reqContractDetails</a>
      */
-    public Observable<ContractDetails> reqContractDetails(Contract contract) {
+    public Flux<ContractDetails> reqContractDetails(Contract contract) {
         Validators.shouldNotBeNull(contract, "Contract should be defined");
 
         return requests.<ContractDetails>builder()
@@ -1006,43 +725,18 @@ public class IbClient implements AutoCloseable {
 
 
     /**
-    * Requests for contract descriptions.
-    *
-    * @param pattern IB contract name pattern
-    * @return Observable with contract descriptions. Completes as soon TWS sends all data.
-    *
-    * <pre>{@code
-    * Example:
-    *
-    *   when:
-    *   def observer = client.reqMatchingSymbols("FB").test()
-    *
-    *   then:
-    *   observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
-    *   observer.assertNoErrors()
-    *   observer.valueCount() >= 2
-    *   observer.values()[0].with { IbContractDescription description ->
-    *       assert description.contract.symbol == "FB"
-    *       assert description.contract.secType == Types.SecType.STK
-    *       assert description.contract.primaryExchange == "MEXI"
-    *       assert description.derivativeSecTypes.isEmpty()
-    *   }
-    *   observer.values()[1].with { IbContractDescription description ->
-    *       assert description.contract.symbol == "FB"
-    *       assert description.contract.secType == Types.SecType.STK
-    *       assert description.contract.primaryExchange == "NASDAQ.NMS"
-    *       assert description.derivativeSecTypes == [Types.SecType.CFD, Types.SecType.OPT, Types.SecType.IOPT,
-    *                                                 Types.SecType.WAR, Types.SecType.FUT]
-    *   }
-    * }</pre>
-    *
-    * @see <a href="https://interactivebrokers.github.io/tws-api/matching_symbols.html">
-    * TWS API: Stock Contract Search</a>
-    * @see
-    * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#aa0bff193c5cbaa73e89dccdd0f027195">
-    * TWS API: reqMatchingSymbols</a>
-    */
-    public Observable<IbContractDescription> reqMatchingSymbols(String pattern) {
+     * Requests for contract descriptions.
+     *
+     * @param pattern IB contract name pattern
+     * @return Flux with contract descriptions. Completes as soon TWS sends all data.
+     *
+     * @see <a href="https://interactivebrokers.github.io/tws-api/matching_symbols.html">
+     * TWS API: Stock Contract Search</a>
+     * @see
+     * <a href="https://interactivebrokers.github.io/tws-api/classIBApi_1_1EClient.html#aa0bff193c5cbaa73e89dccdd0f027195">
+     * TWS API: reqMatchingSymbols</a>
+     */
+    public Flux<IbContractDescription> reqMatchingSymbols(String pattern) {
         return requests.<IbContractDescription>builder()
                 .type(RequestRepository.Type.REQ_CONTRACT_DESCRIPTION)
                 .register(id -> socket.reqMatchingSymbols(id, pattern))
@@ -1050,35 +744,13 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
-     * Returns historical midpoint for specific time period
+     * Returns historical midpoint for specific time period.
      *
      * @param contract IB contract
      * @param from     Period start. Uses TWS timezone specified at login. Cannot be used with "<strong>to</strong>"
      * @param to       Period end. Uses TWS timezone specified at login. Cannot be used with "<strong>from</strong>"
      * @param limit    Number of distinct data points. Max is 1000 per request.
-     * @return Observable with historical data. Completes as soon IB sends all data.
-     *
-     * <pre>{@code
-     * Example:
-     *
-     *    given:
-     *    def from = LocalDateTime.now().minusWeeks(1)
-     *
-     *    when:
-     *    def observer = client.reqHistoricalMidpoints(createContractEUR(), from, null, null).test()
-     *
-     *    then:
-     *    observer.awaitDone(10, TimeUnit.SECONDS)
-     *    observer.assertNoErrors()
-     *    observer.assertComplete()
-     *    observer.valueCount() >= 1000
-     *    observer.assertValueAt 0, { tick ->
-     *        def tz = OffsetDateTime.now().getOffset();
-     *        assert Math.abs(from.toEpochSecond(tz) - tick.time()) < 100
-     *        assert tick.price() > 0.0
-     *        true
-     *    } as Predicate
-     * }</pre>
+     * @return Flux with historical data. Completes as soon IB sends all data.
      *
      * @see <a href="https://interactivebrokers.github.io/tws-api/historical_time_and_sales.html">
      * TWS API: Historical Time and Sales Data</a>
@@ -1088,47 +760,22 @@ public class IbClient implements AutoCloseable {
      * @see #reqHistoricalBidAsks
      * @see #reqHistoricalTrades
      */
-    public Observable<HistoricalTick> reqHistoricalMidpoints(@NotNull Contract contract,
-                                                             @Nullable LocalDateTime from,
-                                                             @Nullable LocalDateTime to,
-                                                             @Nullable Integer limit) {
+    public Flux<HistoricalTick> reqHistoricalMidpoints(Contract contract,
+                                                       LocalDateTime from,
+                                                       LocalDateTime to,
+                                                       Integer limit) {
         return reqHistoricalTicks(contract, from, to, limit,
                                   RequestRepository.Type.REQ_HISTORICAL_MIDPOINT_TICK, "MIDPOINT");
     }
 
     /**
-     * Returns historical ticks for specific time period
+     * Returns historical ticks for specific time period.
      *
      * @param contract IB contract
      * @param from     Period start. Uses TWS timezone specified at login. Cannot be used with "<strong>to</strong>"
      * @param to       Period end. Uses TWS timezone specified at login. Cannot be used with "<strong>from</strong>"
      * @param limit    Number of distinct data points. Max is 1000 per request.
-     * @return Observable with historical data. Completes as soon IB sends all data.
-     *
-     * <pre>{@code
-     * Example:
-     *
-     *    given:
-     *    def from = LocalDateTime.now().minusWeeks(1)
-     *
-     *    when:
-     *    def observer = client.reqHistoricalBidAsks(createContractEUR(), from, null, null).test()
-     *
-     *    then:
-     *    observer.awaitDone(10, TimeUnit.SECONDS)
-     *    observer.assertNoErrors()
-     *    observer.assertComplete()
-     *    observer.valueCount() >= 1000
-     *    observer.assertValueAt 0, { tick ->
-     *        def tz = OffsetDateTime.now().getOffset();
-     *        assert Math.abs(from.toEpochSecond(tz) - tick.time()) < 100
-     *        assert tick.priceBid() > 0.0
-     *        assert tick.priceAsk() > 0.0
-     *        assert tick.sizeBid() > 0.0
-     *        assert tick.sizeAsk() > 0.0
-     *        true
-     *    } as Predicate
-     * }</pre>
+     * @return Flux with historical data. Completes as soon IB sends all data.
      *
      * @see <a href="https://interactivebrokers.github.io/tws-api/historical_time_and_sales.html">
      * TWS API: Historical Time and Sales Data</a>
@@ -1138,45 +785,22 @@ public class IbClient implements AutoCloseable {
      * @see #reqHistoricalMidpoints
      * @see #reqHistoricalTrades
      */
-    public Observable<HistoricalTickBidAsk> reqHistoricalBidAsks(@NotNull Contract contract,
-                                                                 @Nullable LocalDateTime from,
-                                                                 @Nullable LocalDateTime to,
-                                                                 @Nullable Integer limit) {
+    public Flux<HistoricalTickBidAsk> reqHistoricalBidAsks(Contract contract,
+                                                           LocalDateTime from,
+                                                           LocalDateTime to,
+                                                           Integer limit) {
         return reqHistoricalTicks(contract, from, to, limit,
                                   RequestRepository.Type.REQ_HISTORICAL_BID_ASK_TICK, "BID_ASK");
     }
 
     /**
-     * Returns historical trades for specific time period
+     * Returns historical trades for specific time period.
      *
      * @param contract IB contract
      * @param from     Period start. Uses TWS timezone specified at login. Cannot be used with "<strong>to</strong>"
      * @param to       Period end. Uses TWS timezone specified at login. Cannot be used with "<strong>from</strong>"
      * @param limit    Number of distinct data points. Max is 1000 per request.
-     * @return Observable with historical data. Completes as soon IB sends all data.
-     *
-     * <pre>{@code
-     * Example:
-     *
-     *    given:
-     *    def from = LocalDateTime.now().minusWeeks(1)
-     *
-     *    when:
-     *    def observer = client.reqHistoricalTrades(createContractFB(), from, null, null).test()
-     *
-     *    then:
-     *    observer.awaitDone(10, TimeUnit.SECONDS)
-     *    observer.assertNoErrors()
-     *    observer.assertComplete()
-     *    observer.valueCount() >= 1000
-     *    observer.assertValueAt 0, { tick ->
-     *        def tz = OffsetDateTime.now().getOffset();
-     *        assert Math.abs(from.toEpochSecond(tz) - tick.time()) < 100000
-     *        assert tick.price() > 0.0
-     *        assert tick.size() > 0.0
-     *        true
-     *    } as Predicate
-     * }</pre>
+     * @return Flux with historical data. Completes as soon IB sends all data.
      *
      * @apiNote Note that IB doesn't return trades for Forex contracts, i.e. for contracts with
      * {@link Contract#secType()} is {@link  Types.SecType#CASH}. Calling respective IB API method
@@ -1184,8 +808,8 @@ public class IbClient implements AutoCloseable {
      * it was expected that {@link EWrapper#historicalTicksLast} callback will be called,
      * as it described in documentation. Instead {@link EWrapper#historicalTicks}callback is called,
      * the same way as if you call {@link #reqHistoricalMidpoints} with {@code whatToShow=MIDPOINT}.
-     * For stocks this request behaves as expected. IB support told "it's a special case for Forex"
-     * <p>
+     * For stocks this request behaves as expected. IB support told "it's a special case for Forex".
+     *
      * So to make library API consistent, all Forex contracts for this method are forbidden. You still able
      * to call {@link #reqHistoricalMidpoints} for them.
      * @see <a href="https://interactivebrokers.github.io/tws-api/historical_time_and_sales.html">
@@ -1196,10 +820,10 @@ public class IbClient implements AutoCloseable {
      * @see #reqHistoricalMidpoints
      * @see #reqHistoricalBidAsks
      */
-    public Observable<HistoricalTickLast> reqHistoricalTrades(@NotNull Contract contract,
-                                                              @Nullable LocalDateTime from,
-                                                              @Nullable LocalDateTime to,
-                                                              @Nullable Integer limit) {
+    public Flux<HistoricalTickLast> reqHistoricalTrades(Contract contract,
+                                                        LocalDateTime from,
+                                                        LocalDateTime to,
+                                                        Integer limit) {
 
         if (contract.secType() == Types.SecType.CASH) {
             throw new IllegalArgumentException("IB doesn't return historical trades for Forex contracts");
@@ -1210,7 +834,7 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
-     * Request for historical bars (aka candles)
+     * Request for historical bars (aka candles).
      *
      * @param contract     IB contract
      * @param endDateTime  End date and time
@@ -1220,49 +844,9 @@ public class IbClient implements AutoCloseable {
      * @param type         The type of data to retrieve
      * @param tradingHours Whether ({@link TradingHours#Within}) or not ({@link TradingHours#Outside}) to retrieve
      *                     data generated only within Regular Trading Hours
-     * @return Observable with the bars. Completes as soon all data per period will be received.
+     * @return Flux with the bars. Completes as soon all data per period will be received.
      * Can emit errors: IbExceptions.NoPermissions on "No market data permissions" message,
      * Exception - for possible unknown messages
-     *
-     * <pre>{@code
-     * Example:
-     *    given:
-     *    def endDateTime = LocalDateTime.of(2019, 04, 16, 12, 0, 0);
-     *
-     *    when:
-     *    def observer = client.reqHistoricalData(createContractFB(), endDateTime,
-     *                                            120, IbClient.DurationUnit.Second, _1_min,
-     *                                            IbClient.Type.TRADES,
-     *                                            IbClient.TradingHours.Within).test()
-     *    then:
-     *    observer.awaitDone(10, TimeUnit.SECONDS)
-     *    observer.assertNoErrors()
-     *    observer.assertComplete()
-     *    observer.valueCount() == 2
-     *    observer.assertValueAt 0, { IbBar bar ->
-     *        assert bar.time == LocalDateTime.of(2019, 4, 15, 22, 58, 0)
-     *        assert bar.open == 179.59
-     *        assert bar.high == 179.6
-     *        assert bar.low == 179.54
-     *        assert bar.close == 179.57
-     *        assert bar.volume == 604
-     *        assert bar.count == 417
-     *        assert bar.wap == 179.566
-     *        true
-     *    } as Predicate
-     *    observer.assertValueAt 1, { IbBar bar ->
-     *        assert bar.time == LocalDateTime.of(2019, 4, 15, 22, 59, 0)
-     *        assert bar.open == 179.58
-     *        assert bar.high == 179.77
-     *        assert bar.low == 179.56
-     *        assert bar.close == 179.66
-     *        assert bar.volume == 1046
-     *        assert bar.count == 720
-     *        assert bar.wap == 179.685
-     *        true
-     *    } as Predicate
-     * }
-     * }</pre>
      *
      * @see <a href="https://interactivebrokers.github.io/tws-api/historical_bars.html">
      * TWS API: Historical Bar Data</a>
@@ -1271,10 +855,10 @@ public class IbClient implements AutoCloseable {
      * TWS API: reqHistoricalData</a>
      * @see #subscribeOnHistoricalData
      */
-    public Observable<IbBar> reqHistoricalData(@NotNull Contract contract, LocalDateTime endDateTime,
-                                               int duration, DurationUnit durationUnit,
-                                               BarSize size,
-                                               Type type, TradingHours tradingHours) {
+    public Flux<IbBar> reqHistoricalData(Contract contract, LocalDateTime endDateTime,
+                                         int duration, DurationUnit durationUnit,
+                                         BarSize size,
+                                         Type type, TradingHours tradingHours) {
 
         log.debug("Requesting bars: contract={}, endDateTime={}, duration={} {}, size={}, type={}, hours={}",
                   contract.description(), endDateTime, duration, durationUnit, size, type, tradingHours);
@@ -1293,7 +877,7 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
-     * Request for historical bars (aka candles) and subscription for actual unfinished candle
+     * Request for historical bars (aka candles) and subscription for actual unfinished candle.
      *
      * @param contract     IB contract
      * @param duration     The amount of time to go back from the request's given end date and time.
@@ -1303,35 +887,9 @@ public class IbClient implements AutoCloseable {
      * @param tradingHours Whether ({@link IbClient.TradingHours#Within}) or not ({@link IbClient.TradingHours#Outside})
      *                     to retrieve
      *                     data generated only within Regular Trading Hours
-     * @return Observable with the bars. Never completes. Flow is: 1st historical bars are goes, then one
+     * @return Flux with the bars. Never completes. Flow is: 1st historical bars are goes, then one
      * {@link com.finplant.ib.types.IbBar#COMPLETE}, and then constant updates of actual candle. Can emit errors:
      * IbExceptions.NoPermissions on "No market data permissions" message, Exception - for possible unknown messages
-     *
-     * <pre>{@code
-     * Example:
-     *    when:
-     *    def observer = client.subscribeOnHistoricalData(createContractEUR(),
-     *                                                    30, IbClient.DurationUnit.Second,
-     *                                                    period,
-     *                                                    IbClient.Type.BID,
-     *                                                    IbClient.TradingHours.Within)
-     *            .skipWhile { it == IbBar.COMPLETE }
-     *            .filter { it != IbBar.COMPLETE }
-     *            .take(1).test()
-     *
-     *    then:
-     *    observer.awaitCount(1)
-     *    observer.assertNoErrors()
-     *    observer.assertComplete()
-     *    observer.valueCount() == 1
-     *    observer.assertValueAt 0, { IbBar bar ->
-     *        assert bar.open > 0.0
-     *        assert bar.high > 0.0
-     *        assert bar.low > 0.0
-     *        assert bar.close > 0.0
-     *        true
-     *    } as Predicate
-     * }</pre>
      *
      * @implNote Function is similar to {@link #reqHistoricalData}, it got all historical data as
      * {@link #reqHistoricalData} do, but then emits {@link com.finplant.ib.types.IbBar#COMPLETE} as a separator,
@@ -1343,13 +901,13 @@ public class IbClient implements AutoCloseable {
      * TWS API: reqHistoricalData</a>
      * @see #reqHistoricalData
      */
-    public Observable<IbBar> subscribeOnHistoricalData(@NotNull Contract contract,
-                                                       int duration, DurationUnit durationUnit,
-                                                       BarSize size,
-                                                       Type type, TradingHours tradingHours) {
+    public Flux<IbBar> subscribeOnHistoricalData(Contract contract,
+                                                 int duration, DurationUnit durationUnit,
+                                                 BarSize size,
+                                                 Type type, TradingHours tradingHours) {
 
-        if (size == BarSize._1_sec) {
-            return Observable.error(new Exception("Too small bar size. Must be >= 5 sec"));
+        if (size == BarSize.SEC_1) {
+            return Flux.error(new Exception("Too small bar size. Must be >= 5 sec"));
         }
 
         log.debug("Subscribing to bars: contract={}, size={}, type={}, hours={}",
@@ -1369,35 +927,11 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
-     * Subscribes to filled order execution info
+     * Subscribes to filled order execution info.
      *
-     * @return Observable with {@link IbExecutionReport}. Never completes. Object contains wrapped data from
+     * @return Flux with {@link IbExecutionReport}. Never completes. Object contains wrapped data from
      * both related callbacks {@link Wrapper#execDetails(int, com.ib.client.Contract, com.ib.client.Execution)} and
      * {@link Wrapper#commissionReport(com.ib.client.CommissionReport)}
-     *
-     * <pre>{@code
-     * Example:
-     *     given:
-     *     def observer = client.subscribeOnExecutionReport().take(1).test()
-     *
-     *     def order = createOrderStp()
-     *     client.placeOrder(createContractEUR(), order).flatMap({ ibOrder ->
-     *     client.subscribeOnOrderNewStatus()
-     *         .filter({ status -> status.orderId == order.orderId() })
-     *         .filter({ status -> status.isFilled() })
-     *         .timeout(20, TimeUnit.SECONDS)
-     *         .firstOrError()
-     *     }).blockingGet()
-     *
-     *     expect:
-     *     observer.awaitTerminalEvent(30, TimeUnit.SECONDS)
-     *     observer.assertNoErrors()
-     *     observer.values()[0].with { IbExecutionReport report ->
-     *         assert report.execution.orderId > 0
-     *         assert report.execution.execId == report.commission.execId
-     *         assert report.commission.commission > 0.0
-     *     }
-     * }</pre>
      *
      * @see <a href="https://interactivebrokers.github.io/tws-api/executions_commissions.html">
      * TWS API: Executions and Commissions</a>
@@ -1407,19 +941,20 @@ public class IbClient implements AutoCloseable {
      * <a href="https://interactivebrokers.github.io/tws-api/interfaceIBApi_1_1EWrapper.html#a09f82de3d0666d13b00b5168e8b9313d">
      * TWS API: execDetails</a>
      */
-    public Observable<IbExecutionReport> subscribeOnExecutionReport() {
+    public Flux<IbExecutionReport> subscribeOnExecutionReport() {
         return requests.<IbExecutionReport>builder()
                 .type(RequestRepository.Type.EVENT_EXECUTION_INFO)
-                .register(() -> {})
+                .register(() -> {
+                })
                 .subscribe();
     }
 
-    private <T> Observable<T> reqHistoricalTicks(Contract contract,
-                                                 LocalDateTime from,
-                                                 LocalDateTime to,
-                                                 Integer limit,
-                                                 RequestRepository.Type type,
-                                                 String typeStr) {
+    private <T> Flux<T> reqHistoricalTicks(Contract contract,
+                                           LocalDateTime from,
+                                           LocalDateTime to,
+                                           Integer limit,
+                                           RequestRepository.Type type,
+                                           String typeStr) {
         Validators.shouldNotBeNull(contract, "Contract should be defined");
 
         final int MAX_ALLOWED_TICKS_COUNT = 1000;
@@ -1436,7 +971,7 @@ public class IbClient implements AutoCloseable {
                                                           limit != null ? limit : MAX_ALLOWED_TICKS_COUNT,
                                                           typeStr, 0, true, null))
                 .subscribe()
-                .flatMap(Observable::fromIterable);
+                .flatMap(Flux::fromIterable);
     }
 
     public enum LogLevel {
@@ -1449,7 +984,7 @@ public class IbClient implements AutoCloseable {
     }
 
     /**
-     * Type of market data feed
+     * Type of market data feed.
      */
     public enum MarketDataType {
         LIVE(1),
@@ -1507,27 +1042,27 @@ public class IbClient implements AutoCloseable {
     }
 
     public enum BarSize {
-        _1_sec("1 secs"),
-        _5_sec("5 secs"),
-        _10_sec("10 secs"),
-        _15_sec("15 secs"),
-        _30_sec("30 secs"),
-        _1_min("1 min"),
-        _2_min("2 mins"),
-        _3_min("3 mins"),
-        _5_min("5 mins"),
-        _10_min("10 mins"),
-        _15_min("15 mins"),
-        _20_min("20 mins"),
-        _30_min("30 mins"),
-        _1_hour("1 hour"),
-        _2_hour("2 hours"),
-        _3_hour("3 hours"),
-        _4_hour("4 hours"),
-        _8_hour("8 hours"),
-        _1_day("1 day"),
-        _1_week("1 week"),
-        _1_month("1 month");
+        SEC_1("1 secs"),
+        SEC_5("5 secs"),
+        SEC_10("10 secs"),
+        SEC_15("15 secs"),
+        SEC_30("30 secs"),
+        MIN_1("1 min"),
+        MIN_2("2 mins"),
+        MIN_3("3 mins"),
+        MIN_5("5 mins"),
+        MIN_10("10 mins"),
+        MIN_15("15 mins"),
+        MIN_20("20 mins"),
+        MIN_30("30 mins"),
+        HOUR_1("1 hour"),
+        HOUR_2("2 hours"),
+        HOUR_3("3 hours"),
+        HOUR_4("4 hours"),
+        HOUR_8("8 hours"),
+        DAY_1("1 day"),
+        WEEK_1("1 week"),
+        MONTH_1("1 month");
 
         private final String text;
 
@@ -1542,20 +1077,20 @@ public class IbClient implements AutoCloseable {
     }
 
     public enum Type {
-        TRADES, //	First traded price
-        MIDPOINT, //	Starting midpoint price
-        BID, //	Starting bid price
-        ASK, //	Starting ask price
-        BID_ASK, //	Time average bid
-        ADJUSTED_LAST, //	Dividend-adjusted first traded price
-        HISTORICAL_VOLATILITY, //	Starting volatility	Highest volatility
-        OPTION_IMPLIED_VOLATILITY, //	Starting implied volatility
-        REBATE_RATE, //	Starting rebate rate
-        FEE_RATE, //	Starting fee rate
-        YIELD_BID, //	Starting bid yield
-        YIELD_ASK, //	Starting ask yield
-        YIELD_BID_ASK, //	Time average bid yield
-        YIELD_LAST, //	Starting last yield	Highest
+        TRADES,         // First traded price
+        MIDPOINT,       // Starting midpoint price
+        BID,            // Starting bid price
+        ASK,            // Starting ask price
+        BID_ASK,        // Time average bid
+        ADJUSTED_LAST,  // Dividend-adjusted first traded price
+        HISTORICAL_VOLATILITY, // Starting volatility
+        OPTION_IMPLIED_VOLATILITY, // Starting implied volatility
+        REBATE_RATE,    // Starting rebate rate
+        FEE_RATE,       // Starting fee rate
+        YIELD_BID,      // Starting bid yield
+        YIELD_ASK,      // Starting ask yield
+        YIELD_BID_ASK,  // Time average bid yield
+        YIELD_LAST,     // Starting last yield
     }
 
     public enum DurationUnit {

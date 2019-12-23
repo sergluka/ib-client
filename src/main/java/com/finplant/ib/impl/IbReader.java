@@ -3,7 +3,6 @@ package com.finplant.ib.impl;
 import com.ib.client.EClientSocket;
 import com.ib.client.EJavaSignal;
 import com.ib.client.EReader;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,7 +19,7 @@ public class IbReader {
 
     private EReader reader;
 
-    public IbReader(@NotNull EClientSocket socket, @NotNull EJavaSignal signal) {
+    public IbReader(EClientSocket socket, EJavaSignal signal) {
         this.socket = socket;
         this.signal = signal;
 
@@ -67,14 +66,14 @@ public class IbReader {
         }
     }
 
-    private void stopThread(Thread thread) {
+    private void stopThread(Thread threadToStop) {
         try {
-            thread.join(STOP_TIMEOUT_MS);
+            threadToStop.join(STOP_TIMEOUT_MS);
         } catch (InterruptedException e) {
             return;
         }
-        if (thread.isAlive()) {
-            log.warn("Fail to shutdown thread '{}'", thread.getName());
+        if (threadToStop.isAlive()) {
+            log.warn("Fail to shutdown thread '{}'", threadToStop.getName());
         }
     }
 }

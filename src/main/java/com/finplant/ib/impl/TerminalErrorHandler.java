@@ -158,16 +158,18 @@ public abstract class TerminalErrorHandler {
                 log.error("TWS critical error - [#{}] {}. Disconnecting.", code, message);
                 onFatalError();
                 break;
+            default:
+                throw new IllegalStateException("Unexpected value: " + type);
         }
     }
 
     private void onHistoricalDataError(int code, int id, String message) {
 
-        String HISTORICAL_DATA_MSG = "Historical Market Data Service error message";
+        final String HISTORICAL_DATA_MSG = "Historical Market Data Service error message";
 
-        String HISTORICAL_DATA_CANCEL_MSG = "API historical data query cancelled";
-        String HISTORICAL_DATA_NO_PERMISSIONS_MSG = "No market data permissions for";
-        String HISTORICAL_DATA_NO_DATA_MSG = "HMDS query returned no data";
+        final String HISTORICAL_DATA_CANCEL_MSG = "API historical data query cancelled";
+        final String HISTORICAL_DATA_NO_PERMISSIONS_MSG = "No market data permissions for";
+        final String HISTORICAL_DATA_NO_DATA_MSG = "HMDS query returned no data";
 
         if (!message.startsWith(HISTORICAL_DATA_MSG)) {
             log.error("Unexpected message for REQ_HISTORICAL_DATA: {}", message);
@@ -176,8 +178,10 @@ public abstract class TerminalErrorHandler {
         }
 
         String messageInfo = message.substring(HISTORICAL_DATA_MSG.length() + 1);
+
         //noinspection StatementWithEmptyBody Subscription canceling is not an error
         if (messageInfo.startsWith(HISTORICAL_DATA_CANCEL_MSG)) {
+            // empty
         } else if (messageInfo.startsWith(HISTORICAL_DATA_NO_PERMISSIONS_MSG)) {
             requests.onError(null, id, new IbExceptions.NoPermissions(id, messageInfo), true);
         } else if (messageInfo.startsWith(HISTORICAL_DATA_NO_DATA_MSG)) {

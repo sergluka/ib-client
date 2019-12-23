@@ -10,7 +10,7 @@ import java.util.stream.Stream;
 @SuppressWarnings({"WeakerAccess", "unused"})
 public class PrettyPrinters {
 
-    static public String contractToString(Contract contract) {
+    public static String contractToString(Contract contract) {
         final StringBuilder buffer = new StringBuilder("{");
         buffer.append("conid=").append(contract.conid());
         buffer.append(", symbol=").append(contract.symbol());
@@ -23,7 +23,7 @@ public class PrettyPrinters {
         return buffer.toString();
     }
 
-    static public String orderToString(Order order) {
+    public static String orderToString(Order order) {
 
         final StringBuilder buffer = new StringBuilder("{");
         buffer.append("id=").append(order.orderId());

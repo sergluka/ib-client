@@ -44,7 +44,7 @@ public class Validators {
     }
 
     public static void collectionShouldNotBeEmpty(Collection<?> collection, String message) {
-        if (collection.isEmpty()) {
+        if (collection == null || collection.isEmpty()) {
             throw new IllegalArgumentException(message);
         }
     }

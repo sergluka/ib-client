@@ -6,7 +6,7 @@ import java.util.Objects;
 import com.ib.client.Contract;
 
 /**
- * Data class for IB position data
+ * Data class for IB position data.
  */
 @SuppressWarnings("unused")
 public class IbPosition {

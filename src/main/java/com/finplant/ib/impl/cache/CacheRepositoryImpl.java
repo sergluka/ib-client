@@ -4,8 +4,6 @@ import com.finplant.ib.CacheRepository;
 import com.finplant.ib.types.*;
 import com.google.common.collect.ImmutableMap;
 import com.ib.client.Contract;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,7 +49,7 @@ public class CacheRepositoryImpl implements CacheRepository {
         return ImmutableMap.copyOf(orders);
     }
 
-    public boolean addNewStatus(@NotNull IbOrderStatus status) {
+    public boolean addNewStatus(IbOrderStatus status) {
         IbOrder order = orders.get(status.getOrderId());
         if (order == null) {
             log.error("Status update for not (yet?) existing order {}: {}", status.getOrderId(), status);
@@ -115,7 +113,6 @@ public class CacheRepositoryImpl implements CacheRepository {
     }
 
     @Override
-    @Nullable
     public IbPosition getPosition(String account, Contract contract) {
         Objects.requireNonNull(account);
         Objects.requireNonNull(contract);
@@ -126,7 +123,6 @@ public class CacheRepositoryImpl implements CacheRepository {
     }
 
     @Override
-    @Nullable
     public IbPortfolio getPortfolio(Contract contract) {
         Objects.requireNonNull(contract);
         if (contract.conid() == 0) {
@@ -155,6 +151,8 @@ public class CacheRepositoryImpl implements CacheRepository {
                     log.trace("Market depth is removed: {}", marketDepth);
                     value.remove(marketDepth.key());
                     break;
+                default:
+                    throw new IllegalStateException("Unexpected value: " + operation);
             }
 
             return value;

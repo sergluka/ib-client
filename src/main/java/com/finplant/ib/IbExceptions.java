@@ -76,7 +76,7 @@ public class IbExceptions {
     }
 
     public static class OrderAlreadyFilledError extends IbClientError {
-        OrderAlreadyFilledError(int orderId) {
+        public OrderAlreadyFilledError(int orderId) {
             super(String.format("Order %d already is filled", orderId));
         }
     }

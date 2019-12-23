@@ -10,47 +10,6 @@ public class IbMarketDepth {
 
     private final Contract contract;
 
-    public static class Key {
-        private final Side side;
-        private final Integer position;
-
-        Key(Side side, Integer position) {
-            this.side = side;
-            this.position = position;
-        }
-
-        public Side getSide() {
-            return side;
-        }
-
-        public Integer getPosition() {
-            return position;
-        }
-
-        @Override
-        public String toString() {
-            return String.format("%s/%d", side, position);
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof Key)) return false;
-
-            Key key = (Key) o;
-
-            if (!Objects.equals(position, key.position)) return false;
-            return side == key.side;
-        }
-
-        @Override
-        public int hashCode() {
-            int result = side.hashCode();
-            result = 31 * result + position;
-            return result;
-        }
-    }
-
     public enum Side {
         SELL,
         BUY
@@ -122,5 +81,50 @@ public class IbMarketDepth {
         buffer.append(", marketMaker=").append(marketMaker);
         buffer.append('}');
         return buffer.toString();
+    }
+
+    public static class Key {
+        private final Side side;
+        private final Integer position;
+
+        Key(Side side, Integer position) {
+            this.side = side;
+            this.position = position;
+        }
+
+        public Side getSide() {
+            return side;
+        }
+
+        public Integer getPosition() {
+            return position;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%s/%d", side, position);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof Key)) {
+                return false;
+            }
+
+            Key key = (Key) o;
+
+            if (!Objects.equals(position, key.position)) {
+                return false;
+            }
+            return side == key.side;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(side, position);
+        }
     }
 }

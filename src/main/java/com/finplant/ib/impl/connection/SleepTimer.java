@@ -5,14 +5,14 @@ class SleepTimer {
     private Long triggerTime;
     private Runnable runnable;
 
-    synchronized void start(Long delay, Runnable runnable) {
+    synchronized void start(Long delay, Runnable callback) {
         if (delay == 0) {
-            runnable.run();
+            callback.run();
             return;
         }
 
         this.triggerTime = System.currentTimeMillis() + delay;
-        this.runnable = runnable;
+        this.runnable = callback;
     }
 
     synchronized void reset() {

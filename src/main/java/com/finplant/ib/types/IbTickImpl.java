@@ -822,6 +822,7 @@ public class IbTickImpl implements IbTick {
     }
 
     @Override
+    @SuppressWarnings("checkstyle:MethodLength")
     public String toString() {
         final StringBuilder buffer = new StringBuilder("{");
         if (bidSize != null) {

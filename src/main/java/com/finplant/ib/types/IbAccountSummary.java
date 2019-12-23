@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 public class IbAccountSummary {
@@ -18,7 +19,7 @@ public class IbAccountSummary {
     private BigDecimal grossPositionValue;
     private BigDecimal regTEquity;
     private BigDecimal regTMargin;
-    private BigDecimal SMA;
+    private BigDecimal sma;
     private BigDecimal initMarginReq;
     private BigDecimal maintMarginReq;
     private BigDecimal availableFunds;
@@ -39,6 +40,7 @@ public class IbAccountSummary {
 
     private final Map<String, DetailsPerCurrency> details = new HashMap<>();
 
+    @SuppressWarnings("checkstyle:MethodLength")
     public void update(String tag, String value, String currency) throws Exception {
 
         switch (tag) {
@@ -73,7 +75,7 @@ public class IbAccountSummary {
                 shouldBeNull(regTMargin, () -> regTMargin = new BigDecimal(value));
                 break;
             case "SMA":
-                shouldBeNull(SMA, () -> SMA = new BigDecimal(value));
+                shouldBeNull(sma, () -> sma = new BigDecimal(value));
                 break;
             case "InitMarginReq":
                 shouldBeNull(initMarginReq, () -> initMarginReq = new BigDecimal(value));
@@ -103,7 +105,8 @@ public class IbAccountSummary {
                 shouldBeNull(fullExcessLiquidity, () -> fullExcessLiquidity = new BigDecimal(value));
                 break;
             case "LookAheadNextChange":
-                shouldBeNull(lookAheadNextChange, () -> lookAheadNextChange = new Date(Integer.valueOf(value) * 1000L));
+                long ms = TimeUnit.SECONDS.toMillis(Integer.parseInt(value));
+                shouldBeNull(lookAheadNextChange, () -> lookAheadNextChange = new Date(ms));
                 break;
             case "LookAheadInitMarginReq":
                 shouldBeNull(lookAheadInitMarginReq, () -> lookAheadInitMarginReq = new BigDecimal(value));
@@ -249,8 +252,8 @@ public class IbAccountSummary {
         return regTMargin;
     }
 
-    public BigDecimal getSMA() {
-        return SMA;
+    public BigDecimal getSma() {
+        return sma;
     }
 
     public BigDecimal getInitMarginReq() {

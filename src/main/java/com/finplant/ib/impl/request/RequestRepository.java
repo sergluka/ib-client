@@ -1,19 +1,16 @@
 package com.finplant.ib.impl.request;
 
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
-
-import io.reactivex.Scheduler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.finplant.ib.IbClient;
 import com.finplant.ib.IbExceptions;
 import com.finplant.ib.impl.IdGenerator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import reactor.core.publisher.Flux;
 
-import io.reactivex.Observable;
-import io.reactivex.schedulers.Schedulers;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 public class RequestRepository implements AutoCloseable {
 
@@ -39,7 +36,7 @@ public class RequestRepository implements AutoCloseable {
         return new RequestBuilder<>();
     }
 
-    public <Param> void onNext(Type type, Integer reqId, Param data, Boolean shouldExists) {
+    public <T> void onNext(Type type, Integer reqId, T data, Boolean shouldExists) {
         get(type, reqId, shouldExists).ifPresent(request -> request.onNext(data));
     }
 
@@ -63,7 +60,7 @@ public class RequestRepository implements AutoCloseable {
         get(type, reqId, shouldExists).ifPresent(Request::onComplete);
     }
 
-    public <Param> void onNextAndComplete(Type type, Integer reqId, Param data, Boolean shouldExists) {
+    public <T> void onNextAndComplete(Type type, Integer reqId, T data, Boolean shouldExists) {
         get(type, reqId, shouldExists).ifPresent(request -> {
             request.onNext(data);
             request.onComplete();
@@ -88,7 +85,7 @@ public class RequestRepository implements AutoCloseable {
     }
 
     private void remove(RequestKey key) {
-        Request prev = requests.remove(key);
+        Request<?> prev = requests.remove(key);
         if (prev == null) {
             throw new IllegalArgumentException(String.format("Unknown request: %s", key));
         }
@@ -129,63 +126,59 @@ public class RequestRepository implements AutoCloseable {
         private boolean withId = false;
         private Integer id;
 
-        public RequestBuilder<T> type(RequestRepository.Type type) {
-            this.type = type;
+        public RequestBuilder<T> type(RequestRepository.Type newType) {
+            this.type = newType;
             return this;
         }
 
-        public RequestBuilder<T> register(Consumer<Integer> register) {
-            this.register = register;
+        public RequestBuilder<T> register(Consumer<Integer> newRegister) {
+            this.register = newRegister;
             withId = true;
             return this;
         }
 
-        public RequestBuilder<T> register(Runnable register) {
-            this.register = unused -> register.run();
+        public RequestBuilder<T> register(Runnable newRegister) {
+            this.register = unused -> newRegister.run();
             return this;
         }
 
-        public RequestBuilder<T> register(int id, Runnable register) {
-            this.id = id;
-            this.register = unused -> register.run();
+        public RequestBuilder<T> register(int newId, Runnable newRegister) {
+            this.id = newId;
+            this.register = unused -> newRegister.run();
             return this;
         }
 
-        public RequestBuilder<T> unregister(Consumer<Integer> unregister) {
-            this.unregister = unregister;
+        public RequestBuilder<T> unregister(Consumer<Integer> newUnregister) {
+            this.unregister = newUnregister;
             withId = true;
             return this;
         }
 
-        public RequestBuilder<T> unregister(Runnable unregister) {
-            this.unregister = unused -> unregister.run();
+        public RequestBuilder<T> unregister(Runnable newUnregister) {
+            this.unregister = unused -> newUnregister.run();
             return this;
         }
 
-        public RequestBuilder<T> userData(Object userData) {
-            this.userData = userData;
+        public RequestBuilder<T> userData(Object data) {
+            this.userData = data;
             return this;
         }
 
-        public RequestBuilder<T> id(int id) {
-            this.id = id;
+        public RequestBuilder<T> id(int newId) {
+            this.id = newId;
             withId = true;
             return this;
         }
 
-        public Observable<T> subscribe() {
-            return subscribe(Schedulers.io());
-        }
+        public Flux<T> subscribe() {
 
-        public Observable<T> subscribe(Scheduler subscribeScheduler) {
-
-            return Observable.<T>create(emitter -> {
+            return Flux.create(emitter -> {
                 if (register == null) {
-                    emitter.onError(new IllegalArgumentException("Registration function is mandatory"));
+                    emitter.error(new IllegalArgumentException("Registration function is mandatory"));
                     return;
                 }
                 if (type == null) {
-                    emitter.onError(new IllegalArgumentException("Request type is mandatory"));
+                    emitter.error(new IllegalArgumentException("Request type is mandatory"));
                     return;
                 }
 
@@ -201,18 +194,18 @@ public class RequestRepository implements AutoCloseable {
                 Request<T> request = new Request<>(emitter, key, register, unregister, userData);
 
                 if (!client.isConnected()) {
-                    emitter.onError(new IbExceptions.NotConnectedError());
+                    emitter.error(new IbExceptions.NotConnectedError());
                     return;
                 }
 
-                Request old = requests.putIfAbsent(key, request);
+                Request<?> old = requests.putIfAbsent(key, request);
                 if (old != null) {
                     log.error("Duplicated request: {}", key);
-                    emitter.onError(new IbExceptions.DuplicatedRequestError(key));
+                    emitter.error(new IbExceptions.DuplicatedRequestError(key));
                     return;
                 }
 
-                emitter.setCancellable(() -> {
+                emitter.onDispose(() -> {
                     remove(key);
                     if (client.isConnected()) {
                         log.debug("Unregister from {}", request);
@@ -224,7 +217,7 @@ public class RequestRepository implements AutoCloseable {
 
                 request.register();
                 log.info("Register to {}", request);
-            }).subscribeOn(subscribeScheduler);
+            });
         }
     }
 }

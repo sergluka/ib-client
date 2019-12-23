@@ -9,15 +9,15 @@ import java.math.BigDecimal;
  */
 @SuppressWarnings("unused")
 public class IbPnl {
-    private final Integer positionId;
+    private final Integer position;
     private final BigDecimal dailyPnL;
     private final BigDecimal unrealizedPnL;
     private final BigDecimal realizedPnL;
     private final BigDecimal value;
 
-    public IbPnl(Integer positionId, BigDecimal dailyPnL, BigDecimal unrealizedPnL, BigDecimal realizedPnL,
+    public IbPnl(Integer position, BigDecimal dailyPnL, BigDecimal unrealizedPnL, BigDecimal realizedPnL,
                  BigDecimal value) {
-        this.positionId = positionId;
+        this.position = position;
         this.dailyPnL = dailyPnL;
         this.unrealizedPnL = unrealizedPnL;
         this.realizedPnL = realizedPnL;
@@ -27,7 +27,7 @@ public class IbPnl {
     @Override
     public String toString() {
         final StringBuilder buffer = new StringBuilder("{");
-        buffer.append("positionId=").append(positionId);
+        buffer.append("position=").append(position);
         buffer.append(", dailyPnL=").append(dailyPnL);
         buffer.append(", unrealizedPnL=").append(unrealizedPnL);
         buffer.append(", realizedPnL=").append(realizedPnL);
@@ -36,8 +36,8 @@ public class IbPnl {
         return buffer.toString();
     }
 
-    public Integer getPositionId() {
-        return positionId;
+    public Integer getPosition() {
+        return position;
     }
 
     public BigDecimal getDailyPnL() {

@@ -1,17 +1,16 @@
 package com.finplant.ib.impl.request;
 
-import java.util.function.Consumer;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import reactor.core.publisher.FluxSink;
 
-import io.reactivex.ObservableEmitter;
+import java.util.function.Consumer;
 
 class Request<T> {
 
     private static final Logger log = LoggerFactory.getLogger(Request.class);
 
-    private final ObservableEmitter<T> emitter;
+    private final FluxSink<T> emitter;
     private final RequestKey key;
     private final Consumer<Integer> registrationFn;
     private final Consumer<Integer> unregistrationFn;
@@ -28,7 +27,7 @@ class Request<T> {
         return buffer.toString();
     }
 
-    Request(ObservableEmitter<T> emitter,
+    Request(FluxSink<T> emitter,
             RequestKey key,
             Consumer<Integer> registrationFn,
             Consumer<Integer> unregistrationFn,
@@ -53,19 +52,19 @@ class Request<T> {
     }
 
     void onNext(T data) {
-        emitter.onNext(data);
+        emitter.next(data);
     }
 
     void onComplete() {
-        emitter.onComplete();
+        emitter.complete();
     }
 
     void onError(Throwable throwable) {
-        if (emitter.isDisposed()) {
+        if (emitter.isCancelled()) {
             log.error("TWS reports an error for already disposed request {}: {}", this, throwable.getMessage());
             return;
         }
-        emitter.onError(throwable);
+        emitter.error(throwable);
     }
 
     Object getUserData() {

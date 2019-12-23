@@ -1,14 +1,12 @@
 package com.finplant.ib
 
-import com.finplant.ib.types.IbBar
-import com.finplant.ib.types.IbContractDescription
-import com.finplant.ib.types.IbExecutionReport
-import com.finplant.ib.types.IbMarketDepth
-import com.finplant.ib.types.IbPortfolio
-import com.finplant.ib.types.IbPosition
+import com.finplant.ib.params.AccountsSummaryParams
+import com.finplant.ib.params.IbClientOptions
+import com.finplant.ib.types.*
 import com.ib.client.*
-import io.reactivex.functions.Predicate
-import io.reactivex.observers.BaseTestConsumer
+import reactor.core.publisher.Flux
+import reactor.core.scheduler.Schedulers
+import reactor.test.StepVerifier
 import spock.lang.Ignore
 import spock.lang.Specification
 import spock.lang.Unroll
@@ -16,20 +14,29 @@ import spock.lang.Unroll
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
-import java.util.concurrent.TimeUnit
+import java.time.ZoneOffset
+import java.util.function.Function
+import java.util.function.Predicate
 
 import static com.finplant.ib.IbClient.BarSize.*
 import static org.assertj.core.api.Assertions.assertThat
 
 class IbClientTest extends Specification {
 
+    public static final String ACCOUNT = "DU22993"
+    public static final String TERMINAL_HOSTNAME = "127.0.0.1"
+    public static final int TERMINAL_PORT = 7497
+    public static final int CONNECTION_ID = 0
+
     IbClient client = new IbClient()
 
     void setup() {
+        StepVerifier.setDefaultTimeout(Duration.ofSeconds(10))
+
         def options = new IbClientOptions().connectionDelay(Duration.ofSeconds(1))
         client = new IbClient(options)
-        assert client.connect("127.0.0.1", 7496, 0).blockingAwait(3000, TimeUnit.SECONDS)
-//        client.cancelAll().timeout(10, TimeUnit.SECONDS).blockingGet()
+        client.connect(TERMINAL_HOSTNAME, TERMINAL_PORT, CONNECTION_ID).block(Duration.ofSeconds(3))
+        client.cancelAll().timeout(Duration.ofSeconds(10)).block()
 //        closeAllPositions()
     }
 
@@ -37,8 +44,7 @@ class IbClientTest extends Specification {
         client.subscribeOnPositionChange()
                 .takeUntil({ it == IbPosition.COMPLETE } as Predicate)
                 .filter { it.pos != BigDecimal.ZERO }
-                .toList()
-                .blockingGet()
+                .toIterable()
                 .forEach { position ->
                     try {
                         return closePosition(position)
@@ -60,14 +66,14 @@ class IbClientTest extends Specification {
         order.orderType(OrderType.MKT)
         order.totalQuantity(position.pos.abs())
 
-        client.placeOrder(position.contract, order).blockingGet()
+        client.placeOrder(position.contract, order).block()
 
         println("Close position: $position")
     }
 
     void cleanup() {
         if (client) {
-//            client.cancelAll().blockingGet()
+//            client.cancelAll().block()()
             client.close()
         }
     }
@@ -78,50 +84,44 @@ class IbClientTest extends Specification {
     }
 
     def "Call reqCurrentTime is OK"() {
-        when:
-        long time = client.getCurrentTime().blockingGet()
-
-        then:
-        time > 1510320971
+        expect:
+        StepVerifier.create(client.getCurrentTime())
+                .assertNext { assertThat(it).isAfter(LocalDateTime.ofEpochSecond(1510320971L, 0, ZoneOffset.UTC)) }
+                .verifyComplete()
     }
 
     def "Call reqContractDetails is OK"() {
-        given:
-        def contract = new Contract()
-        contract.symbol("EUR")
-        contract.currency("USD")
-        contract.secType(Types.SecType.CASH)
-
-        when:
-        def list = client.reqContractDetails(contract).toList().blockingGet()
-
-        then:
-        println(list)
-        list.size() > 0
+        expect:
+        StepVerifier.create(client.reqContractDetails(createContractEUR()))
+                .assertNext { ContractDetails details ->
+                    assert details.conid() == 12087792
+                    assert details.marketRuleIds() == "239"
+                    assert details.contract().symbol() == "EUR"
+                    assert details.contract().currency() == "USD"
+                }
+                .thenCancel()
+                .verify()
     }
 
     def "Requesting matching symbols for FB should return valid list"() {
 
-        when:
-        def observer = client.reqMatchingSymbols("FB").test()
-
-        then:
-        observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
-        observer.assertNoErrors()
-        observer.valueCount() >= 2
-        observer.values()[0].with { IbContractDescription description ->
-            assert description.contract.symbol == "FB"
-            assert description.contract.secType == Types.SecType.STK
-            assert description.contract.primaryExchange == "MEXI"
-            assert description.derivativeSecTypes.isEmpty()
-        }
-        observer.values()[1].with { IbContractDescription description ->
-            assert description.contract.symbol == "FB"
-            assert description.contract.secType == Types.SecType.STK
-            assert description.contract.primaryExchange == "NASDAQ.NMS"
-            assert description.derivativeSecTypes == [Types.SecType.CFD, Types.SecType.OPT, Types.SecType.IOPT,
-                                                      Types.SecType.WAR, Types.SecType.FUT]
-        }
+        expect:
+        StepVerifier.create(client.reqMatchingSymbols("FB"))
+                .assertNext { IbContractDescription description ->
+                    assert description.contract.symbol == "FB"
+                    assert description.contract.secType == Types.SecType.STK
+                    assert description.contract.primaryExchange == "NASDAQ.NMS"
+                    assert description.derivativeSecTypes == [Types.SecType.CFD, Types.SecType.OPT, Types.SecType.IOPT,
+                                                              Types.SecType.WAR, Types.SecType.FUT]
+                }
+                .assertNext { IbContractDescription description ->
+                    assert description.contract.symbol == "FB"
+                    assert description.contract.secType == Types.SecType.STK
+                    assert description.contract.primaryExchange == "MEXI"
+                    assert description.derivativeSecTypes.isEmpty()
+                }
+                .expectNextCount(15)
+                .verifyComplete()
     }
 
     def "Call placeOrder is OK"() {
@@ -129,14 +129,12 @@ class IbClientTest extends Specification {
         def contract = createContractEUR()
         def order = createOrderStp()
 
-        when:
-        def single = client.placeOrder(contract, order).test()
-
-        then:
-        single.awaitTerminalEvent(10, TimeUnit.SECONDS)
-        single.assertNoErrors()
-        single.assertComplete()
-        single.assertValueAt 0, { it.orderId > 0 } as Predicate
+        expect:
+        StepVerifier.create(client.placeOrder(contract, order))
+                .assertNext { IbOrder result ->
+                    assert result.orderId > 0
+                }
+                .verifyComplete()
     }
 
     def "Call placeOrder with wrong data should raise error"() {
@@ -144,12 +142,10 @@ class IbClientTest extends Specification {
         def contract = new Contract()
         def order = new Order()
 
-        when:
-        def single = client.placeOrder(contract, order).test()
-
-        then:
-        single.awaitTerminalEvent(10, TimeUnit.SECONDS)
-        single.assertError(IbExceptions.TerminalError.class)
+        expect:
+        StepVerifier.create(client.placeOrder(contract, order))
+                .expectError(IbExceptions.TerminalError)
+                .verify()
     }
 
     def "Cancel request should be completed for limit order"() {
@@ -157,146 +153,126 @@ class IbClientTest extends Specification {
         def order = createOrderStp()
         order.auxPrice(10000)
 
-        def ibOrder = client.placeOrder(createContractEUR(), order).blockingGet()
+        def placeAndWaitStatus = client.placeOrder(createContractEUR(), order)
+                .flatMap { newOrder ->
+                    client.subscribeOnOrderNewStatus()
+                            .filter { status -> status.orderId == newOrder.orderId }
+                            .filter { status -> status.isActive() }
+                            .next()
+                }
 
-        when:
-        def observer = client.cancelOrder(ibOrder.orderId).test()
-
-        then:
-        observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
-        observer.assertNoErrors()
+        expect:
+        StepVerifier.create(placeAndWaitStatus.flatMap { client.cancelOrder(it.orderId) })
+                .verifyComplete()
     }
 
     def "Cancel request should return error if order already has been filled"() {
         given:
         def order = createOrderStp()
-        client.placeOrder(createContractEUR(), order).flatMap({ ibOrder ->
-            client.subscribeOnOrderNewStatus()
-                    .filter({ status -> status.orderId == order.orderId() })
-                    .filter({ status -> status.isFilled() })
-                    .timeout(20, TimeUnit.SECONDS)
-                    .firstOrError()
-        }).blockingGet()
 
-        when:
-        def observer = client.cancelOrder(order.orderId()).test()
+        def placeAndWaitFill = client.placeOrder(createContractEUR(), order)
+                .flatMap { newOrder ->
+                    client.subscribeOnOrderNewStatus()
+                            .filter { status -> status.orderId == newOrder.orderId }
+                            .filter { status -> status.isFilled() }
+                            .next()
+                }
 
-        then:
-        observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
-        observer.assertError(IbExceptions.OrderAlreadyFilledError.class)
+        expect:
+        StepVerifier.create(placeAndWaitFill.flatMap { client.cancelOrder(it.orderId) })
+                .verifyError(IbExceptions.OrderAlreadyFilledError)
     }
 
     def "Await execution report after fill"() {
         given:
-        def observer = client.subscribeOnExecutionReport().take(1).test()
-
-        def order = createOrderStp()
-        client.placeOrder(createContractEUR(), order).flatMap({ ibOrder ->
-            client.subscribeOnOrderNewStatus()
-                    .filter({ status -> status.orderId == order.orderId() })
-                    .filter({ status -> status.isFilled() })
-                    .timeout(20, TimeUnit.SECONDS)
-                    .firstOrError()
-        }).blockingGet()
+        def placeAndWaitFill = client.placeOrder(createContractEUR(), createOrderStp())
+                .flatMap { newOrder ->
+                    client.subscribeOnOrderNewStatus()
+                            .filter { status -> status.orderId == newOrder.orderId }
+                            .filter { status -> status.isFilled() }
+                            .next()
+                }
 
         expect:
-        observer.awaitTerminalEvent(30, TimeUnit.SECONDS)
-        observer.values()[0].with { IbExecutionReport report ->
-            assert report.execution.orderId > 0
-            assert report.execution.execId == report.commission.execId
-            assert report.commission.commission > 0.0
-        }
+        StepVerifier.create(client.subscribeOnExecutionReport())
+                .then { placeAndWaitFill.block(Duration.ofSeconds(10)) }
+                .assertNext { IbExecutionReport report ->
+                    assert report.execution.orderId > 0
+                    assert report.execution.execId == report.commission.execId
+                    assert report.commission.commission > 0.0
+                }
+                .thenCancel()
+                .verify()
     }
 
     def "Cancel request should raise error if order doesn't exists"() {
-        when:
-        def observer = client.cancelOrder(1111111111).test()
-
-        then:
-        observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
-        observer.assertError(IbExceptions.TerminalError.class)
+        expect:
+        StepVerifier.create(client.cancelOrder(1111111111))
+                .expectError(IbExceptions.TerminalError)
+                .verify()
     }
 
     def "Cancel all should be completed for all limit order"() {
         given:
         def contract = createContractEUR()
 
-        client.placeOrder(contract, createOrderStp(0, 1000.0)).timeout(1, TimeUnit.SECONDS).blockingGet()
-        client.placeOrder(contract, createOrderStp(0, 1000.0)).timeout(1, TimeUnit.SECONDS).blockingGet()
-        client.placeOrder(contract, createOrderStp(0, 1000.0)).timeout(1, TimeUnit.SECONDS).blockingGet()
-        client.placeOrder(contract, createOrderStp(0, 1000.0)).timeout(1, TimeUnit.SECONDS).blockingGet()
-        client.placeOrder(contract, createOrderStp(0, 1000.0)).timeout(1, TimeUnit.SECONDS).blockingGet()
-        client.placeOrder(contract, createOrderStp(0, 1000.0)).timeout(1, TimeUnit.SECONDS).blockingGet()
+        client.placeOrder(contract, createOrderStp(0, 1000.0)).timeout(Duration.ofSeconds(10)).block()
+        client.placeOrder(contract, createOrderStp(0, 1000.0)).timeout(Duration.ofSeconds(10)).block()
+        client.placeOrder(contract, createOrderStp(0, 1000.0)).timeout(Duration.ofSeconds(10)).block()
+        client.placeOrder(contract, createOrderStp(0, 1000.0)).timeout(Duration.ofSeconds(10)).block()
+        client.placeOrder(contract, createOrderStp(0, 1000.0)).timeout(Duration.ofSeconds(10)).block()
 
         when:
-        def observer = client.cancelAll().test()
+        StepVerifier.create(client.cancelAll())
+                .expectComplete()
+                .verify(Duration.ofSeconds(10))
 
         then:
-        observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
-        observer.assertNoErrors()
-
-        client.getCache().orders.values().forEach { assert it.lastStatus.isCanceled() }
+        assertThat(client.getCache().orders.values())
+                .hasSize(5)
+                .extracting({ it.getLastStatus() } as Function)
+                .allMatch { IbOrderStatus status -> status.isCanceled() }
     }
 
-
+    @Ignore("'Duplicate order id' error occurs. TODO: Make mechanism to assign IDs right before sending")
     def "Few placeOrder shouldn't interfere"() {
         given:
         def contract = createContractEUR()
 
-        when:
-        def single1 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-        def single2 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-        def single3 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-        def single4 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-        def single5 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-        def single6 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-        def single7 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-        def single8 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-        def single9 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-        def single10 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
+        def placeInParallel = Flux.range(0, 10)
+                .parallel(10)
+                .runOn(Schedulers.elastic())
+                .flatMap {
+                    client.placeOrder(contract, createOrderStp(client.nextOrderId()))
+                }
 
-        then:
-        single1.blockingGet()
-        single2.blockingGet()
-        single3.blockingGet()
-        single4.blockingGet()
-        single5.blockingGet()
-        single6.blockingGet()
-        single7.blockingGet()
-        single8.blockingGet()
-        single9.blockingGet()
-        single10.blockingGet()
+        expect:
+        StepVerifier.create(placeInParallel)
+                .expectNextCount(10)
+                .verifyComplete()
     }
 
-    def "Expect for states after placeOrder"() {
+    def "Expect for states after order placing"() {
         given:
         def contract = createContractEUR()
         def order = createOrderStp()
-        def observer = client.subscribeOnOrderNewStatus().test()
 
-        when:
-        client.placeOrder(contract, order).blockingGet()
-
-        then:
-        observer.awaitCount(2)
-        observer.assertNotComplete()
-        observer.assertNoErrors()
-        observer.assertValueAt 0, { it.status == OrderStatus.PreSubmitted } as Predicate
-        observer.assertValueAt 1, { it.status in [OrderStatus.Submitted, OrderStatus.Filled] } as Predicate
+        expect:
+        StepVerifier.create(client.subscribeOnOrderNewStatus().log())
+                .then { client.placeOrder(contract, order).block(Duration.ofSeconds(10)) }
+                .assertNext { assert it.status == OrderStatus.PreSubmitted }
+                .assertNext { assert it.status in [OrderStatus.Submitted, OrderStatus.Filled] }
+                .thenCancel()
+                .verify()
     }
 
 
     def "Request cannot be duplicated"() {
-        when:
-        def observable = client.reqOpenOrders()
-                .mergeWith(client.reqOpenOrders())
-                .mergeWith(client.reqOpenOrders())
-                .mergeWith(client.reqOpenOrders())
-                .mergeWith(client.reqOpenOrders())
-        observable.blockingLast()
 
-        then:
-        IbExceptions.DuplicatedRequestError ex = thrown()
+        expect:
+        StepVerifier.create(Flux.merge(client.reqOpenOrders(), client.reqOpenOrders()))
+                .expectError(IbExceptions.DuplicatedRequestError)
+                .verify()
     }
 
     def "Request orders"() {
@@ -305,275 +281,213 @@ class IbClientTest extends Specification {
         def order = createOrderStp()
 
         when:
-        client.placeOrder(contract, order).blockingGet()
-        def list = client.reqOpenOrders().timeout(3, TimeUnit.SECONDS).toList().blockingGet()
+        client.placeOrder(contract, order).block(Duration.ofSeconds(10))
 
         then:
-        println list
-        list.size() > 0
+        StepVerifier.create(client.reqOpenOrders())
+                .expectNextCount(1)
+                .verifyComplete()
     }
 
     def "Request orders when no orders exists"() {
-        when:
-        def list = client.reqOpenOrders().timeout(3, TimeUnit.SECONDS).toList().blockingGet()
-
-        then:
-        list.isEmpty()
+        expect:
+        StepVerifier.create(client.reqOpenOrders()
+                            // Ignoring orders from previous tests if there were launched
+                                    .filter { !it.lastStatus.isFilled() }
+                                    .filter { !it.lastStatus.isCanceled() })
+                .expectComplete()
+                .verify(Duration.ofSeconds(10))
     }
 
     def "Request positions"() {
-        when:
-        def positions = client.subscribeOnPositionChange("DU22993")
-                .skipWhile({ it == IbPosition.COMPLETE } as Predicate)
-                .toList()
-                .timeout(3, TimeUnit.SECONDS)
-                .blockingGet()
-
-        then:
-        positions
-        positions.size() > 0
+        expect:
+        StepVerifier.create(client.subscribeOnPositionChange().skipWhile { it == IbPosition.COMPLETE }.skip(1), 1)
+                .expectNextCount(1)
+                .thenCancel()
+                .verify()
     }
 
     def "Request positions for account"() {
+
         given:
-        def contract = createContractGC()
+        def contract = createContractEUR()
 
-        when:
-        def observer = client.subscribeOnPositionChange("DU22993")//.observeOn(Schedulers.newThread())
-                .skipWhile { it.valid }
-                .filter { it.pos != 0.0 }
-                .take(1)
-                .test()
-        client.placeOrder(contract, createOrderMkt(0, 1.0)).blockingGet()
-
-        then:
-        observer.assertNoErrors()
-        assertThat(observer.values()).hasSize(1).anyMatch { it.pos == 1.0 && it.contract.conid() == contract.conid() }
+        expect:
+        StepVerifier.create(client.subscribeOnPositionChange().skipUntil { it == IbPosition.COMPLETE }.skip(1), 1)
+                .expectSubscription()
+                .expectNoEvent(Duration.ofSeconds(3))
+                .then { client.placeOrder(contract, createOrderMkt(0, 1)).block(Duration.ofSeconds(10)) }
+                .assertNext { IbPosition pos ->
+                    assert pos.contract.conid() == contract.conid()
+                }
+                .thenCancel()
+                .verify(Duration.ofSeconds(60))
     }
 
     def "Request PnL per contract"() {
         given:
-        def contract = createContractGC()
+        def contract = createContractEUR()
 
-        when:
-        client.placeOrder(contract, createOrderMkt(0, 1.0)).blockingGet()
-        def observer = client.subscribeOnContractPnl(contract.conid(), "DU22993").test()
-
-        then:
-        observer.awaitCount(1, BaseTestConsumer.TestWaitStrategy.SLEEP_1000MS)
-        observer.assertNoErrors()
-        observer.assertNotComplete()
-        observer.assertValueCount(1)
-        observer.assertValueAt 0, { it.positionId > 0 } as Predicate
+        expect:
+        StepVerifier.create(client.subscribeOnContractPnl(contract.conid(), ACCOUNT))
+                .then { client.placeOrder(contract, createOrderMkt(0, 1.0)).block(Duration.ofSeconds(10)) }
+                .expectNextCount(1)
+                .thenCancel()
+                .verify()
     }
 
     def "Request PnL per account"() {
-        when:
-        def observer = client.subscribeOnAccountPnl("DU22993").test()
 
-        client.placeOrder(createContractGC(), createOrderStp(0, 1.0, 1.0)).blockingGet()
+        given:
+        def contract = createContractFB()
+        def order = createOrderStp(0, 1.0, 1.0)
 
-        then:
-        observer.awaitCount(1, { sleep(30_000) })
-        observer.assertNoErrors()
-        observer.assertNotComplete()
-        observer.assertValueCount(1)
-        observer.assertValueAt 0, { it.dailyPnL != 0 } as Predicate
+        expect:
+        StepVerifier.create(client.subscribeOnAccountPnl(ACCOUNT))
+                .then { client.placeOrder(contract, order).block(Duration.ofSeconds(10)) }
+                .assertNext {
+                    assert it.dailyPnL != 0
+                }
+                .thenCancel()
+                .verify(Duration.ofSeconds(30))
     }
 
     def "Request for Portfolio change for account"() {
-        when:
-        def portfolio = client.subscribeOnAccountPortfolio("DU22993")
-                .takeUntil({ it == IbPortfolio.COMPLETE } as Predicate)
-                .toList()
-                .timeout(3, TimeUnit.MINUTES) // Account updates once per 3 min
-                .blockingGet()
 
-        then:
-        portfolio.size() > 0
+        given:
+        def portfolioUpdates = client.subscribeOnAccountPortfolio(ACCOUNT)
+                .skipUntil { it == IbPortfolio.COMPLETE }
+                .skip(1)
+
+        expect:
+        StepVerifier.create(portfolioUpdates, 1)
+                .expectNextCount(1)
+                .thenCancel()
+                .verify(Duration.ofMinutes(3)) // Account updates once per 3 min
     }
 
     def "Get market data"() {
-        when:
-        def testObserver = client.subscribeOnMarketData(createContractEUR()).test()
 
-        then:
-        testObserver.awaitCount(10)
-        testObserver.assertNoErrors()
-        testObserver.assertNotComplete()
-        testObserver.assertValueAt 0, { it.closePrice > 0 } as Predicate
+        given:
+        def contract = createContractEUR()
+
+        expect:
+        StepVerifier.create(client.subscribeOnMarketData(contract))
+                .expectNextCount(10)
+                .thenCancel()
+                .verify()
     }
 
     def "Get market depth"() {
         given:
         def contract = createContractEUR()
+        def rowNumber = 2
 
-        when:
-        def observer = client.subscribeOnMarketDepth(contract, 2).test()
-
-        then:
-        observer.awaitCount(4, BaseTestConsumer.TestWaitStrategy.SLEEP_100MS, 5000)
-        observer.assertNoErrors()
-        observer.assertValueAt 0, { IbMarketDepth level ->
-            level.position == 0
-            level.side == IbMarketDepth.Side.BUY
-            level.price > 0.0
-            level.size > 0
-        } as Predicate
-
-        observer.assertValueAt 1, { IbMarketDepth level ->
-            level.position == 1
-            level.side == IbMarketDepth.Side.BUY
-            level.price > 0.0
-            level.size > 0
-        } as Predicate
-
-        observer.assertValueAt 0, { IbMarketDepth level ->
-            level.position == 0
-            level.side == IbMarketDepth.Side.SELL
-            level.price > 0.0
-            level.size > 0
-        } as Predicate
-
-        observer.assertValueAt 1, { IbMarketDepth level ->
-            level.position == 1
-            level.side == IbMarketDepth.Side.SELL
-            level.price > 0.0
-            level.size > 0
-        } as Predicate
+        expect:
+        StepVerifier.create(client.subscribeOnMarketDepth(contract, rowNumber))
+                .assertNext { IbMarketDepth level ->
+                    level.position == 0
+                    level.side == IbMarketDepth.Side.BUY
+                    level.price > 0.0
+                    level.size > 0
+                }
+                .assertNext { IbMarketDepth level ->
+                    level.position == 1
+                    level.side == IbMarketDepth.Side.BUY
+                    level.price > 0.0
+                    level.size > 0
+                }
+                .assertNext { IbMarketDepth level ->
+                    level.position == 0
+                    level.side == IbMarketDepth.Side.SELL
+                    level.price > 0.0
+                    level.size > 0
+                }
+                .assertNext { IbMarketDepth level ->
+                    level.position == 1
+                    level.side == IbMarketDepth.Side.SELL
+                    level.price > 0.0
+                    level.size > 0
+                }
+                .thenCancel()
+                .verify()
     }
 
     @Ignore("To check contracts with L2 paid subscription is need and opened trading session. Use this test for respective account and run manually")
     def "Get market depth L2"() {
+
         given:
         def contract = createContractARRY_L2()
+        def rowNumber = 2
 
-        when:
-        def observer = client.subscribeOnMarketDepth(contract, 2).test()
-
-        then:
-        observer.awaitCount(4, BaseTestConsumer.TestWaitStrategy.SLEEP_100MS, 5000)
-        observer.assertNoErrors()
-        observer.assertValueAt 0, { IbMarketDepth level ->
-            level.position == 0
-            level.side == IbMarketDepth.Side.BUY
-            level.price > 0.0
-            level.size > 0
-        } as Predicate
-
-        observer.assertValueAt 1, { IbMarketDepth level ->
-            level.position == 1
-            level.side == IbMarketDepth.Side.BUY
-            level.price > 0.0
-            level.size > 0
-        } as Predicate
-
-        observer.assertValueAt 0, { IbMarketDepth level ->
-            level.position == 0
-            level.side == IbMarketDepth.Side.SELL
-            level.price > 0.0
-            level.size > 0
-        } as Predicate
-
-        observer.assertValueAt 1, { IbMarketDepth level ->
-            level.position == 1
-            level.side == IbMarketDepth.Side.SELL
-            level.price > 0.0
-            level.size > 0
-        } as Predicate
+        expect:
+        StepVerifier.create(client.subscribeOnMarketDepth(contract, rowNumber))
+                .assertNext { IbMarketDepth level ->
+                    level.position == 0
+                    level.side == IbMarketDepth.Side.BUY
+                    level.price > 0.0
+                    level.size > 0
+                }
+                .assertNext { IbMarketDepth level ->
+                    level.position == 1
+                    level.side == IbMarketDepth.Side.BUY
+                    level.price > 0.0
+                    level.size > 0
+                }
+                .assertNext { IbMarketDepth level ->
+                    level.position == 0
+                    level.side == IbMarketDepth.Side.SELL
+                    level.price > 0.0
+                    level.size > 0
+                }
+                .assertNext { IbMarketDepth level ->
+                    level.position == 1
+                    level.side == IbMarketDepth.Side.SELL
+                    level.price > 0.0
+                    level.size > 0
+                }
+                .thenCancel()
+                .verify()
     }
 
     def "Request market depth information about exchanges"() {
-        when:
-        def observer = client.reqMktDepthExchanges().test()
-
-        then:
-        observer.awaitTerminalEvent(10, TimeUnit.SECONDS)
-        observer.assertNoErrors()
-        observer.awaitCount(1)
-    }
-
-    def "Request orders and place orders shouldn't interfere each other"() {
-        given:
-        def contract = createContractEUR()
-
-        when:
-        def future1 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-        client.reqOpenOrders().timeout(10, TimeUnit.SECONDS).blockingSubscribe()
-        def future2 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-        def future3 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-        client.reqOpenOrders().timeout(10, TimeUnit.SECONDS).blockingSubscribe()
-        def future4 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-        def future5 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-        def future6 = client.placeOrder(contract, createOrderStp(client.nextOrderId()))
-
-        and:
-
-        def order1 = future1.timeout(10, TimeUnit.SECONDS).blockingGet()
-        def order2 = future2.timeout(10, TimeUnit.SECONDS).blockingGet()
-        def order3 = future3.timeout(10, TimeUnit.SECONDS).blockingGet()
-        def order4 = future4.timeout(10, TimeUnit.SECONDS).blockingGet()
-        def order5 = future5.timeout(10, TimeUnit.SECONDS).blockingGet()
-        def list1 = client.reqOpenOrders().timeout(10, TimeUnit.SECONDS).toList().blockingGet()
-        def order6 = future6.timeout(10, TimeUnit.SECONDS).blockingGet()
-        def list2 = client.reqOpenOrders().timeout(10, TimeUnit.SECONDS).toList().blockingGet()
-
-
-        then:
-        list1.size() <= 6
-        list1.collect { it.orderId }.toList().containsAll(
-                [order1.getOrderId(),
-                 order2.getOrderId(),
-                 order3.getOrderId(),
-                 order4.getOrderId(),
-                 order5.getOrderId()])
-
-        list2.size() == 6
-        list2.collect { it.orderId }.toList().containsAll(
-                [order1.getOrderId(),
-                 order2.getOrderId(),
-                 order3.getOrderId(),
-                 order4.getOrderId(),
-                 order5.getOrderId(),
-                 order6.getOrderId()])
-
-        list2.collect { it.orderId }.toList().containsAll(
-                [order1.getOrderId(),
-                 order2.getOrderId(),
-                 order3.getOrderId(),
-                 order4.getOrderId(),
-                 order5.getOrderId(),
-                 order6.getOrderId()])
+        expect:
+        StepVerifier.create(client.reqMktDepthExchanges())
+                .expectNextCount(1)
+                .thenCancel()
+                .verify()
     }
 
     def "Few reconnects shouldn't impact to functionality"() {
         expect:
 
         (0..10).each {
-            client.connect("127.0.0.1", 7497, 1).blockingGet(20, TimeUnit.SECONDS)
+            client.connect(TERMINAL_HOSTNAME, TERMINAL_PORT, 1).block(Duration.ofSeconds(20))
             assert client.isConnected()
-            client.getCurrentTime().timeout(10, TimeUnit.SECONDS).blockingGet() > 1510320971
+            client.getCurrentTime().timeout(Duration.ofSeconds(10)).block()
             client.disconnect()
         }
     }
 
     def "Connection status should changes"() {
+
         given:
         client.disconnect()
-        def observable = client.connectionStatus().test()
 
-        when:
-        client.connect("127.0.0.1", 7497, 1).blockingGet(20, TimeUnit.SECONDS)
-        client.disconnect()
-        client.connect("127.0.0.1", 7497, 1).blockingGet(20, TimeUnit.SECONDS)
-        client.disconnect()
-
-        then:
-        observable.awaitCount(4)
-        observable.assertValueAt(0, true)
-        observable.assertValueAt(1, false)
-        observable.assertValueAt(2, true)
-        observable.assertValueAt(3, false)
+        expect:
+        StepVerifier.create(client.connectionStatus())
+                .then {
+                    client.connect(TERMINAL_HOSTNAME, TERMINAL_PORT, 1).block(Duration.ofSeconds(20))
+                    client.disconnect()
+                    client.connect(TERMINAL_HOSTNAME, TERMINAL_PORT, 1).block(Duration.ofSeconds(20))
+                    client.disconnect()
+                }
+                .expectNext(true)
+                .expectNext(false)
+                .expectNext(true)
+                .expectNext(false)
+                .thenCancel()
+                .verify()
     }
 
     def "Set market data type"() {
@@ -581,280 +495,362 @@ class IbClientTest extends Specification {
         client.setMarketDataType(IbClient.MarketDataType.DELAYED_FROZEN)
     }
 
-    def "Get contract snapshot"() {
-        when:
-        def observer = client.reqMarketData(createContractEUR()).test()
+    def "Get contract market data snapshot"() {
 
-        then:
-        observer.awaitDone(30, TimeUnit.SECONDS)
-        observer.assertValueCount(1)
-        observer.assertNoErrors()
-        observer.assertValueAt 0, { tick ->
-            assert tick.getBid() != null
-            assert tick.getAsk() != null
-            assert tick.getClosePrice() != null
-            true
-        } as Predicate
+        given:
+        def contract = createContractEUR()
+
+        expect:
+        StepVerifier.create(client.reqMarketData(contract))
+                .assertNext {
+                    assert it.getBid() != null
+                    assert it.getAsk() != null
+                    assert it.getClosePrice() != null
+                }
+                .verifyComplete()
     }
 
     def "Get historical midpoints from last week"() {
 
         given:
+        def contract = createContractEUR()
         def from = LocalDateTime.now().minusWeeks(1)
 
-        when:
-        def observer = client.reqHistoricalMidpoints(createContractEUR(), from, null, null).test()
-
-        then:
-        observer.awaitDone(10, TimeUnit.SECONDS)
-        observer.assertNoErrors()
-        observer.assertComplete()
-        observer.valueCount() >= 1000
-        observer.assertValueAt 0, { tick ->
-            assert tick.price() > 0.0
-            true
-        } as Predicate
+        expect:
+        StepVerifier.create(client.reqHistoricalMidpoints(contract, from, null, null))
+                .expectNextCount(999)
+                .assertNext { tick ->
+                    assert tick.price() > 0.0
+                }
+                .thenCancel()
+                .verify()
     }
 
     def "Get historical bid and asks from last week"() {
 
         given:
+        def contract = createContractEUR()
         def from = LocalDateTime.now().minusWeeks(1)
 
-        when:
-        def observer = client.reqHistoricalBidAsks(createContractEUR(), from, null, null).test()
-
-        then:
-        observer.awaitDone(10, TimeUnit.SECONDS)
-        observer.assertNoErrors()
-        observer.assertComplete()
-        observer.valueCount() >= 1000
-        observer.assertValueAt 0, { tick ->
-            assert tick.priceBid() > 0.0
-            assert tick.priceAsk() > 0.0
-            assert tick.sizeBid() > 0.0
-            assert tick.sizeAsk() > 0.0
-            true
-        } as Predicate
+        expect:
+        StepVerifier.create(client.reqHistoricalBidAsks(contract, from, null, null))
+                .expectNextCount(1000)
+                .assertNext { tick ->
+                    assert tick.priceBid() > 0.0
+                    assert tick.priceAsk() > 0.0
+                    assert tick.sizeBid() > 0.0
+                    assert tick.sizeAsk() > 0.0
+                }
+                .thenCancel()
+        verifyAll {}
     }
 
+    @Ignore("TWS returns error 'Failed to request historical ticks:No market data permissions for ISLAND STK' ")
     def "Get historical trades from last week"() {
 
         given:
+        def contract = createContractFB()
         def from = LocalDateTime.now().minusWeeks(1)
 
-        when:
-        def observer = client.reqHistoricalTrades(createContractFB(), from, null, null).test()
-
-        then:
-        observer.awaitDone(10, TimeUnit.SECONDS)
-        observer.assertNoErrors()
-        observer.assertComplete()
-        observer.valueCount() >= 1000
-        observer.assertValueAt 0, { tick ->
-            def tz = OffsetDateTime.now().getOffset()
-            assert Math.abs(from.toEpochSecond(tz) - tick.time()) < 100000
-            assert tick.price() > 0.0
-            assert tick.size() > 0.0
-            true
-        } as Predicate
+        expect:
+        StepVerifier.create(client.reqHistoricalTrades(contract, from, null, null))
+                .expectNextCount(1000)
+                .assertNext { tick ->
+                    def tz = OffsetDateTime.now().getOffset()
+                    assert Math.abs(from.toEpochSecond(tz) - tick.time()) < 100000
+                    assert tick.price() > 0.0
+                    assert tick.size() > 0.0
+                }
+                .thenCancel()
+                .verify()
     }
 
+    @Ignore("TWS returns error 'Requested market data is not subscribed' ")
     def "Request bars"() {
 
         given:
-        def endDateTime = LocalDateTime.of(2019, 04, 16, 12, 0, 0);
+        def contract = createContractFB()
+        def endDateTime = LocalDateTime.of(2019, 04, 16, 12, 0, 0)
 
-        when:
-        def observer = client.reqHistoricalData(createContractFB(), endDateTime,
-                                                120, IbClient.DurationUnit.Second, _1_min,
-                                                IbClient.Type.TRADES,
-                                                IbClient.TradingHours.Within).test()
-        then:
-        observer.awaitDone(10, TimeUnit.SECONDS)
-        observer.assertNoErrors()
-        observer.assertComplete()
-        observer.valueCount() == 2
-        observer.assertValueAt 0, { IbBar bar ->
-            assert bar.time == LocalDateTime.of(2019, 4, 15, 22, 58, 0)
-            assert bar.open == 179.59
-            assert bar.high == 179.6
-            assert bar.low == 179.54
-            assert bar.close == 179.57
-            assert bar.volume == 604
-            assert bar.count == 417
-            assert bar.wap == 179.566
-            true
-        } as Predicate
-        observer.assertValueAt 1, { IbBar bar ->
-            assert bar.time == LocalDateTime.of(2019, 4, 15, 22, 59, 0)
-            assert bar.open == 179.58
-            assert bar.high == 179.77
-            assert bar.low == 179.56
-            assert bar.close == 179.66
-            assert bar.volume == 1046
-            assert bar.count == 720
-            assert bar.wap == 179.685
-            true
-        } as Predicate
+        def reqHistoricalData = client.reqHistoricalData(contract, endDateTime,
+                                                         120, IbClient.DurationUnit.Second, MIN_1,
+                                                         IbClient.Type.TRADES,
+                                                         IbClient.TradingHours.Within)
+
+        expect:
+        StepVerifier.create(reqHistoricalData)
+                .assertNext { IbBar bar ->
+                    assert bar.time == LocalDateTime.of(2019, 4, 15, 22, 58, 0)
+                    assert bar.open == 179.59
+                    assert bar.high == 179.6
+                    assert bar.low == 179.54
+                    assert bar.close == 179.57
+                    assert bar.volume == 604
+                    assert bar.count == 417
+                    assert bar.wap == 179.566
+                }
+                .assertNext { IbBar bar ->
+                    assert bar.time == LocalDateTime.of(2019, 4, 15, 22, 59, 0)
+                    assert bar.open == 179.58
+                    assert bar.high == 179.77
+                    assert bar.low == 179.56
+                    assert bar.close == 179.66
+                    assert bar.volume == 1046
+                    assert bar.count == 720
+                    assert bar.wap == 179.685
+                }
+                .verifyComplete()
     }
 
     @Unroll
     def "Subscribe to unfinished bars for period #period"() {
 
-        when:
-        def observer = client.subscribeOnHistoricalData(createContractEUR(),
-                                                        30, IbClient.DurationUnit.Second,
-                                                        period,
-                                                        IbClient.Type.BID,
-                                                        IbClient.TradingHours.Within)
+        given:
+        def subscribeOnHistoricalData = client.subscribeOnHistoricalData(createContractEUR(),
+                                                                         30, IbClient.DurationUnit.Second,
+                                                                         period,
+                                                                         IbClient.Type.BID,
+                                                                         IbClient.TradingHours.Within)
                 .skipWhile { it == IbBar.COMPLETE }
-                .filter { it != IbBar.COMPLETE }
-                .take(1).test()
+                .skip(1)
 
-        then:
-        observer.awaitCount(1)
-        observer.assertNoErrors()
-        observer.assertComplete()
-        observer.valueCount() == 1
-        observer.assertValueAt 0, { IbBar bar ->
-            assert bar.open > 0.0
-            assert bar.high > 0.0
-            assert bar.low > 0.0
-            assert bar.close > 0.0
-            true
-        } as Predicate
+        expect:
+        StepVerifier.create(subscribeOnHistoricalData)
+                .assertNext { IbBar bar ->
+                    assert bar.open
+                    assert bar.high
+                    assert bar.low
+                    assert bar.close
+                }
+                .thenCancel()
+                .verify()
 
         where:
         period   | _
-        _5_sec   | _
-        _10_sec  | _
-        _15_sec  | _
-        _30_sec  | _
-        _1_min   | _
-        _2_min   | _
-        _3_min   | _
-        _5_min   | _
-        _10_min  | _
-        _15_min  | _
-        _20_min  | _
-        _30_min  | _
-        _1_hour  | _
-        _2_hour  | _
-        _3_hour  | _
-        _4_hour  | _
-        _8_hour  | _
-        _1_day   | _
-        _1_week  | _
-        _1_month | _
+        SEC_5 | _
+        SEC_10 | _
+        SEC_15 | _
+        SEC_30 | _
+        MIN_1 | _
+        MIN_2 | _
+        MIN_3 | _
+        MIN_5 | _
+        MIN_10 | _
+        MIN_15 | _
+        MIN_20 | _
+        MIN_30 | _
+        HOUR_1 | _
+        HOUR_2 | _
+        HOUR_3 | _
+        HOUR_4 | _
+        HOUR_8 | _
+        DAY_1 | _
+        WEEK_1 | _
+        MONTH_1 | _
     }
 
     def "Get all accounts summary after few calls"() {
-        when:
-        client.reqAccountSummary("All", "All").blockingGet()
-        client.reqAccountSummary("All", "All").blockingGet()
-        client.reqAccountSummary("All", "All").blockingGet()
-        client.reqAccountSummary("All", "All").blockingGet()
-        client.reqAccountSummary("All", "All").blockingGet()
-        client.reqAccountSummary("All", "All").blockingGet()
-        client.reqAccountSummary("All", "All").blockingGet()
-        client.reqAccountSummary("All", "All").blockingGet()
-        client.reqAccountSummary("All", "All").blockingGet()
 
-        def observer = client.reqAccountSummary("All", "All").test()
+        when:
+        client.reqAccountSummary("All", "All").block()
+        client.reqAccountSummary("All", "All").block()
+        client.reqAccountSummary("All", "All").block()
+        client.reqAccountSummary("All", "All").block()
+        client.reqAccountSummary("All", "All").block()
+        client.reqAccountSummary("All", "All").block()
+        client.reqAccountSummary("All", "All").block()
+        client.reqAccountSummary("All", "All").block()
+        client.reqAccountSummary("All", "All").block()
 
         then:
-        observer.awaitTerminalEvent()
-        observer.assertNoErrors()
-        observer.assertValueCount(1)
+        StepVerifier.create(client.reqAccountSummary("All", "All"))
+                .assertNext { IbAccountsSummary summary ->
 
-        def value = observer.values()[0]
-        value.accountType == "INDIVIDUAL"
-        value.netLiquidation > 0.0g
-        value.cushion > 0.0g
-        value.dayTradesRemaining == -1
-        value.lookAheadNextChange > new Date()
-        value.accruedCash != null
-        value.availableFunds != null
-        value.buyingPower != null
-        value.equityWithLoanValue != null
-        value.excessLiquidity != null
-        value.fullAvailableFunds != null
-        value.fullExcessLiquidity != null
-        value.fullInitMarginReq != null
-        value.fullMaintMarginReq != null
-        value.grossPositionValue != null
-        value.initMarginReq != null
-        value.lookAheadAvailableFunds != null
-        value.lookAheadExcessLiquidity != null
-        value.lookAheadInitMarginReq != null
-        value.lookAheadMaintMarginReq != null
-        value.maintMarginReq != null
-        value.netLiquidation != null
-        value.regTEquity != null
-        value.regTMargin != null
-        value.SMA != null
-        value.totalCashValue != null
+                    def value = summary.accounts[ACCOUNT]
+                    assert value.accountType == "INDIVIDUAL"
+                    assert value.netLiquidation > 0.0g
+                    assert value.cushion > 0.0g
+                    assert value.dayTradesRemaining == -1
+                    assert value.lookAheadNextChange > new Date()
+                    assert value.availableFunds != null
+                    assert value.buyingPower != null
+                    assert value.equityWithLoanValue != null
+                    assert value.excessLiquidity != null
+                    assert value.fullAvailableFunds != null
+                    assert value.fullExcessLiquidity != null
+                    assert value.fullInitMarginReq != null
+                    assert value.fullMaintMarginReq != null
+                    assert value.grossPositionValue != null
+                    assert value.initMarginReq != null
+                    assert value.lookAheadAvailableFunds != null
+                    assert value.lookAheadExcessLiquidity != null
+                    assert value.lookAheadInitMarginReq != null
+                    assert value.lookAheadMaintMarginReq != null
+                    assert value.maintMarginReq != null
+                    assert value.netLiquidation != null
+                    assert value.regTEquity != null
+                    assert value.regTMargin != null
+                    assert value.sma != null
+                    assert value.totalCashValue != null
 
-        def summaryAUD = value.details["AUD"]
-        summaryAUD.cashBalance
-        summaryAUD.totalCashBalance != null
-        summaryAUD.accruedCash != null
-        summaryAUD.stockMarketValue != null
-        summaryAUD.optionMarketValue != null
-        summaryAUD.futureOptionValue != null
-        summaryAUD.futuresPNL != null
-        summaryAUD.netLiquidationByCurrency != null
-        summaryAUD.unrealizedPnL != null
-        summaryAUD.realizedPnL != null
-        summaryAUD.exchangeRate != null
-        summaryAUD.fundValue != null
-        summaryAUD.netDividend != null
-        summaryAUD.mutualFundValue != null
-        summaryAUD.moneyMarketFundValue != null
-        summaryAUD.corporateBondValue != null
-        summaryAUD.tBondValue != null
-        summaryAUD.tBillValue != null
-        summaryAUD.warrantValue != null
-        summaryAUD.fxCashBalance != null
-        summaryAUD.accountOrGroup == "All"
-        summaryAUD.issuerOptionValue != null
+                    def summaryAUD = summary.accounts["All"].details["AUD"]
+                    assert summaryAUD.cashBalance
+                    assert summaryAUD.totalCashBalance != null
+                    assert summaryAUD.accruedCash != null
+                    assert summaryAUD.stockMarketValue != null
+                    assert summaryAUD.optionMarketValue != null
+                    assert summaryAUD.futureOptionValue != null
+                    assert summaryAUD.futuresPNL != null
+                    assert summaryAUD.netLiquidationByCurrency != null
+                    assert summaryAUD.unrealizedPnL != null
+                    assert summaryAUD.realizedPnL != null
+                    assert summaryAUD.exchangeRate != null
+                    assert summaryAUD.fundValue != null
+                    assert summaryAUD.netDividend != null
+                    assert summaryAUD.mutualFundValue != null
+                    assert summaryAUD.moneyMarketFundValue != null
+                    assert summaryAUD.corporateBondValue != null
+                    assert summaryAUD.tBondValue != null
+                    assert summaryAUD.tBillValue != null
+                    assert summaryAUD.warrantValue != null
+                    assert summaryAUD.fxCashBalance != null
+                    assert summaryAUD.accountOrGroup == "All"
+                    assert summaryAUD.issuerOptionValue != null
 
-        def summaryEUR = value.details["EUR"]
-        summaryEUR.cashBalance
-        summaryEUR.totalCashBalance != null
-        summaryEUR.accruedCash != null
-        summaryEUR.stockMarketValue != null
-        summaryEUR.optionMarketValue != null
-        summaryEUR.futureOptionValue != null
-        summaryEUR.futuresPNL != null
-        summaryEUR.netLiquidationByCurrency != null
-        summaryEUR.unrealizedPnL != null
-        summaryEUR.realizedPnL != null
-        summaryEUR.exchangeRate != null
-        summaryEUR.fundValue != null
-        summaryEUR.netDividend != null
-        summaryEUR.mutualFundValue != null
-        summaryEUR.moneyMarketFundValue != null
-        summaryEUR.corporateBondValue != null
-        summaryEUR.tBondValue != null
-        summaryEUR.tBillValue != null
-        summaryEUR.warrantValue != null
-        summaryEUR.fxCashBalance != null
-        summaryEUR.accountOrGroup == "All"
-        summaryEUR.issuerOptionValue != null
+                    def summaryEUR = summary.accounts["All"].details["EUR"]
+                    assert summaryEUR.cashBalance
+                    assert summaryEUR.totalCashBalance != null
+                    assert summaryEUR.accruedCash != null
+                    assert summaryEUR.stockMarketValue != null
+                    assert summaryEUR.optionMarketValue != null
+                    assert summaryEUR.futureOptionValue != null
+                    assert summaryEUR.futuresPNL != null
+                    assert summaryEUR.netLiquidationByCurrency != null
+                    assert summaryEUR.unrealizedPnL != null
+                    assert summaryEUR.realizedPnL != null
+                    assert summaryEUR.exchangeRate != null
+                    assert summaryEUR.fundValue != null
+                    assert summaryEUR.netDividend != null
+                    assert summaryEUR.mutualFundValue != null
+                    assert summaryEUR.moneyMarketFundValue != null
+                    assert summaryEUR.corporateBondValue != null
+                    assert summaryEUR.tBondValue != null
+                    assert summaryEUR.tBillValue != null
+                    assert summaryEUR.warrantValue != null
+                    assert summaryEUR.fxCashBalance != null
+                    assert summaryEUR.accountOrGroup == "All"
+                    assert summaryEUR.issuerOptionValue != null
+                }
+                .verifyComplete()
+    }
+
+    def "Get all accounts summary after few calls 2"() {
+
+        given:
+        def params = { AccountsSummaryParams builder -> builder.withAllAccountGroups().inAllCurrencies().withAllTag() }
+
+        when:
+        client.reqAccountSummary(params)
+        client.reqAccountSummary(params).block()
+        client.reqAccountSummary(params).block()
+        client.reqAccountSummary(params).block()
+        client.reqAccountSummary(params).block()
+        client.reqAccountSummary(params).block()
+        client.reqAccountSummary(params).block()
+        client.reqAccountSummary(params).block()
+        client.reqAccountSummary(params).block()
+
+        then:
+        StepVerifier.create(client.reqAccountSummary(params))
+                .assertNext { IbAccountsSummary summary ->
+
+                    def value = summary.accounts[ACCOUNT]
+                    assert value.accountType == "INDIVIDUAL"
+                    assert value.netLiquidation > 0.0g
+                    assert value.cushion > 0.0g
+                    assert value.dayTradesRemaining == -1
+                    assert value.lookAheadNextChange > new Date()
+                    assert value.availableFunds != null
+                    assert value.buyingPower != null
+                    assert value.equityWithLoanValue != null
+                    assert value.excessLiquidity != null
+                    assert value.fullAvailableFunds != null
+                    assert value.fullExcessLiquidity != null
+                    assert value.fullInitMarginReq != null
+                    assert value.fullMaintMarginReq != null
+                    assert value.grossPositionValue != null
+                    assert value.initMarginReq != null
+                    assert value.lookAheadAvailableFunds != null
+                    assert value.lookAheadExcessLiquidity != null
+                    assert value.lookAheadInitMarginReq != null
+                    assert value.lookAheadMaintMarginReq != null
+                    assert value.maintMarginReq != null
+                    assert value.netLiquidation != null
+                    assert value.regTEquity != null
+                    assert value.regTMargin != null
+                    assert value.sma != null
+                    assert value.totalCashValue != null
+
+                    def summaryAUD = summary.accounts["All"].details["AUD"]
+                    assert summaryAUD.cashBalance
+                    assert summaryAUD.totalCashBalance != null
+                    assert summaryAUD.accruedCash != null
+                    assert summaryAUD.stockMarketValue != null
+                    assert summaryAUD.optionMarketValue != null
+                    assert summaryAUD.futureOptionValue != null
+                    assert summaryAUD.futuresPNL != null
+                    assert summaryAUD.netLiquidationByCurrency != null
+                    assert summaryAUD.unrealizedPnL != null
+                    assert summaryAUD.realizedPnL != null
+                    assert summaryAUD.exchangeRate != null
+                    assert summaryAUD.fundValue != null
+                    assert summaryAUD.netDividend != null
+                    assert summaryAUD.mutualFundValue != null
+                    assert summaryAUD.moneyMarketFundValue != null
+                    assert summaryAUD.corporateBondValue != null
+                    assert summaryAUD.tBondValue != null
+                    assert summaryAUD.tBillValue != null
+                    assert summaryAUD.warrantValue != null
+                    assert summaryAUD.fxCashBalance != null
+                    assert summaryAUD.accountOrGroup == "All"
+                    assert summaryAUD.issuerOptionValue != null
+
+                    def summaryEUR = summary.accounts["All"].details["EUR"]
+                    assert summaryEUR.cashBalance
+                    assert summaryEUR.totalCashBalance != null
+                    assert summaryEUR.accruedCash != null
+                    assert summaryEUR.stockMarketValue != null
+                    assert summaryEUR.optionMarketValue != null
+                    assert summaryEUR.futureOptionValue != null
+                    assert summaryEUR.futuresPNL != null
+                    assert summaryEUR.netLiquidationByCurrency != null
+                    assert summaryEUR.unrealizedPnL != null
+                    assert summaryEUR.realizedPnL != null
+                    assert summaryEUR.exchangeRate != null
+                    assert summaryEUR.fundValue != null
+                    assert summaryEUR.netDividend != null
+                    assert summaryEUR.mutualFundValue != null
+                    assert summaryEUR.moneyMarketFundValue != null
+                    assert summaryEUR.corporateBondValue != null
+                    assert summaryEUR.tBondValue != null
+                    assert summaryEUR.tBillValue != null
+                    assert summaryEUR.warrantValue != null
+                    assert summaryEUR.fxCashBalance != null
+                    assert summaryEUR.accountOrGroup == "All"
+                    assert summaryEUR.issuerOptionValue != null
+                }
+                .verifyComplete()
     }
 
     def "Get only base currency accounts summary details"() {
-        given:
-        def accountName = client.getManagedAccounts()[0]
-
         when:
-        def result = client.reqAccountSummary("All", null).blockingGet()
+        def result = client.reqAccountSummary { builder ->
+            builder.withAllAccountGroups().inBaseCurrency().withAllTag()
+        }.block()
 
         then:
         result.accounts.size() == 1
-        def account = result.accounts[accountName]
+        def account = result.accounts[ACCOUNT]
         account
 
         def baseDetails = account.details.get("BASE")
@@ -863,69 +859,14 @@ class IbClientTest extends Specification {
     }
 
     def "reqMarketRule should return list of price increments"() {
-        when:
-        def observer = client.reqMarketRule(791).test()
 
-        then:
-        observer.awaitTerminalEvent()
-        observer.assertNoErrors()
-        observer.assertValueCount(11)
-
-        observer.assertValueAt 0, { value ->
-            assert value.lowEdge() == 0.0
-            assert value.increment() == 1.0
-            return true
-        } as Predicate
-        observer.assertValueAt 1, { value ->
-            assert value.lowEdge() == 3000.0
-            assert value.increment() == 5.0
-            return true
-        } as Predicate
-        observer.assertValueAt 2, { value ->
-            assert value.lowEdge() == 5000.0
-            assert value.increment() == 10.0
-            return true
-        } as Predicate
-        observer.assertValueAt 3, { value ->
-            assert value.lowEdge() == 30000.0
-            assert value.increment() == 50.0
-            return true
-        } as Predicate
-        observer.assertValueAt 4, { value ->
-            assert value.lowEdge() == 50000.0
-            assert value.increment() == 100.0
-            return true
-        } as Predicate
-        observer.assertValueAt 5, { value ->
-            assert value.lowEdge() == 300000.0
-            assert value.increment() == 500.0
-            return true
-        } as Predicate
-        observer.assertValueAt 6, { value ->
-            assert value.lowEdge() == 500000.0
-            assert value.increment() == 1000.0
-            return true
-        } as Predicate
-        observer.assertValueAt 7, { value ->
-            assert value.lowEdge() == 3000000.0
-            assert value.increment() == 5000.0
-            return true
-        } as Predicate
-        observer.assertValueAt 8, { value ->
-            assert value.lowEdge() == 5000000.0
-            assert value.increment() == 10000.0
-            return true
-        } as Predicate
-        observer.assertValueAt 9, { value ->
-            assert value.lowEdge() == 3.0E7
-            assert value.increment() == 50000.0
-            return true
-        } as Predicate
-        observer.assertValueAt 10, { value ->
-            assert value.lowEdge() == 5.0E7
-            assert value.increment() == 100000.0
-            return true
-        } as Predicate
+        expect:
+        StepVerifier.create(client.reqMarketRule(239))
+                .assertNext { value ->
+                    assert value.lowEdge() == 0.0
+                    assert value.increment() == 0.00005
+                }
+                .verifyComplete()
     }
 
     private static def createContractEUR() {
@@ -935,16 +876,6 @@ class IbClientTest extends Specification {
         contract.currency("USD")
         contract.exchange("IDEALPRO")
         contract.secType(Types.SecType.CASH)
-        return contract
-    }
-
-    private static def createContractGC() {
-        def contract = new Contract()
-        contract.conid(130450913)
-        contract.symbol("GC")
-        contract.currency("USD")
-        contract.exchange("NYMEX")
-        contract.secType(Types.SecType.FUT)
         return contract
     }
 

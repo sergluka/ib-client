@@ -3,7 +3,6 @@ package com.finplant.ib.types;
 import com.ib.client.Contract;
 import com.ib.client.Order;
 import com.ib.client.OrderState;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -26,7 +25,7 @@ public class IbOrder {
     }
 
     // TODO: Hide
-    public synchronized boolean addStatus(@NotNull IbOrderStatus status) {
+    public synchronized boolean addStatus(IbOrderStatus status) {
         if (!statuses.contains(status)) {
             return statuses.add(status);
         }
@@ -34,7 +33,7 @@ public class IbOrder {
         return false;
     }
 
-    public synchronized void addStatuses(@NotNull List<IbOrderStatus> list) {
+    public synchronized void addStatuses(List<IbOrderStatus> list) {
         statuses.addAll(list);
     }
 

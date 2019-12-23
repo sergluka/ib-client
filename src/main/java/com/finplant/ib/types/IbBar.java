@@ -100,8 +100,12 @@ public class IbBar {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof IbBar)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof IbBar)) {
+            return false;
+        }
         IbBar ibBar = (IbBar) o;
         return volume == ibBar.volume &&
                count == ibBar.count &&

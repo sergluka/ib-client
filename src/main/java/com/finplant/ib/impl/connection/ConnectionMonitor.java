@@ -13,12 +13,6 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public abstract class ConnectionMonitor implements AutoCloseable {
 
-    private final Duration connectionDelay;
-
-    public ConnectionMonitor(Duration connectionDelay) {
-        this.connectionDelay = connectionDelay;
-    }
-
     public enum Command {
         NONE,
         DISCONNECT,
@@ -36,26 +30,35 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         SLEEP,
     }
 
-    private static final Logger log = LoggerFactory.getLogger(ConnectionMonitor.class);
-
     private static final int CLOSE_TIMEOUT_MS = 10_000;
-//    private static final long RECONNECT_DELAY = 10_000;
+    private static final int SLEEP_DELAY_MS = 100;
+
+    private static final Logger log = LoggerFactory.getLogger(ConnectionMonitor.class);
 
     private final Lock statusLock = new ReentrantLock();
     private final Condition statusCondition = statusLock.newCondition();
     private final SleepTimer timer = new SleepTimer();
 
+    private final Duration connectionDelay;
+
     private boolean isConnected = false;
     private Status expectedStatus = null;
 
-    private Thread thread;
     private AtomicReference<Status> status;
     private AtomicReference<Command> command;
+    private Thread thread;
 
     protected abstract void connectRequest();
+
     protected abstract void disconnectRequest(boolean reconnect);
+
     protected abstract void afterConnect();
+
     protected abstract void onConnectStatusChange(Boolean connected);
+
+    public ConnectionMonitor(Duration connectionDelay) {
+        this.connectionDelay = connectionDelay;
+    }
 
     public void start() {
         status = new AtomicReference<>(Status.UNKNOWN);
@@ -121,17 +124,18 @@ public abstract class ConnectionMonitor implements AutoCloseable {
                 commandLocal = handleCommand(commandLocal);
 
                 if (commandLocal == Command.NONE) {
-                    Thread.sleep(100);
+                    Thread.sleep(SLEEP_DELAY_MS);
                 }
             }
         } catch (InterruptedException ignored) {
+            // ignored
         } catch (Exception e) {
             log.error("Exception in Connection Monitor: {}", e.getMessage(), e);
         }
     }
 
-    private Command handleCommand(Command command) {
-        switch (command) {
+    private Command handleCommand(Command newCommand) {
+        switch (newCommand) {
 
             case CONNECT:
                 setStatus(Status.CONNECTING);
@@ -175,8 +179,11 @@ public abstract class ConnectionMonitor implements AutoCloseable {
                 }
                 break;
 
+            default:
+                throw new IllegalStateException("Unexpected value: " + newCommand);
         }
-        return command;
+
+        return newCommand;
     }
 
     private void setCommand(Command newCommand) {
@@ -214,15 +221,15 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         }
     }
 
-    private void waitForStatus(Status status, long time, TimeUnit unit) throws TimeoutException {
+    private void waitForStatus(Status newStatus, long time, TimeUnit unit) throws TimeoutException {
         try {
             statusLock.lock();
-            expectedStatus = status;
+            expectedStatus = newStatus;
 
             while (this.status.get() != expectedStatus) {
                 if (!statusCondition.await(time, unit)) {
                     throw new TimeoutException(String.format(
-                          "Timeout of '%s' status. Actual status is '%s'", expectedStatus, this.status));
+                            "Timeout of '%s' status. Actual status is '%s'", expectedStatus, this.status));
                 }
             }
         } catch (InterruptedException e) {
@@ -232,10 +239,10 @@ public abstract class ConnectionMonitor implements AutoCloseable {
         }
     }
 
-    private void waitForStatus(Status status) {
+    private void waitForStatus(Status newStatus) {
         try {
             statusLock.lock();
-            expectedStatus = status;
+            expectedStatus = newStatus;
             while (this.status.get() != expectedStatus) {
                 statusCondition.await();
             }

@@ -10,7 +10,7 @@ import com.finplant.ib.utils.PrettyPrinters;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
 import com.ib.client.*;
-import io.reactivex.Observer;
+import org.reactivestreams.Subscriber;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,7 +35,7 @@ public class Wrapper implements EWrapper {
                    CacheRepositoryImpl cache,
                    RequestRepository requests,
                    IdGenerator idGenerator,
-                   Observer<IbLogRecord> logObserver) {
+                   Subscriber<IbLogRecord> logObserver) {
 
         errorHandler = new TerminalErrorHandler(requests) {
 
@@ -132,7 +132,7 @@ public class Wrapper implements EWrapper {
             }
             if (twsStatus.isFilled()) {
                 requests.onError(RequestRepository.Type.REQ_ORDER_CANCEL, orderId,
-                                 new IbExceptions.IbClientError("Already filled"), false);
+                                 new IbExceptions.OrderAlreadyFilledError(orderId), false);
             }
         }
     }
@@ -189,7 +189,7 @@ public class Wrapper implements EWrapper {
                                                 unrealizedPNLObj, realizedPNLObj, accountName);
 
         cache.updatePortfolio(portfolio);
-        requests.onNext(RequestRepository.Type.EVENT_PORTFOLIO, null, portfolio, true);
+        requests.onNext(RequestRepository.Type.EVENT_PORTFOLIO, null, portfolio, false);
     }
 
     @Override
@@ -199,14 +199,14 @@ public class Wrapper implements EWrapper {
 
     @Override
     public void accountDownloadEnd(String accountName) {
-        requests.onNext(RequestRepository.Type.EVENT_PORTFOLIO, null, IbPortfolio.COMPLETE, true);
+        requests.onNext(RequestRepository.Type.EVENT_PORTFOLIO, null, IbPortfolio.COMPLETE, false);
     }
 
     @Override
     public void historicalTicks(int reqId, List<HistoricalTick> ticks, boolean done) {
-        requests.onNext(RequestRepository.Type.REQ_HISTORICAL_MIDPOINT_TICK, reqId, ticks, true);
+        requests.onNext(RequestRepository.Type.REQ_HISTORICAL_MIDPOINT_TICK, reqId, ticks, false);
         if (done) {
-            requests.onComplete(RequestRepository.Type.REQ_HISTORICAL_MIDPOINT_TICK, reqId, true);
+            requests.onComplete(RequestRepository.Type.REQ_HISTORICAL_MIDPOINT_TICK, reqId, false);
         }
     }
 
@@ -540,9 +540,9 @@ public class Wrapper implements EWrapper {
             log.warn("Connection lost");
             connectionMonitor.reconnect();
             return;
-        }
-        // Ugly TWS client library try to read from null stream even it doesn't created when TWS is unreachable
-        else if (e instanceof NullPointerException && e.getStackTrace().length > 0) {
+        } else if (e instanceof NullPointerException && e.getStackTrace().length > 0) {
+            // Ugly TWS client library try to read from null stream even it doesn't created when TWS is unreachable
+
             StackTraceElement element = e.getStackTrace()[0];
             if (Objects.equals(element.getClassName(), "com.ib.client.EClientSocket") &&
                 Objects.equals(element.getMethodName(), "readInt")) {
@@ -590,21 +590,23 @@ public class Wrapper implements EWrapper {
         IbPosition position = new IbPosition(account, contract, BigDecimal.valueOf(pos), BigDecimal.valueOf(avgCost));
         cache.updatePosition(position);
 
-        requests.onNext(RequestRepository.Type.EVENT_POSITION_MULTI, reqId, position, true);
+        requests.onNext(RequestRepository.Type.EVENT_POSITION_MULTI, reqId, position, false);
     }
 
     @Override
     public void positionMultiEnd(final int reqId) {
-        requests.onNext(RequestRepository.Type.EVENT_POSITION_MULTI, reqId, IbPosition.COMPLETE, true);
+        requests.onNext(RequestRepository.Type.EVENT_POSITION_MULTI, reqId, IbPosition.COMPLETE, false);
     }
 
     @Override
     public void symbolSamples(int reqId, ContractDescription[] contractDescriptions) {
-        log.trace(String.format("symbolSamples: %d description", contractDescriptions.length));
 
         Stream.of(contractDescriptions)
               .map(IbContractDescription::new)
-              .forEach(desc -> requests.onNext(RequestRepository.Type.REQ_CONTRACT_DESCRIPTION, reqId, desc, true));
+              .forEach(desc -> {
+                  log.trace("symbolSamples: {}", desc);
+                  requests.onNext(RequestRepository.Type.REQ_CONTRACT_DESCRIPTION, reqId, desc, true);
+              });
         requests.onComplete(RequestRepository.Type.REQ_CONTRACT_DESCRIPTION, reqId, true);
     }
 

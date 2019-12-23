@@ -11,7 +11,7 @@ public class IbLogRecord {
     }
 
     /**
-     * Severity of IB event
+     * Severity of IB event.
      */
     private final Severity severity;
     private final int id;
@@ -26,30 +26,38 @@ public class IbLogRecord {
     }
 
     /**
-     * @return Severity of IB event
+     * Severity of IB event.
+     *
+     * @return Severity
      */
     public Severity getSeverity() {
         return severity;
     }
 
     /**
-     * @return IB request ID. Can be 0.
+     * IB request ID. Can be 0.
+     *
+     * @return request ID
      */
     public int getId() {
         return id;
     }
 
     /**
-     * @return IB message code.
+     * IB message code.
      *
      * @see <a href="https://interactivebrokers.github.io/tws-api/message_codes.html">Message Codes</a>
+     *
+     * @return message code
      */
     public int getCode() {
         return code;
     }
 
     /**
-     * @return IB message description
+     * IB message description.
+     *
+     * @return Description
      */
     public String getMessage() {
         return message;
