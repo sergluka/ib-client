@@ -9,6 +9,6 @@
         <appender-ref ref="STDOUT"/>
     </root>
 
-    <logger name="com.finplant.ib" level="TRACE"/>
+    <logger name="lv.sergluka.ib_client" level="TRACE"/>
 
 </configuration>

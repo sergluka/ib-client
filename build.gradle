@@ -6,27 +6,36 @@ plugins {
 
     id 'org.ajoberstar.grgit' version '1.7.2'
     id 'com.github.johnrengelman.shadow' version '5.2.0'
-    id 'org.unbroken-dome.test-sets' version '2.0.3'
+    id 'org.unbroken-dome.test-sets' version '3.0.1'
+    id 'com.jfrog.bintray' version '1.8.5'
+    id 'com.jfrog.artifactory' version '4.15.2'
 }
 
-group 'com.finplant.ib'
-version '3.0.0'
+group 'lv.sergluka.ib-client'
+version '3.0.1-SNAPSHOT'
 
-sourceCompatibility = 1.12
-targetCompatibility = 1.12
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+ext {
+    codeUrl = 'https://github.com/SergeyLukashevich/ib-client'
+    isSnapshot = version.endsWith('SNAPSHOT')
+
+    reactorVersion = '3.3.5.RELEASE'
+}
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    implementation files('libs/TwsApi_debug.jar')
+    implementation files('libs/TwsApi.jar')
 
-    api 'io.projectreactor:reactor-core:3.3.1.RELEASE'
+    api "io.projectreactor:reactor-core:${reactorVersion}"
     implementation 'org.slf4j:slf4j-api:1.7.29'
     implementation 'com.google.guava:guava:28.1-jre'
 
-    testImplementation 'io.projectreactor:reactor-test:3.3.1.RELEASE'
+    testImplementation "io.projectreactor:reactor-test:${reactorVersion}"
     testImplementation 'org.spockframework:spock-core:1.3-groovy-2.5'
     testImplementation 'org.objenesis:objenesis:2.6'
     testImplementation 'net.bytebuddy:byte-buddy:1.9.0'
@@ -51,10 +60,11 @@ testSets {
 
 shadowJar {
     archiveBaseName.set('ib-client')
+    archiveClassifier.set(null)
 }
 
 javadoc {
-    excludes = ['com/finplant/ib/impl/**']
+    excludes = ['lv/sergluka/ib/impl/**']
     options.stylesheetFile = new File(projectDir, 'docs/stylesheet.css');
 
     options.overview = new File(projectDir, 'docs/overview.html');
@@ -69,24 +79,125 @@ task packageJavadoc(type: Jar, dependsOn: 'javadoc') {
     archiveClassifier.set('javadoc')
 }
 
+test {
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+    }
+}
+
+task sourcesJar(type: Jar) {
+    classifier 'sources'
+    from sourceSets.main.allJava
+}
+
+javadoc.failOnError = false
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier 'javadoc'
+    from javadoc.destinationDir
+}
+
+artifacts {
+    archives sourcesJar
+    archives packageJavadoc
+}
+
+def pomConfig = {
+    licenses {
+        license {
+            name 'MIT License'
+            url 'http://www.opensource.org/licenses/mit-license.php'
+            distribution "repo"
+        }
+    }
+    developers {
+        developer {
+            id "sergluka"
+            name "Sergey Lukashevich"
+            email "sergey.lukashevi4@gmail.com"
+        }
+    }
+
+    scm {
+        url codeUrl
+    }
+}
+
 publishing {
     publications {
         shadow(MavenPublication) { publication ->
+
+            groupId = 'lv.sergluka.ib-client'
+            artifactId = 'ib-client'
+
             project.shadow.component(publication)
-            artifact packageJavadoc
-        }
-    }
-    repositories {
-        maven {
-            def releasesRepoUrl = 'gcs://finplant-maven-repo/releases'
-            def snapshotsRepoUrl = 'gcs://finplant-maven-repo/snapshots'
-            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+            artifact sourcesJar {
+                classifier "sources"
+            }
+            artifact javadocJar {
+                classifier "javadoc"
+            }
+
+            pom.withXml {
+                def root = asNode()
+                root.appendNode('description', 'Wrapper around Interactive Brokers TWS API')
+                root.appendNode('name', 'Wrapper around Interactive Brokers TWS API')
+                root.appendNode('url', codeUrl)
+                root.children().last() + pomConfig
+            }
         }
     }
 }
 
-test {
-    testLogging {
-        events 'passed', 'skipped', 'failed'
+bintray {
+    user = project.findProperty("bintray.user")
+    key = project.findProperty("bintray.key")
+
+    publications = ['shadow']
+
+    pkg {
+        repo = 'maven'
+        name = 'ib-client'
+        version {
+            name = project.version
+            desc = project.version
+            released = new Date()
+        }
+    }
+}
+
+artifactory {
+
+    contextUrl = 'https://oss.jfrog.org'
+    publish {
+        repository {
+            repoKey = 'oss-snapshot-local'
+            username = project.findProperty('bintray.user')
+            password = project.findProperty('bintray.key')
+        }
+        defaults {
+            publications 'shadow'
+            publishArtifacts = true
+            publishPom = true
+        }
+    }
+    resolve {
+        repoKey = 'jcenter'
+    }
+    clientConfig.info.setBuildNumber('' + System.currentTimeMillis())
+}
+
+bintrayPublish { task ->
+    doFirst {
+        if (isSnapshot) {
+            throw new GradleException('Cannot publish SNAPSHOT versions to Bintray')
+        }
+    }
+}
+
+artifactoryPublish { task ->
+    doFirst {
+        if (!isSnapshot) {
+            throw new GradleException('Cannot publish non-SNAPSHOT versions to OJO')
+        }
     }
 }

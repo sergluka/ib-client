@@ -1,9 +1,0 @@
-image: java:8
-
-pipelines:
-  master:
-    - step:
-        caches:
-          - gradle
-        script: 
-          - bash ./gradlew build
