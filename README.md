@@ -2,7 +2,7 @@
 
 # Description
 
-ìib-clientî is a Java wrapper around native TWS API provided by Interactive Brokers company, the leader between electronic trading platforms. 
+‚Äúib-client‚Äù is a Java wrapper around native TWS API provided by Interactive Brokers company, the leader between electronic trading platforms. 
 
 # The native API disadvantages
 
@@ -20,7 +20,7 @@ The native API is powerful but is hard and inconvenient to use. Before any busin
 
 # Examples
 
-You can see usages example in [tests](src/test-integration/java/com/finplant/ib/IbClientTest.groovy)
+You can see usages example in [tests](https://github.com/SergeyLukashevich/ib-client/blob/master/src/test-integration/groovy/lv/sergluka/ib_client/IbClientTest.groovy)
 
 # Installation
 
